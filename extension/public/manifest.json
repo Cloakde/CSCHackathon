@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "minimum_chrome_version": "116",
   "permissions": ["sidePanel"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://127.0.0.1:3000"
+  },
   "action": {
     "default_title": "Open LiveLecture AI"
   },

@@ -2,56 +2,105 @@ import {
   formatOffset,
   isReplayableTranscriptSource,
   SimulationTranscriptSource,
+  type ActiveLectureSession,
+  type ImLostResponse,
   type PartialTranscriptChunk,
   type TranscriptChunk,
-  type TranscriptEvent,
   type TranscriptSource,
 } from "@livelecture/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createDemoClient, DEMO_ORIGIN, type DemoClient } from "./demo-api";
 
 interface AppProps {
   source?: TranscriptSource;
+  client?: DemoClient;
+  navigate?: (url: string) => void;
 }
 
-const speedOptions = [1, 12, 60, 240] as const;
+type Operation = "start" | "help" | "end" | "reset";
+const speedOptions = [1, 12, 60, 240];
 
-function upsertChunk(chunks: TranscriptChunk[], incoming: TranscriptChunk): TranscriptChunk[] {
-  if (chunks.some((chunk) => chunk.chunkId === incoming.chunkId)) return chunks;
-  return [...chunks, incoming].sort((left, right) => left.sequence - right.sequence);
-}
-
-export function App({ source: providedSource }: AppProps) {
-  const [fallbackSource] = useState<TranscriptSource>(() => new SimulationTranscriptSource());
+export function App({ source: providedSource, client: providedClient, navigate }: AppProps) {
+  const [fallbackSource] = useState(() => {
+    const source = new SimulationTranscriptSource();
+    source.setSpeed(12);
+    return source;
+  });
+  const [fallbackClient] = useState(() => createDemoClient());
+  const client = providedClient ?? fallbackClient;
   const source = providedSource ?? fallbackSource;
   const [snapshot, setSnapshot] = useState(source.getSnapshot());
   const [chunks, setChunks] = useState<TranscriptChunk[]>([]);
   const [partial, setPartial] = useState<PartialTranscriptChunk>();
+  const [session, setSession] = useState<ActiveLectureSession>();
+  const [help, setHelp] = useState<ImLostResponse>();
+  const [savedConcepts, setSavedConcepts] = useState<string[]>([]);
+  const [handoff, setHandoff] = useState<string>();
+  const [highlighted, setHighlighted] = useState<string>();
+  const [busy, setBusy] = useState<Operation>();
+  const [error, setError] = useState<string>();
+  const [retry, setRetry] = useState<Operation>();
+  const sessionRef = useRef<ActiveLectureSession | undefined>(undefined);
+  const chunksRef = useRef<TranscriptChunk[]>([]);
+  const uploadedRef = useRef(new Set<string>());
+  const generationRef = useRef(0);
+  const busyRef = useRef<Operation | undefined>(undefined);
+  const abortRef = useRef<AbortController | undefined>(undefined);
+  const completedRef = useRef(false);
+  const rowsRef = useRef(new Map<string, HTMLElement>());
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
-  const syncSnapshot = useCallback(() => setSnapshot(source.getSnapshot()), [source]);
-
   useEffect(() => {
+    generationRef.current += 1;
+    busyRef.current = undefined;
+    sessionRef.current = undefined;
+    chunksRef.current = [];
+    uploadedRef.current.clear();
+    completedRef.current = false;
     setSnapshot(source.getSnapshot());
     setChunks([]);
     setPartial(undefined);
-    const unsubscribe = source.subscribe((event: TranscriptEvent) => {
-      if (event.type === "transcript.partial") setPartial(event.chunk);
+    setSession(undefined);
+    setHelp(undefined);
+    setSavedConcepts([]);
+    setHandoff(undefined);
+    setHighlighted(undefined);
+    setBusy(undefined);
+    setError(undefined);
+    setRetry(undefined);
+    const unsubscribe = source.subscribe((event) => {
+      const currentSession = sessionRef.current;
+      if (!currentSession || completedRef.current) return;
+      if (event.type === "transcript.partial") {
+        setPartial({ ...event.chunk, sessionId: currentSession.sessionId });
+      }
       if (event.type === "transcript.committed") {
-        setChunks((current) => upsertChunk(current, event.chunk));
+        if (!chunksRef.current.some((chunk) => chunk.chunkId === event.chunk.chunkId)) {
+          chunksRef.current = [
+            ...chunksRef.current,
+            { ...event.chunk, sessionId: currentSession.sessionId },
+          ].sort((left, right) => left.sequence - right.sequence);
+          setChunks(chunksRef.current);
+        }
         setPartial(undefined);
       }
-      if (event.type === "session.started") {
-        setChunks([]);
+      if (event.type === "session.ended") {
+        source.stop();
         setPartial(undefined);
       }
-      syncSnapshot();
+      setSnapshot(source.getSnapshot());
     });
-    return unsubscribe;
-  }, [source, syncSnapshot]);
+    return () => {
+      generationRef.current += 1;
+      abortRef.current?.abort();
+      unsubscribe();
+      source.stop();
+    };
+  }, [source]);
 
   useEffect(() => {
-    if (chunks.length === 0 && !partial) return;
-
+    // Keep a selected citation in view while the lecture continues.
+    if (highlighted || (chunks.length === 0 && !partial)) return;
     const reduceMotion =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -59,139 +108,263 @@ export function App({ source: providedSource }: AppProps) {
       behavior: reduceMotion ? "auto" : "smooth",
       block: "nearest",
     });
-  }, [chunks, partial]);
+  }, [chunks, partial, highlighted]);
 
-  const handleStart = () => {
-    if (snapshot.status === "stopped" && isReplayableTranscriptSource(source)) {
-      source.reset();
-      setChunks([]);
-      setPartial(undefined);
+  function setOperation(operation: Operation | undefined) {
+    busyRef.current = operation;
+    setBusy(operation);
+  }
+
+  async function run(operation: Operation) {
+    if (operation !== "reset" && busyRef.current) return;
+    if (operation === "reset" && busyRef.current === "reset") return;
+    if (operation === "start" && (sessionRef.current || source.getSnapshot().mode !== "simulation"))
+      return;
+    if (
+      (operation === "help" || operation === "end") &&
+      (!sessionRef.current || completedRef.current)
+    )
+      return;
+    if (operation === "reset") {
+      generationRef.current += 1;
+      abortRef.current?.abort();
+      source.stop();
+      setSnapshot(source.getSnapshot());
     }
-    source.start();
-    syncSnapshot();
-  };
+    const generation = generationRef.current;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setOperation(operation);
+    setError(undefined);
+    setRetry(undefined);
+    const current = () => generation === generationRef.current && !controller.signal.aborted;
+    try {
+      if (operation === "start") {
+        const created = await client.start(
+          {
+            sourceMode: "simulation",
+            title: source.getSnapshot().session.title,
+            subject: source.getSnapshot().session.subject,
+          },
+          controller.signal,
+        );
+        if (!current()) {
+          // An injected/slow transport may still deliver a Start after cancellation.
+          await client.remove(created.sessionId).catch(() => undefined);
+          return;
+        }
+        sessionRef.current = created;
+        setSession(created);
+        if (isReplayableTranscriptSource(source)) source.reset();
+        source.start();
+        setSnapshot(source.getSnapshot());
+      } else if (operation === "reset") {
+        const existing = sessionRef.current;
+        if (existing) await client.remove(existing.sessionId, controller.signal);
+        if (!current()) return;
+        if (isReplayableTranscriptSource(source)) source.reset();
+        sessionRef.current = undefined;
+        chunksRef.current = [];
+        uploadedRef.current.clear();
+        completedRef.current = false;
+        setSession(undefined);
+        setChunks([]);
+        setPartial(undefined);
+        setHelp(undefined);
+        setSavedConcepts([]);
+        setHandoff(undefined);
+        setHighlighted(undefined);
+        setSnapshot(source.getSnapshot());
+      } else {
+        const existing = sessionRef.current;
+        if (!existing) return;
+        if (operation === "end") {
+          source.stop();
+          setPartial(undefined);
+          setSnapshot(source.getSnapshot());
+        }
+        // Upload committed visible passages in order. Arrivals during Help stay
+        // queued so the authoritative snapshot cannot change underneath it.
+        while (current()) {
+          const pending = chunksRef.current.filter(
+            (chunk) => !uploadedRef.current.has(chunk.chunkId),
+          );
+          if (pending.length === 0) break;
+          const accepted = await client.append(
+            existing.sessionId,
+            { chunks: pending },
+            controller.signal,
+          );
+          if (!current()) return;
+          if (pending.some((chunk) => !accepted.acceptedChunkIds.includes(chunk.chunkId)))
+            throw new Error("The transcript was not fully saved. Please try again.");
+          pending.forEach((chunk) => uploadedRef.current.add(chunk.chunkId));
+        }
+        if (!current()) return;
+        const context = [...chunksRef.current];
+        if (operation === "help") {
+          const answer = await client.help(existing.sessionId, controller.signal);
+          if (!current()) return;
+          const lastChunk = context.at(-1);
+          const event = answer.confusionEvent;
+          const invalidContext =
+            answer.sessionId !== existing.sessionId ||
+            event.occurredAtMs !== (lastChunk?.endMs ?? 0) ||
+            event.anchorChunkId !== lastChunk?.chunkId ||
+            event.contextChunkIds.some((id) => !context.some((chunk) => chunk.chunkId === id));
+          const invalidCitation = answer.citations.some(
+            (citation) =>
+              !context.some(
+                (chunk) =>
+                  chunk.chunkId === citation.chunkId &&
+                  chunk.startMs === citation.startMs &&
+                  chunk.endMs === citation.endMs,
+              ),
+          );
+          if (invalidContext || invalidCitation)
+            throw new Error(
+              "This explanation did not match the lecture passage. Try I’m Lost again.",
+            );
+          setHelp(answer);
+          setHighlighted(undefined);
+          if (answer.groundingStatus === "grounded" && event.conceptTitle) {
+            const title = event.conceptTitle;
+            setSavedConcepts((previous) =>
+              previous.includes(title) ? previous : [...previous, title],
+            );
+          }
+        } else {
+          const endedAt = new Date(
+            Date.parse(existing.startedAt) + (chunksRef.current.at(-1)?.endMs ?? 0),
+          ).toISOString();
+          const result = await client.end(existing.sessionId, endedAt, controller.signal);
+          if (!current()) return;
+          completedRef.current = true;
+          setHandoff(`${DEMO_ORIGIN}${result.handoff.companionRoute}`);
+        }
+      }
+    } catch (failure) {
+      if (current()) {
+        setError(
+          failure instanceof Error ? failure.message : "Something went wrong. Please try again.",
+        );
+        setRetry(operation);
+      }
+    } finally {
+      if (current()) setOperation(undefined);
+    }
+  }
 
-  const handlePauseToggle = () => {
-    if (!isReplayableTranscriptSource(source)) return;
+  function jumpToCitation(chunkId: string) {
+    const row = rowsRef.current.get(chunkId);
+    if (!row) {
+      setError("That lecture passage is no longer available. Try I’m Lost again.");
+      return;
+    }
+    setHighlighted(chunkId);
+    row.scrollIntoView({ behavior: "auto", block: "center" });
+    row.focus({ preventScroll: true });
+  }
 
-    if (source.getSnapshot().replay.isPaused) source.resume();
-    else source.pause();
-    syncSnapshot();
-  };
-
-  const handleStop = () => {
-    source.stop();
-    setPartial(undefined);
-    syncSnapshot();
-  };
-
-  const handleReset = () => {
-    if (!isReplayableTranscriptSource(source)) return;
-
-    source.reset();
-    setChunks([]);
-    setPartial(undefined);
-    syncSnapshot();
-  };
-
-  const handleSpeed = (speed: number) => {
-    if (!isReplayableTranscriptSource(source)) return;
-
-    source.setSpeed(speed);
-    syncSnapshot();
-  };
-
-  const replaySnapshot = isReplayableTranscriptSource(source)
-    ? source.getSnapshot().replay
-    : undefined;
-  const sourceLabel = snapshot.mode === "simulation" ? "SIMULATION" : "LIVE";
-  const sourceDescription =
-    snapshot.mode === "simulation"
-      ? "Synthetic transcript — no audio is being captured"
-      : "Selected-tab audio source — use Stop to end capture";
-  const sourceSummary = snapshot.mode === "simulation" ? "Fixture replay" : "Selected-tab audio";
-  const sessionTitle = snapshot.session.title ?? snapshot.session.subject ?? "Untitled lecture";
-  const statusLabel = `${snapshot.status.slice(0, 1).toUpperCase()}${snapshot.status.slice(1)}`;
-  const progressLabel = snapshot.progress
-    ? `${snapshot.progress.current}/${snapshot.progress.total} events`
-    : statusLabel;
-  const isRunning = snapshot.status === "active" || snapshot.status === "starting";
-  const canStop = isRunning || snapshot.status === "stopping";
-  const isStartDisabled = isRunning || snapshot.status === "stopping";
+  const replay = isReplayableTranscriptSource(source) ? source.getSnapshot().replay : undefined;
+  const running = snapshot.status === "active" || snapshot.status === "starting";
+  const progressMs = chunks.at(-1)?.endMs ?? 0;
+  const status = handoff
+    ? "Finished"
+    : running
+      ? replay?.isPaused
+        ? "Paused"
+        : "Playing"
+      : session
+        ? "Replay stopped"
+        : "Ready";
+  const title = snapshot.session.title ?? "Sample lecture";
+  const liveUnavailable = snapshot.mode !== "simulation";
 
   return (
     <main className="app-shell">
       <header className="app-header">
-        <div className="brand-mark" aria-hidden="true">
-          LL
-        </div>
         <div>
           <p className="eyebrow">LiveLecture AI</p>
-          <h1>{sessionTitle}</h1>
+          <h1>{title}</h1>
         </div>
-        <span
-          className={`source-pill status-${snapshot.status}`}
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {sourceLabel} · {statusLabel}
+        <span className="source-pill" role="status">
+          {status}
         </span>
       </header>
-
-      <section className="simulation-banner" aria-label={`${sourceLabel} source disclosure`}>
-        <strong>{sourceLabel}</strong>
-        <span>{sourceDescription}</span>
+      <section className="simulation-banner" aria-label="SIMULATION source disclosure">
+        <strong>SIMULATION</strong>
+        <span>Synthetic lecture text — no audio is being captured.</span>
       </section>
-
-      <section className="session-summary" aria-label="Session summary">
-        <div>
-          <span className="summary-label">Source</span>
-          <strong>{sourceSummary}</strong>
-        </div>
-        <div>
-          <span className="summary-label">Progress</span>
-          <strong>{progressLabel}</strong>
-        </div>
-        <div>
-          <span className="summary-label">Committed</span>
-          <strong>{chunks.length} chunks</strong>
-        </div>
+      <p className="demo-disclosure">
+        <strong>PREWRITTEN DEMO HELP</strong> — no AI provider used.
+      </p>
+      <section className="journey-guide" aria-label="How to try the demo">
+        <p>Follow a lecture. Get unstuck. Practice what was hard.</p>
+        <ol>
+          <li>Start the sample lecture.</li>
+          <li>
+            Press <strong>I’m Lost</strong> when a step is unclear.
+          </li>
+          <li>Finish and try practice chosen for that difficulty.</li>
+        </ol>
       </section>
-
-      <section className="controls" aria-label="Transcript source controls">
+      {liveUnavailable ? (
+        <p role="alert">Live audio is not enabled in this demo. Use the sample lecture.</p>
+      ) : null}
+      {error ? (
+        <div className="error-message" role="alert">
+          <p>{error}</p>
+          {retry ? (
+            <button type="button" disabled={Boolean(busy)} onClick={() => void run(retry)}>
+              Try again
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <section className="controls" aria-label="Lecture controls">
         <button
           className="primary-button"
           type="button"
-          onClick={handleStart}
-          disabled={isStartDisabled}
+          disabled={Boolean(session) || Boolean(busy) || liveUnavailable}
+          onClick={() => void run("start")}
         >
-          {replaySnapshot && snapshot.status === "stopped" ? "Replay" : "Start"}
+          {busy === "start" ? "Starting…" : "Start sample lecture"}
         </button>
-        <button type="button" onClick={handleStop} disabled={!canStop}>
-          Stop
+        <button
+          type="button"
+          onClick={() => {
+            source.stop();
+            setPartial(undefined);
+            setSnapshot(source.getSnapshot());
+          }}
+          disabled={!running}
+        >
+          Stop replay
         </button>
-        {replaySnapshot ? (
+        {replay ? (
           <>
             <button
               type="button"
-              onClick={handlePauseToggle}
-              disabled={snapshot.status !== "active"}
+              disabled={!running}
+              onClick={() => {
+                if (!isReplayableTranscriptSource(source)) return;
+                if (replay.isPaused) source.resume();
+                else source.pause();
+                setSnapshot(source.getSnapshot());
+              }}
             >
-              {replaySnapshot.isPaused ? "Resume" : "Pause"}
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              disabled={snapshot.status === "idle" && chunks.length === 0}
-            >
-              Reset
+              {replay.isPaused ? "Resume" : "Pause"}
             </button>
             <label className="speed-control">
               <span>Speed</span>
               <select
-                value={replaySnapshot.speed}
-                onChange={(event) => handleSpeed(Number(event.target.value))}
+                value={replay.speed}
+                onChange={(event) => {
+                  if (isReplayableTranscriptSource(source))
+                    source.setSpeed(Number(event.target.value));
+                  setSnapshot(source.getSnapshot());
+                }}
               >
                 {speedOptions.map((speed) => (
                   <option key={speed} value={speed}>
@@ -202,17 +375,129 @@ export function App({ source: providedSource }: AppProps) {
             </label>
           </>
         ) : null}
+        <button
+          type="button"
+          disabled={(!session && !busy) || busy === "reset"}
+          onClick={() => void run("reset")}
+        >
+          {busy === "reset" ? "Deleting…" : "Reset & delete session"}
+        </button>
       </section>
-
+      <section className="learning-actions" aria-label="Get help and practice">
+        <div>
+          <p className="eyebrow">{formatOffset(progressMs)} of 8:00</p>
+          <p>
+            {progressMs < 145_000
+              ? "Wait for the first explanation, then ask for help."
+              : progressMs < 300_000
+                ? "Try I’m Lost for help spotting the inner and outer functions."
+                : "Try I’m Lost for help remembering the inner derivative."}
+          </p>
+        </div>
+        <div className="action-buttons">
+          <button
+            className="primary-button"
+            type="button"
+            disabled={!session || Boolean(busy) || Boolean(handoff)}
+            onClick={() => void run("help")}
+          >
+            {busy === "help" ? "Preparing help…" : "I’m Lost"}
+          </button>
+          <button
+            type="button"
+            disabled={!session || Boolean(busy) || Boolean(handoff)}
+            onClick={() => void run("end")}
+          >
+            {busy === "end" ? "Finishing…" : "Finish lecture"}
+          </button>
+        </div>
+        {savedConcepts.length > 0 ? (
+          <p className="saved-message">Saved for practice: {savedConcepts.join(" · ")}</p>
+        ) : null}
+        {handoff ? (
+          <div className="handoff">
+            <p>
+              {savedConcepts.length
+                ? "Your difficult moments are ready to practice."
+                : "Lecture finished. Open the companion app to review this session."}
+            </p>
+            <a
+              className="primary-button"
+              href={handoff}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={
+                navigate
+                  ? (event) => {
+                      event.preventDefault();
+                      navigate(handoff);
+                    }
+                  : undefined
+              }
+            >
+              Open my practice
+            </a>
+            <p className="small-note">
+              Opens the companion app in a new tab. Keep the local demo server running.
+            </p>
+          </div>
+        ) : null}
+      </section>
+      {help ? (
+        <section className="help-panel" aria-labelledby="help-heading" aria-live="polite">
+          <p className="eyebrow">
+            Help for this moment · {formatOffset(help.confusionEvent.occurredAtMs)}
+          </p>
+          <h2 id="help-heading">
+            {help.confusionEvent.conceptTitle ?? "A little more lecture is needed"}
+          </h2>
+          {help.groundingStatus === "grounded" ? (
+            <>
+              <p>{help.diagnosis.simpleExplanation}</p>
+              <details>
+                <summary>See the steps and the idea to remember</summary>
+                <p>
+                  <strong>What just happened:</strong> {help.diagnosis.whatJustHappened}
+                </p>
+                <p>
+                  <strong>Main idea:</strong> {help.diagnosis.mainIdea}
+                </p>
+                <p>
+                  <strong>Remember:</strong> {help.diagnosis.importantPrerequisite}
+                </p>
+              </details>
+              <p className="citation-label">Check the lecture passage:</p>
+              <div className="citations">
+                {help.citations.map((citation) => (
+                  <button
+                    key={citation.chunkId}
+                    type="button"
+                    onClick={() => jumpToCitation(citation.chunkId)}
+                  >
+                    Go to {formatOffset(citation.startMs)}–{formatOffset(citation.endMs)}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p>
+              {help.message} Let a little more of the sample lecture play, then try I’m Lost again.
+            </p>
+          )}
+        </section>
+      ) : null}
       <section className="transcript-panel" aria-labelledby="transcript-heading">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Lecture transcript</p>
+            <p className="eyebrow">Sample lecture · {chunks.length} passages</p>
             <h2 id="transcript-heading">What the class is covering</h2>
           </div>
-          <span className="source-pill">{sourceLabel}</span>
+          {highlighted ? (
+            <button type="button" onClick={() => setHighlighted(undefined)}>
+              Follow latest
+            </button>
+          ) : null}
         </div>
-
         <div
           className="transcript"
           role="log"
@@ -222,51 +507,46 @@ export function App({ source: providedSource }: AppProps) {
         >
           {chunks.length === 0 && !partial ? (
             <div className="empty-state">
-              <span className="empty-glyph" aria-hidden="true">
-                00:00
-              </span>
+              <span className="empty-glyph">0:00</span>
               <p>
-                {snapshot.mode === "simulation"
-                  ? "Start the deterministic replay to verify the transcript interface."
-                  : "Start the live source to begin the transcript."}
+                Start the sample lecture to watch its words appear here. No microphone or recording
+                is used.
               </p>
             </div>
           ) : null}
-
           {chunks.map((chunk) => (
-            <article className="transcript-row" key={chunk.chunkId} data-chunk-id={chunk.chunkId}>
+            <article
+              key={chunk.chunkId}
+              ref={(element) => {
+                if (element) rowsRef.current.set(chunk.chunkId, element);
+                else rowsRef.current.delete(chunk.chunkId);
+              }}
+              tabIndex={-1}
+              className={`transcript-row${highlighted === chunk.chunkId ? " citation-highlight" : ""}`}
+              data-chunk-id={chunk.chunkId}
+              aria-label={`Lecture passage at ${formatOffset(chunk.startMs)}`}
+            >
               <time dateTime={`PT${Math.floor(chunk.startMs / 1_000)}S`}>
                 {formatOffset(chunk.startMs)}
               </time>
               <div>
-                {chunk.speakerLabel ? <strong>{chunk.speakerLabel}</strong> : null}
+                <strong>{chunk.speakerLabel ?? "Lecturer"}</strong>
                 <p>{chunk.text}</p>
               </div>
             </article>
           ))}
-
           {partial ? (
             <article className="transcript-row partial-row" aria-label="Partial transcript">
-              <time dateTime={`PT${Math.floor(partial.startMs / 1_000)}S`}>
-                {formatOffset(partial.startMs)}
-              </time>
-              <div>
-                <strong>{partial.speakerLabel ?? "Speaker"}</strong>
-                <p>
-                  {partial.text}
-                  <span className="typing-cursor" aria-hidden="true" />
-                </p>
-              </div>
+              <time>{formatOffset(partial.startMs)}</time>
+              <p>{partial.text}</p>
             </article>
           ) : null}
           <div ref={transcriptEndRef} />
         </div>
       </section>
-
-      <p className="bootstrap-note">
-        {snapshot.mode === "simulation"
-          ? "Bootstrap proves fixture → validated events → transcript UI. Live capture and provider calls are intentionally not enabled yet."
-          : "Transcript events are supplied through the shared source boundary. Check the visible source state before capture."}
+      <p className="small-note">
+        This local demo keeps sessions temporarily in memory. Reset deletes this session; restarting
+        the server clears all sessions. Closing this page stops replay.
       </p>
     </main>
   );

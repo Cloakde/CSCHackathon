@@ -345,3 +345,141 @@ h2 {
     animation: none;
   }
 }
+
+/* Learning demo additions use the same styles in the extension and rehearsal. */
+.app-header {
+  grid-template-columns: 1fr auto;
+}
+.app-shell {
+  width: min(100%, 720px);
+}
+.demo-disclosure {
+  color: #f8df92;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.journey-guide {
+  margin: 20px 0;
+  color: #cbd3df;
+  line-height: 1.65;
+  font-size: 0.88rem;
+}
+.journey-guide > p {
+  color: #f5f1e8;
+  font-weight: 700;
+}
+.journey-guide ol {
+  padding-left: 22px;
+}
+.learning-actions {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid #385548;
+  border-radius: 12px;
+  background: #16251f;
+}
+.learning-actions p {
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+.action-buttons,
+.citations {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.saved-message {
+  margin: 14px 0 0;
+  color: #a4f2cf;
+}
+.handoff {
+  margin-top: 20px;
+  border-top: 1px solid #385548;
+  padding-top: 16px;
+}
+.handoff a {
+  display: inline-block;
+  padding: 12px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+.help-panel {
+  margin-bottom: 20px;
+  padding: 20px;
+  border-left: 3px solid #67e8ba;
+  background: #151e23;
+}
+.help-panel h2 {
+  margin-bottom: 12px;
+}
+.help-panel p,
+.help-panel details {
+  line-height: 1.7;
+  font-size: 0.9rem;
+}
+.help-panel summary {
+  cursor: pointer;
+  color: #a4f2cf;
+  margin-bottom: 14px;
+}
+.citation-label {
+  margin: 16px 0 8px;
+}
+.citations button {
+  color: #a4f2cf;
+  text-decoration: underline;
+}
+.transcript {
+  max-height: 440px;
+}
+.transcript-row {
+  scroll-margin: 18px;
+}
+.citation-highlight {
+  background: #293f34;
+  outline: 2px solid #67e8ba;
+  outline-offset: -2px;
+  border-radius: 6px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.small-note {
+  color: #aeb7c5;
+  line-height: 1.6;
+  font-size: 0.75rem;
+  margin: 14px 0;
+}
+.error-message {
+  padding: 14px;
+  margin: 14px 0;
+  border: 1px solid #dd8e89;
+  border-radius: 8px;
+  color: #ffc5c0;
+  background: #371e21;
+  line-height: 1.6;
+}
+.error-message p {
+  margin-bottom: 8px;
+}
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #67e8ba;
+  outline-offset: 4px;
+}
+@media (max-width: 380px) {
+  .simulation-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .app-header {
+    gap: 8px;
+  }
+  .app-shell {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .learning-actions,
+  .help-panel {
+    padding: 14px;
+  }
+}

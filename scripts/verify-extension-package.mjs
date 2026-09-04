@@ -31,8 +31,13 @@ assert(
   "sidePanel must be the only extension permission",
 );
 assert(
-  manifest.host_permissions === undefined || manifest.host_permissions.length === 0,
-  "host permissions are forbidden in the bootstrap",
+  JSON.stringify(manifest.host_permissions) === JSON.stringify(["http://127.0.0.1/*"]),
+  "only the loopback demo host may be accessed",
+);
+assert(
+  manifest.content_security_policy?.extension_pages ===
+    "script-src 'self'; object-src 'self'; connect-src http://127.0.0.1:3000",
+  "extension scripts must be local and connections must use only the fixed local demo port",
 );
 assert(
   manifest.action && typeof manifest.action === "object",
