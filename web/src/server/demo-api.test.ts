@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 import {
   ApiContracts,
   ApiErrorSchema,
@@ -298,6 +299,59 @@ describe("local learning callback", () => {
 });
 
 describe("local HTTP boundary", () => {
+  it("accepts a body-less DELETE represented by Next as an empty stream and rejects actual bytes", async () => {
+    const api = setup();
+    const { sessionId } = await api.start();
+    const make = (bytes: Uint8Array | undefined) =>
+      new NextRequest(`${DEMO_ORIGIN}/api/sessions/${sessionId}`, {
+        method: "DELETE",
+        headers: {
+          host: "127.0.0.1:3000",
+          origin: DEMO_ORIGIN,
+          "x-livelecture-demo": "scripted-v1",
+        },
+        body: new ReadableStream({
+          start(controller) {
+            if (bytes) controller.enqueue(bytes);
+            controller.close();
+          },
+        }),
+      });
+    expect((await api.dispatch(make(new TextEncoder().encode("hidden body")))).status).toBe(413);
+    const empty = make(undefined);
+    expect(empty.body).not.toBeNull();
+    const deleted = await api.dispatch(empty);
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toEqual({ ok: true, data: { deleted: true } });
+  });
+
+  it("accepts Next's normalized loopback URL while retaining exact wire Host and Origin guards", async () => {
+    const api = setup();
+    const make = (headers: Record<string, string> = {}) =>
+      new NextRequest(
+        request(
+          "/api/sessions",
+          "POST",
+          { sourceMode: "simulation" },
+          { origin: DEMO_ORIGIN, ...headers },
+        ),
+      );
+    const local = make();
+    expect(new URL(local.url).origin).toBe("http://localhost:3000");
+    expect(local.headers.get("host")).toBe("127.0.0.1:3000");
+    const response = await api.dispatch(local);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const blocked: Record<string, string>[] = [
+      { host: "localhost:3000" },
+      { host: "evil.example" },
+      { origin: "http://localhost:3000" },
+      { origin: "https://evil.example" },
+      { "x-livelecture-demo": "" },
+    ];
+    for (const headers of blocked) expect((await api.dispatch(make(headers))).status).toBe(403);
+  });
+
   it("suppresses a pending session read when the session is deleted concurrently", async () => {
     const api = setup();
     const { sessionId } = await api.start();

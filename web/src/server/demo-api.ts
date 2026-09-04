@@ -104,15 +104,15 @@ function exactObject(actual: unknown, expected: unknown): boolean {
   );
 }
 
-async function readBody(request: Request, maxBytes: number, timeoutMs: number): Promise<unknown> {
-  if (
-    request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() !== "application/json"
-  )
-    throw invalid();
+async function readBytes(
+  request: Request,
+  maxBytes: number,
+  timeoutMs: number,
+): Promise<Uint8Array> {
   const length = request.headers.get("content-length");
   if (length && (!/^\d+$/.test(length) || Number(length) > maxBytes))
     throw new DemoError(413, "INVALID_REQUEST", "The demo request is too large.");
-  if (!request.body) throw invalid();
+  if (!request.body) return new Uint8Array();
   const reader = request.body.getReader();
   const pieces: Uint8Array[] = [];
   let size = 0;
@@ -138,14 +138,23 @@ async function readBody(request: Request, maxBytes: number, timeoutMs: number): 
       bytes.set(piece, offset);
       offset += piece.byteLength;
     }
-    try {
-      return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
-    } catch {
-      throw invalid();
-    }
+    return bytes;
   } finally {
     clearTimeout(timer);
     void reader.cancel().catch(() => undefined);
+  }
+}
+
+async function readBody(request: Request, maxBytes: number, timeoutMs: number): Promise<unknown> {
+  if (
+    request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() !== "application/json"
+  )
+    throw invalid();
+  const bytes = await readBytes(request, maxBytes, timeoutMs);
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw invalid();
   }
 }
 
@@ -190,7 +199,11 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
       if (!options.enabled || !configurationValid)
         throw new DemoError(503, "PROVIDER_UNAVAILABLE", "The local scripted demo is disabled.");
       const url = new URL(request.url);
-      if (url.origin !== DEMO_ORIGIN || request.headers.get("host") !== "127.0.0.1:3000")
+      // NextRequest normalizes the loopback URL hostname to "localhost". This is
+      // an internal URL representation only: the wire Host and browser Origin
+      // below must still satisfy the exact 127.0.0.1 / configured-extension gate.
+      const localUrl = url.origin === DEMO_ORIGIN || url.origin === "http://localhost:3000";
+      if (!localUrl || request.headers.get("host") !== "127.0.0.1:3000")
         throw new DemoError(403, "INVALID_REQUEST", "This request is outside the local demo.");
       const origin = request.headers.get("origin");
       if (origin !== null && !origins.has(origin))
@@ -234,11 +247,12 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         request.method === "POST"
           ? await readBody(request, limits.bodyBytes, limits.bodyTimeoutMs)
           : undefined;
-      if (
-        request.method !== "POST" &&
-        (request.body || Number(request.headers.get("content-length") ?? 0) !== 0)
-      )
-        throw invalid();
+      // Next's Node adapter supplies an empty stream even for a body-less DELETE.
+      // Inspect bounded bytes instead of treating the stream object as content.
+      if (request.method !== "POST") {
+        if (request.method === "GET" && request.headers.has("transfer-encoding")) throw invalid();
+        await readBytes(request, 0, limits.bodyTimeoutMs);
+      }
       let result: unknown;
       if (!sessionId) {
         const input = parse(ApiContracts.startSession.request, body);
