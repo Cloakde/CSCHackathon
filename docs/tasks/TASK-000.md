@@ -2,7 +2,7 @@
 
 **Tier:** 1
 
-**State:** IN REVIEW
+**State:** MERGED
 
 **Assigned engineer:** Codex Lead
 
@@ -73,7 +73,7 @@ Independent Tier 1 review is required before integration.
 
 ## Verification Handoff
 
-TASK-000 is frozen for **IN REVIEW** after the following clean-install verification:
+TASK-000 is **MERGED** after the following clean-install verification:
 
 - `npm ci --no-audit --no-fund` completed from the committed lockfile.
 - `npm run check` passed formatting, zero-warning lint, local secret scan, all workspace typechecks, all tests, and all production builds.
@@ -84,9 +84,11 @@ TASK-000 is frozen for **IN REVIEW** after the following clean-install verificat
 - An independent CI/extension red-team review approved the Node/toolchain alignment, full-history Gitleaks job, packaged manifest checks, and extension behavior with no P1/P2 findings.
 - GitHub branch protection could not be confirmed through the available access, so the explicit temporary default-branch policy in `docs/TASK_BOARD.md` is active.
 - `git diff --check` passed.
+- Three independent exact-commit reviews approved `e4641e29c804905576ef095cb340c6b26e82fa76` with no P1/P2 findings.
+- A temporary independent integrator fast-forwarded `main` from `00af0dc5becb8b69fb358c48c76f0f19692d922b` to the exact reviewed commit `e4641e29c804905576ef095cb340c6b26e82fa76`; the reviewed and integrated diffs are identical.
+- [GitHub Actions run 33868115745](https://github.com/Cloakde/CSCHackathon/actions/runs/33868115745) passed both the full repository verification job and the full-history Gitleaks job on that integrated commit.
 
-Remaining integration gates:
+Post-bootstrap coordination gates:
 
-- Independent review must bind its approval to the exact submitted commit.
-- Loading the unpacked extension in desktop Chrome is not reproducible from the current in-app browser surface and remains a reviewer/manual check.
+- Loading the unpacked extension in desktop Chrome is not reproducible from the current in-app browser surface and remains a future manual preflight check.
 - Calendar activation and Product Owner cut-line ratification remain pre-feature coordination tasks rather than hidden bootstrap assumptions. Branch-protection confirmation may replace, but does not silently suspend, the active temporary default-branch policy.
