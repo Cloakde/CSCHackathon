@@ -151,11 +151,17 @@ If every model cannot access the GitHub issue system, use **docs/TASK_BOARD.md**
 
 Day numbers are working days. Before Day 1, the Product Owner and Coordinator must record the actual start date and timezone, submission deadline, feature-freeze timestamp, release-candidate deadline, rehearsal windows, human-verification windows, and expected active lanes.
 
+Live-capture/audio test windows may be recorded as NOT APPLICABLE only when Live is explicitly CUT. Their absence must not block core work after that decision; core learner and judge-access rehearsal windows are still required. Never waive a live safety check while Live remains enabled.
+
+At activation, the Coordinator also owns confirmation of the official judging/submission requirements with the Product Owner: source and checked date, judging criteria, demo length, required artifacts, permitted simulation/AI disclosures, and the installation, website, or recording route judges will use. Unresolved requirements stay visible in the authoritative tracker. Reversible local Simulation work can proceed after its own gates; dependent hosting, persistence, and distribution choices wait for the relevant requirements. The first complete demonstration rehearses the confirmed judge access route.
+
+The core simulated learning experience has first claim on implementation and review capacity. M1 feasibility work and M2 core implementation overlap after the minimum contracts are frozen; capture/Scribe PASS or CUT is not a prerequisite to starting M2. Schedule optional live tasks only with spare capacity and exclusive owned files. In particular, TASK-101's UI ownership can conflict with core UI work, and TASK-102's shared export must be serialized. Amend boundaries or sequence those edits before assignment.
+
 | Period | Focus | Exit condition |
 |---|---|---|
 | Days 1–2 | Bootstrap | Section 3 gate passes |
-| Days 3–5 | Technical-risk spikes | Each spike is proven or explicitly cut with evidence; Simulation Mode remains usable |
-| Days 6–10 | Must-ship vertical slice | Full simulated callback flow works across extension, backend, and web |
+| Days 3–5 | Start core learning flow; early AI and optional live feasibility checks | Core work proceeds; actual AI evidence or blocker recorded; optional live spikes PASS or CUT |
+| Days 6–10 | Complete and demonstrate the learning experience started in Day 3 | Full simulated callback, uncoached learner journey, and confirmed judge access route work; actual AI readiness reported separately |
 | Days 11–13 | Integration and resilience | Live adapter integrates only if passed; core failure paths work |
 | Days 14–15 | Should-ship breadth | Only prioritized additions that do not destabilize the vertical slice |
 | Days 16–18 | Feature freeze and hardening | Simulation and, if enabled, Live runbooks pass; release candidate is stable |
@@ -164,7 +170,7 @@ Day numbers are working days. Before Day 1, the Product Owner and Coordinator mu
 
 Required rehearsals:
 
-- First integrated demonstration by the end of Day 10.
+- First integrated demonstration as soon as the complete flow works, no later than Day 10, using the learner and judge-access checks in Section 18.
 - Second rehearsal at feature freeze.
 - Release candidate, backup recording, and clean-environment rehearsal completed by the end of Day 18.
 - Daily rehearsal during the final release-candidate period.
@@ -184,6 +190,7 @@ Required rehearsals:
 - Live tab-audio capture, passthrough, and transcription.
 - This receives a hard pass/cut decision at the end of Day 5.
 - If cut, preserve the spike evidence and commit to the prominently labeled Simulation Mode demonstration.
+- If optional live work lacks capacity or authorization by its decision deadline, record CUT; do not hold the core learning flow or take its assigned files/lane.
 
 ### Should Ship
 
@@ -467,6 +474,8 @@ It must provide:
 
 Fallback from live mode must be explicitly selected or visibly confirmed. The product must never silently present scripted transcript data as successfully captured live audio.
 
+Transcript source and assistance source are separate claims. Simulation transcripts can be used to test actual model-generated help. Conversely, a SIMULATION transcript banner alone does not disclose that help or practice answers are prewritten. Any scripted assistance must be visibly identified, and fake-provider test success must never be reported as actual AI-quality verification. A submission relying on that narrower demonstration requires explicit Product Owner scope acceptance.
+
 Maintain two demo runbooks:
 
 1. Guaranteed deterministic Simulation Mode demo.
@@ -496,9 +505,9 @@ Live ElevenLabs or LLM requests must not gate every pull request. They are nonde
 ### Progressive Smoke-Test Ladder
 
 - **Bootstrap:** fixture validation and simulated transcript rendering.
-- **End of Day 5:** capture/provider spike evidence and continued fixture-to-transcript rendering.
-- **End of Day 10:** simulated transcript, side-panel action, citation resolution, and the full callback from “I’m Lost” through weak-area practice.
-- **After Day 10:** the full deterministic callback becomes a required pull-request gate.
+- **End of Day 5:** core learning-flow progress, an actual AI-help evaluation result or explicit blocker, and PASS/CUT evidence for optional capture/provider spikes. This checkpoint does not gate the start of core implementation.
+- **No later than Day 10:** the full callback from “I’m Lost” through appropriate practice, an uncoached learner demonstration covering two confusion concepts, and rehearsal of the confirmed judge access route. Report actual AI evidence separately from fake-provider success.
+- **Once the full deterministic callback first passes:** it becomes a required pull-request gate immediately.
 - **Twice weekly while Live remains enabled:** real unpacked-extension, audio, and provider check.
 - **Final week:** daily complete rehearsal.
 
@@ -645,6 +654,14 @@ Use a replaceable **SessionStore** interface:
 - Durable hosted transcript storage requires caller authentication, per-session authorization, and database-level isolation such as row-level security. If those controls are not in scope, remain local or in-memory.
 - If persistent transcript data ships, deletion ships with it.
 
+### Early Actual AI Evidence
+
+The Coordinator schedules and assigns a bounded early evaluation of the actual explanation generator, independent semantic evidence verifier, and practice generator. Its contract must freeze synthetic cases (including two distinct confusion concepts, insufficient evidence, and adversarial transcript content), human-reviewed expected evidence and answers, response-time targets, request/cost caps, and an independent reviewer before a paid run. Provider/model selection still requires the existing ADR process.
+
+Measure correctness, claim support, useful concept-specific practice, complete response time including verification/retries, and redacted total cost. Test “I’m Lost” while transcript chunks continue arriving at normal speed. Repeated stale-context rejection or recovery that prevents timely help is a blocking finding, not a reason to bypass ADR 0003. Preserve its authoritative snapshots, independent evidence checking, and atomic recording; any necessary contract change receives separate review.
+
+Record PASS, CHANGES REQUIRED, or BLOCKED against the exact commit, cases, provider/model configuration, agreed criteria, and measured results. Actual AI PASS requires separately authorized real model calls through the delivered assistance path. Prepare fixtures and injected tests without spending when authorization is absent; keep core construction moving and actual-AI readiness explicitly unproven. Existing provider credential, retention, and data protections apply. A scripted demo requires its own honest disclosure and Product Owner scope acceptance before it can substitute for the intended AI submission.
+
 ---
 
 ## 18. Implementation Sequence
@@ -655,22 +672,15 @@ Use a replaceable **SessionStore** interface:
 - Resolve only decisions that block the next five working days.
 - Build Simulation Mode and the first deterministic smoke test.
 
-### Phase B — Risk Spikes, Days 3–5
+### Phase B — Early Feasibility Checks, Days 3–5
 
-Run independently:
+Freeze the minimum contracts for the “I’m Lost” response, citations, confusion events, session handoff, weak-area drill, and SessionStore before their consumers start. Reuse reviewed bootstrap contracts where sufficient. Begin Phase C immediately after its own schedule, contract, and assignment gates; it does not wait for capture or transcription decisions.
 
-- Chrome capture, passthrough, and offscreen-lifecycle spike.
-- ElevenLabs credential, socket, timestamp, and reconnect spike.
+Alongside the protected core lane, schedule the actual AI-help evaluation in Section 17 and the early judge-requirements check in Section 5. Run Chrome capture and ElevenLabs transport as independent optional spikes only where capacity and exclusive file ownership permit. Reserve human Chrome/audio verification for any scheduled live spike.
 
-Book a human unpacked-extension test during this phase.
+By the end of Day 5, each live spike is **PASS** with evidence or **CUT**, including when capacity or authorization is unavailable. Preserve checkpoint evidence and keep the core lane moving. Report actual AI quality separately; a blocked real-model test is not PASS and cannot be concealed by scripted answers.
 
-If either spike exceeds its timebox, preserve the evidence, keep Simulation Mode as the guaranteed path, move the failing live feature below the cut line, and continue the core product.
-
-At the end of Day 5, each spike is either **PASS** with evidence or **CUT** with a checkpoint handoff. No ambiguous partial live dependency may block Phase C.
-
-Before Phase C branches start, freeze the minimum contracts for the “I’m Lost” response, citations, confusion events, session handoff, weak-area drill, and SessionStore.
-
-### Phase C — Must-Ship Vertical Slice, Days 6–10
+### Phase C — Must-Ship Learning Experience, Days 3–10
 
 Build:
 
@@ -685,19 +695,22 @@ Build:
 
 The extension, backend, and minimum companion web screens develop together against frozen contracts and fixtures.
 
-The full simulated callback and first integrated demonstration are Phase C exit conditions.
+The first complete demonstration is due as soon as the flow connects, no later than Day 10. A person who did not build the app must, without coaching, ask for help, open the supporting timestamp, end the session, reach the companion app, attempt targeted practice, and find its correct answer and explanation. The participant should understand why that practice was suggested and what to do next. Repeat with two distinct confusion concepts and confirm the evidence and appropriate practice change; a knowledgeable reviewer checks correctness. Fix blocking usability/content failures before reporting the learner demonstration PASS. This does not require a full quiz system, automated grading, or a claim of long-term educational efficacy.
+
+Exercise the confirmed judge access route in the same demonstration. Report functional automated success, learner success, actual AI quality, and judge-access readiness separately. Actual AI remains unproven until the measured check passes; only explicit Product Owner acceptance can select a visibly scripted submission scope. Unresolved evidence must not be silently rolled into a blanket milestone-ready claim.
 
 ### Phase D — Integration and Essential Breadth, Days 11–13
 
 - Integrate live capture if its spike passed.
 - Fix findings from the Day 10 integrated demonstration.
+- Prioritize unresolved learner-flow, actual-AI-quality, and judge-access blockers over optional breadth.
 - Add durable storage only if the simulated must-ship path is green and the required access controls are approved; otherwise retain the in-memory SessionStore.
 - Add deletion whenever durable persistence ships, while keeping deterministic reset for in-memory mode.
 - Strengthen reconnection and failure handling.
 
 ### Phase E — Should-Ship Features, Days 14–15
 
-Add only prioritized features that do not destabilize the vertical slice:
+Add only prioritized features after the core learning journey and approved submission scope are ready. Actual-AI-quality and judge-access blockers preempt this breadth:
 
 - Grounded Ask.
 - Catch Me Up or Explain This.
@@ -714,6 +727,7 @@ Add only prioritized features that do not destabilize the vertical slice:
 - Prepare both demo runbooks and backup recording.
 - Tag the release candidate and record the deployed commit.
 - Rehearse and package the submission.
+- Repeat the accepted learner journey and confirmed judge access route on the exact release candidate, with accurate transcript-source and scripted/actual-AI disclosures.
 
 Phase F hardens an already integrated product. It is not the first time components meet.
 
