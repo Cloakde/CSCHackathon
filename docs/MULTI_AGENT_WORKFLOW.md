@@ -1,445 +1,860 @@
-# LiveLecture AI — Multi-Model Development Workflow
+# LiveLecture AI — Multi-Agent Development Workflow
 
-**Status:** Active · **Owner:** Coordinator · **Applies to:** every model and human contributing code.
+**Status:** Active operating contract; calendar activation is required before non-bootstrap feature work
 
-This document is the operating contract for the repository. It is deliberately tiered: heavyweight process is applied only where a mistake is expensive to undo, and stripped everywhere else. Read Sections 0, 5, 6 and 19 before doing anything.
+**Owner:** Coordinator
 
----
+**Scope:** Every human or AI contributor to this repository
 
-## 0. Time Budget — Set This Before Any Code Is Written
+This document is the operating contract for LiveLecture AI. It is intentionally strict where mistakes would be expensive—shared contracts, credentials, audio capture, grounding, storage, and integration—and lightweight for isolated visual or documentation work.
 
-This is a hackathon. The deadline is the primary constraint and every other rule is subordinate to it.
-
-| Field | Value |
-|---|---|
-| Total budget | `<fill in — e.g. 48h>` |
-| Start (T+0) | `<fill in>` |
-| Submission deadline | `<fill in>` |
-| Feature freeze | Deadline minus 15% of budget |
-| Demo rehearsal | Deadline minus 5% of budget |
-
-**Phase allocation** (percentages of total budget, with a worked 48-hour example):
-
-| Phase | Share | 48h example | Hard abort rule |
-|---|---|---|---|
-| A — Bootstrap | 10% | 5h | None. Must complete. |
-| B — Transcription PoC | 20% | 10h | On overrun, ship Simulation Mode as the demo path and move on. |
-| C + D — Backend & Live Assistance (parallel) | 35% | 17h | On overrun, cut Phase C persistence to in-memory. |
-| E — Companion Web App | 20% | 10h | On overrun, cut Study Guide and quiz difficulty options. |
-| F — Integration & Hardening | 15% | 7h | Never cut. Feature freeze is enforced here. |
-
-**Per-task timebox.** Every task carries an explicit timebox in its spec. A model that exceeds its timebox **stops and reports** — it does not silently continue. The coordinator then re-scopes, reassigns, or cuts the task. Silent overrun is the most common way hackathon projects fail.
+Non-bootstrap feature implementation must not begin until the repository bootstrap gate in Section 3 is complete.
 
 ---
 
-## 1. Roles
+## 1. Operating Principles
 
-### Product Owner (human)
-- Owns requirements, priorities, and scope.
-- Approves architecture changes and any deviation from Section 0.
-- Is the final escalation point for disputes.
-- Decides what ships.
-
-### Coordinator (one model)
-- Maintains architecture and sequencing.
-- Writes task specs and assigns them. **Models do not self-select tasks.**
-- Approves breaking contract changes.
-- Merges all task branches. **No model merges its own work.**
-- Keeps `main` green and keeps the demo smoke test passing.
-- Enforces timeboxes and abort rules.
-
-### Implementing Engineer (any model)
-- Works one assigned task at a time, on its own branch and worktree.
-- Modifies only the paths its spec authorises.
-- Runs the required verification and pastes **real command output**.
-- Produces a handoff and moves the task to `IN REVIEW` — never to done.
-
-### Reviewing Engineer (a different model)
-- Required for Tier 1 tasks and any Tier 2 task the coordinator flags.
-- Reviews the exact commit against acceptance criteria.
-- Returns `APPROVED` or `CHANGES REQUESTED`.
-- **Does not silently rewrite the implementation.** Findings are reported, not patched.
+1. **The deadline controls scope, not safety.** Features may be cut to meet the deadline. Credential safety, recording consent, honest demo labeling, and protection of classroom data may not.
+2. **One source of truth.** Implemented truth lives on the default branch. Bootstrap must protect it or establish an explicit Coordinator-only push policy until repository protection is available. Task status lives in one agreed tracker.
+3. **Parallel work happens behind stable boundaries.** Changes to shared boundaries happen one at a time.
+4. **No model approves or merges its own work.**
+5. **Evidence beats confidence.** “Should work” and “all tests passed” without reproducible evidence are not completion claims.
+6. **Simulation is a supported input source, not a hidden substitute for live capture.**
+7. **The demo path is built vertically before feature breadth.**
 
 ---
 
-## 2. Source of Truth
+## 2. Roles
 
-GitHub Issues (or a GitHub Project) is authoritative for task status, assignment, dependencies, PR linkage, and review outcomes.
+### Product Owner
 
-**Prerequisite check before adopting this:** confirm every participating model can actually reach the GitHub API (`gh auth status` succeeds, or an equivalent token is available). If it cannot, fall back to `docs/TASK_BOARD.md` with the coordinator as sole writer — which is safe, because under coordinator-assignment there is exactly one writer and no claim race exists.
+The human Product Owner:
 
-- `docs/TASK_BOARD.md` — human-readable mirror. Not authoritative unless the fallback above is in effect.
-- `AGENT_COMMUNICATION.md` — stable announcements, contract changes, and decisions only. **Not** a per-task status feed.
-- `docs/DECISIONS.md` — the architecture decisions from Section 16, once resolved. Append-only.
+- Owns product requirements, priorities, and the final scope.
+- Approves material architecture or product-direction changes.
+- Resolves product tradeoffs and approach disputes.
+- Defines the submission deadline and decides what ships.
+- Accepts the final demo release.
+
+### Coordinator and Integrator
+
+One AI model serves as Coordinator.
+
+The Coordinator:
+
+- Maintains architecture, sequencing, task contracts, and the cut line.
+- Assigns work; engineer models do not self-select tasks.
+- Records the exact base commit for every task.
+- Controls changes to shared contracts and serialized hotspots.
+- Reviews scope and handoff evidence.
+- Assigns an independent reviewer where required.
+- Is the default role permitted to merge task branches.
+- Keeps the default branch green and the current smoke test passing.
+- Enforces work-in-progress limits, timeboxes, and abort rules.
+- Normally does not implement task branches. If the Coordinator authors a task change, a temporary independent integrator becomes the sole merger for that change after independent review.
+
+### Implementing Engineer
+
+Each engineer model:
+
+- Works on one assigned task at a time.
+- Uses its own branch and isolated worktree or clone.
+- Changes only the paths authorized in its task contract.
+- Adds proportionate tests and runs the required checks.
+- Reports real, concise, redacted verification evidence.
+- Submits a structured handoff.
+- Requests **IN REVIEW**, never directly Done. When the fallback tracker is active, the Coordinator records the state change.
+
+### Reviewing Engineer
+
+A reviewer must be different from the implementing engineer.
+
+The reviewer:
+
+- Reviews the exact submitted commit against the original task contract.
+- Checks correctness, scope, regressions, security, privacy, and test quality.
+- Reproduces important checks where practical.
+- Reports **APPROVED** or **CHANGES REQUESTED**.
+- Does not silently rewrite the implementation.
+
+### Release Captain
+
+During the final week, the Coordinator or another explicitly assigned model acts as Release Captain and owns:
+
+- The release candidate.
+- Clean-environment verification.
+- Demo runbooks and backup recording.
+- Deployment and rollback notes.
+- Submission packaging.
 
 ---
 
-## 3. Branching
+## 3. Repository Bootstrap Gate
 
-`main` is protected. Required checks must pass before merge. No direct pushes.
+The default branch is the canonical integration branch.
 
-Every task gets its own branch cut from an exact stated base commit:
+Before feature tasks start:
 
-```
-task/TASK-101-session-schema
-task/TASK-202-tab-audio
-task/TASK-301-side-panel-shell
-```
+1. Create a bootstrap branch from the current default branch.
+2. Port only the approved scaffold from any experimental model branches.
+3. Review the scaffold as a normal change.
+4. Merge it into the default branch.
+5. Run the initial checks.
+6. Record the resulting commit as the canonical baseline.
+7. Create all subsequent task branches from that baseline or a later approved default-branch commit.
+
+Model-named or experimental branches such as **claude**, **gemini**, and **codex** are reference branches, not integration branches. They must not become competing sources of truth.
+
+The bootstrap gate exits when all of the following exist:
+
+- Extension and web application shells that build.
+- One canonical transcript/event contract.
+- Runtime schemas for the first external boundaries.
+- One valid deterministic lecture fixture.
+- A labeled Simulation Mode streamer.
+- Real format, lint, typecheck, build, and minimal test commands.
+- A minimal fixture-to-transcript-UI smoke test.
+- Agreed ownership for the immediately scheduled tasks.
+- A recorded canonical baseline commit.
+- Branch protection and required checks, or a documented temporary Coordinator-only push policy.
+- One authoritative tracker selected after every participating model’s access is verified.
+
+The bootstrap gate is timeboxed to two working days. Nonessential tooling or documentation moves to later tasks if this minimum gate is satisfied.
+
+If the minimum gate itself misses Day 2, checkpoint the buildable work, cut should-ship and stretch scope, keep the smallest fixture-to-transcript-UI path, publish a revised baseline, and continue only from that explicit recovery decision.
+
+---
+
+## 4. Sources of Truth
+
+Preferred coordination:
+
+- **Default branch:** implemented truth.
+- **GitHub Issues or Project:** assignment, status, dependencies, blockers, pull requests, and review outcome.
+- **Pull request:** task-specific implementation and verification record.
+- **One ADR per decision:** durable architecture decisions and rationale.
+- **Shared runtime schemas:** API and event contract truth.
+- **Release tag and deployed commit:** demo truth.
+
+If every model cannot access the GitHub issue system, use **docs/TASK_BOARD.md** as the temporary authoritative tracker. In that mode:
+
+- The Coordinator is its only writer.
+- Engineers request or announce status changes through handoffs.
+- The Coordinator serializes tracker updates.
+- The tracker must identify the exact task branch and commit.
+
+**AGENT_COMMUNICATION.md**, if retained, contains stable announcements only. It is not a task lock, status database, or second contract ledger.
+
+---
+
+## 5. Four-Week Schedule and Cut Line
+
+Day numbers are working days. Before Day 1, the Product Owner and Coordinator must record the actual start date and timezone, submission deadline, feature-freeze timestamp, release-candidate deadline, rehearsal windows, human-verification windows, and expected active lanes.
+
+| Period | Focus | Exit condition |
+|---|---|---|
+| Days 1–2 | Bootstrap | Section 3 gate passes |
+| Days 3–5 | Technical-risk spikes | Each spike is proven or explicitly cut with evidence; Simulation Mode remains usable |
+| Days 6–10 | Must-ship vertical slice | Full simulated callback flow works across extension, backend, and web |
+| Days 11–13 | Integration and resilience | Live adapter integrates only if passed; core failure paths work |
+| Days 14–15 | Should-ship breadth | Only prioritized additions that do not destabilize the vertical slice |
+| Days 16–18 | Feature freeze and hardening | Simulation and, if enabled, Live runbooks pass; release candidate is stable |
+| Day 19 | Final rehearsal and packaging | Exact release candidate and both runbooks are confirmed |
+| Day 20 | Submission contingency | Final packaging, recovery time, and submission |
+
+Required rehearsals:
+
+- First integrated demonstration by the end of Day 10.
+- Second rehearsal at feature freeze.
+- Release candidate, backup recording, and clean-environment rehearsal completed by the end of Day 18.
+- Daily rehearsal during the final release-candidate period.
+
+### Must Ship
+
+- Simulation Mode and transcript display.
+- “I’m Lost” response grounded in existing chunks from the prominently labeled active source—Simulation or Live.
+- Clickable timestamp citation resolving to an existing chunk.
+- Confusion-event logging.
+- Session end and handoff to the companion app.
+- “Practice My Weak Areas” using the logged confusion concept.
+- Visible recording/simulation state and a reliable Stop control.
+
+### Conditional Live Target
+
+- Live tab-audio capture, passthrough, and transcription.
+- This receives a hard pass/cut decision at the end of Day 5.
+- If cut, preserve the spike evidence and commit to the prominently labeled Simulation Mode demonstration.
+
+### Should Ship
+
+- General grounded Ask.
+- Catch Me Up and Explain This.
+- Bookmarks.
+- Persistent sessions and deletion.
+- Structured notes.
+
+### Stretch
+
+- Rich dashboard analytics.
+- Full flashcard suite.
+- Multiple quiz modes and difficulty controls.
+- Comprehensive study guide and export.
+- Embedding or vector retrieval.
+
+Stretch work may not start while the must-ship simulated callback is failing on the default branch.
+
+---
+
+## 6. Task Lifecycle
+
+Primary states:
+
+    TODO → READY → IN PROGRESS → IN REVIEW → MERGED
+
+Additional states:
+
+- **BLOCKED:** external dependency or unresolved decision prevents progress.
+- **CUT:** intentionally removed from hackathon scope.
+
+Review outcomes:
+
+- **APPROVED**
+- **CHANGES REQUESTED**
+
+When changes are requested, the task returns to **IN PROGRESS**.
+
+Verification metadata is tracked separately:
+
+    CI verification: PASS | FAIL
+    Live browser verification: PENDING | PASS | NOT APPLICABLE
+    Demo verification: PENDING | PASS
+
+A task is not complete merely because it exists locally, compiles on its branch, or passes isolated unit tests.
+
+A task is considered integrated when it is **MERGED** with required CI green. A milestone is considered ready only when its required live checks pass and its demo verification is **PASS**.
+
+Consent, intended-tab capture, audible passthrough, recording indication, and Stop behavior cannot be waived when live capture is enabled. They may be **NOT APPLICABLE** only when live capture is disabled.
+
+---
+
+## 7. Task Tiers
+
+### Tier 1 — Foundation or High Risk
+
+Examples:
+
+- Shared schemas and cross-package contracts.
+- Authentication, authorization, secrets, and token issuance.
+- Database schema or migrations.
+- Extension manifest, permissions, audio capture, and offscreen lifecycle.
+- Build configuration, CI, root manifests, and lockfiles.
+- Canonical fixtures and Simulation Mode contracts.
+- Grounding and citation logic.
+- Persistence and deletion.
+
+Requirements:
+
+- Full task contract.
+- Independent review.
+- Full relevant automated checks.
+- Required human verification where automation is insufficient.
+
+### Tier 2 — Feature
+
+Examples:
+
+- Feature code isolated behind approved contracts.
+- A single API endpoint or UI flow with bounded ownership.
+
+Requirements:
+
+- Short task contract.
+- Stated automated verification.
+- Independent review when the task crosses an integration boundary or the Coordinator flags risk.
+
+### Tier 3 — Surface
+
+Examples:
+
+- Isolated styling.
+- Copy changes.
+- Noncanonical documentation.
+- Low-risk visual polish.
+
+Requirements:
+
+- One-line or short task specification.
+- Automated checks appropriate to the touched package.
+- Coordinator diff review before merge.
+
+Security, audio capture, grounding/citations, shared contracts, and deletion always require independent review regardless of apparent task size.
+
+---
+
+## 8. Task Contract
+
+### Full Contract for Tier 1
+
+    Task ID:
+    Title:
+    Tier:
+    Objective:
+    Assigned engineer:
+    Timebox:
+    Exact base commit:
+    Dependencies:
+    Owned files or exclusive path patterns:
+    Forbidden paths:
+    Contracts consumed:
+    Contracts produced:
+    Implementation requirements:
+    Observable acceptance criteria:
+    Required automated commands:
+    Required manual verification:
+    Security and privacy requirements:
+    Independent reviewer:
+
+### Short Contract for Tier 2
+
+    Task ID and title:
+    Objective:
+    Assigned engineer:
+    Timebox:
+    Exact base commit:
+    Owned paths:
+    Contracts used:
+    Acceptance criteria:
+    Verification command:
+
+Tier 3 tasks may use a concise issue when ownership and expected output are unambiguous.
+
+Acceptance criteria must describe observable behavior. “Reconnect implemented” is insufficient. A useful criterion is:
+
+> After a simulated connection loss, transcription resumes without duplicating the session or committed transcript chunks, and the interface visibly reports recovery.
+
+---
+
+## 9. Branches and Worktrees
+
+Every task receives one branch and one isolated worktree or clone:
+
+    task/TASK-103-grounded-ask
+    task/TASK-202-tab-audio
+    fix/TASK-503-reconnect-deduplication
 
 Rules:
-- No model works on `main`, on another model's branch, or on a shared working branch.
-- Each model uses a separate worktree or clone.
-- The coordinator may create `integration/<milestone>` for risky multi-task integration. Only the coordinator writes to it; it is deleted after landing in `main`.
+
+- Create the branch from the exact base commit in its task contract.
+- Never work directly on the default branch.
+- Never use another model’s checkout or branch.
+- Never force-push another contributor’s branch.
+- Keep tasks small enough to review and integrate within roughly one working day.
+- Only the Coordinator merges, except that a temporary independent integrator merges a Coordinator-authored change.
+- Prefer squash merges with the task ID in the final message.
+- Independent approval applies to an exact pull-request head commit and is invalidated by any later head commit.
+- When squash-merging, the Coordinator confirms that the merged diff matches the reviewed head, then records both the reviewed head SHA and resulting default-branch SHA.
+- Use a temporary **integration/milestone-name** branch only when dependent changes genuinely require joint testing. Only the Coordinator writes to it.
 
 ---
 
-## 4. Task Lifecycle — Four States
+## 10. File Ownership
 
-```
-READY  →  IN PROGRESS  →  IN REVIEW  →  MERGED
-```
+Ownership may be either:
 
-| State | Meaning |
-|---|---|
-| `READY` | Spec written, dependencies satisfied, acceptance criteria testable, timebox set. |
-| `IN PROGRESS` | Assigned and actively being implemented. |
-| `IN REVIEW` | Implementation complete, verification output posted, PR open. |
-| `MERGED` | Coordinator merged it with CI green. |
+- An explicit list of files; or
+- A narrow, exclusive subtree or path pattern when the task must create new files.
 
-`APPROVED` and `CHANGES REQUESTED` are **review outcomes**, not task states.
+Two active tasks may not own overlapping paths.
 
-**There is no separate `VERIFIED` state.** A manual verification state exists only when CI does not prove the merged repository works. CI is established in Phase A precisely so that `MERGED` implies verified. If CI is green on the merge commit and the demo smoke test passes, the task is done.
+Serialized hotspots include:
 
-A task is **not** done because the code exists, because it compiles on one branch, because unit tests pass in isolation, or because a model says it works.
+- Shared schemas and exported types.
+- Database migrations.
+- Root package manifests and lockfiles.
+- CI and build configuration.
+- Environment configuration.
+- Authentication and session infrastructure.
+- Extension manifest and permissions.
+- Top-level routing.
+- Generated files.
 
----
+No drive-by cleanup, reformatting, dependency bumps, renames, or unrelated fixes are allowed.
 
-## 5. Task Tiers — Process Scales With Blast Radius
+If an engineer discovers an unowned file or contract must change:
 
-This is the central rule of this document. Apply the tier, not the maximum.
-
-| | **Tier 1 — Foundation** | **Tier 2 — Feature** | **Tier 3 — Surface** |
-|---|---|---|---|
-| **Covers** | Shared contracts, auth & secrets, DB schema/migrations, extension manifest & permissions, build/CI config, lockfiles, cross-package APIs | Feature code confined to one owned directory | UI polish, copy, styling, fixtures, docs |
-| **Spec** | Full spec (§7.1) | Short spec (§7.2) | One-line issue |
-| **Independent review** | **Required** | Only if it crosses an integration boundary or the coordinator's diff read raises a flag | No |
-| **Verification** | Full relevant gate suite + manual check | Stated command, real output pasted | CI green |
-| **Merged by** | Coordinator | Coordinator | Coordinator |
-
-Independent review is also **always required**, regardless of tier, for anything touching the grounding and citation logic. A subtle bug there produces a confident, correctly-formatted, wrong citation — the one failure mode this product's positioning cannot survive.
+1. Stop modifying that area.
+2. Report the need and reason to the Coordinator.
+3. Wait for a task amendment or a separately sequenced task.
 
 ---
 
-## 6. File Ownership
+## 11. Shared Contracts and Validation
 
-A model modifies only the paths its spec lists. Two hard rules:
+Runtime schemas are the source of truth. TypeScript types should be inferred from those schemas where practical to prevent type/schema drift.
 
-1. **Own files, not directories.** Directory ownership is what creates overlaps (see Appendix A for two live examples in the current board). If two tasks need the same directory, they must own disjoint named files within it, or be sequenced.
-2. **No drive-by changes.** No unrelated cleanup, reformatting, dependency bumps, or renames. If the diff contains it and the spec did not ask for it, it is a review finding.
+Contracts should be split by domain rather than accumulated in one merge hotspot:
 
-If implementation requires an unlisted file:
-1. Stop editing that area.
-2. Report to the coordinator with the reason.
-3. Wait for the spec to be amended.
+    shared/schemas/session.ts
+    shared/schemas/transcript.ts
+    shared/schemas/assistance.ts
+    shared/schemas/study.ts
+    shared/schemas/index.ts
 
----
+Validate data at every trust boundary, including:
 
-## 7. Task Spec Formats
+- LLM structured output.
+- ElevenLabs WebSocket messages.
+- Extension-to-backend HTTP.
+- Chrome runtime messages.
+- Route parameters and form input.
+- Environment configuration.
+- Persisted data loaded from storage.
 
-### 7.1 Full spec — Tier 1
+### Contract Change Policy
 
-```
-Task ID:
-Title:
-Tier: 1
-Objective:
-Assigned model:
-Timebox:
-Base commit:
-Dependencies:
-Files owned (named files, not directories):
-Files forbidden:
-Contracts consumed:
-Contracts produced:
-Implementation requirements:
-Acceptance criteria:
-Required verification commands:
-Manual verification:
-Security/privacy requirements:
-Independent reviewer:
-```
+- A truly backward-compatible optional addition receives a lightweight Coordinator review.
+- A new enum or union member requires compatibility review because exhaustive consumers may break.
+- Renames, removals, narrowed types, new required fields, or semantic changes are Tier 1.
+- Fixtures and contract tests change in the same task or an explicitly sequenced companion task.
+- Dependent engineers are notified through the authoritative issue or pull request, not through a competing ledger.
 
-### 7.2 Short spec — Tier 2
+### LLM Structured Output
 
-```
-Task ID / Title:
-Timebox:
-Objective:
-Files owned:
-Contracts used:
-Acceptance criteria:
-Verification command:
-```
-
-Five fields plus identity. If a Tier 2 task seems to need the full spec, it is probably Tier 1 — re-tier it rather than expanding the form.
+- Parse every structured response through its runtime schema.
+- Initially allow one bounded repair or retry.
+- On final failure, return a visible degraded state rather than inventing missing fields.
+- Generate large outputs section-by-section only if measurement shows truncation, latency, or reliability requires it.
 
 ---
 
-## 8. Shared Contracts
+## 12. Grounding and Citations
 
-All cross-boundary types live in `shared/types/index.ts`. TypeScript interfaces are not sufficient on their own — external data must also be validated at runtime with Zod.
+Returning a correctly formatted chunk ID does not prove an answer is grounded.
 
-**Runtime validation is mandatory at exactly three boundaries.** Elsewhere it is optional and usually noise.
+The grounded-assistance path must:
 
-1. **LLM structured output.** This is the highest-risk boundary in the product. `StructuredNotes` has eight nested arrays; `ImLostResponse` has seven required fields. Malformed or truncated model JSON is far likelier than any bug a diff review will catch. Every LLM call returning structured data parses through a Zod schema with a defined repair-or-retry path and a user-visible degraded state on final failure. Generate large objects like `StructuredNotes` section-by-section rather than in a single call.
-2. **ElevenLabs WebSocket messages.**
-3. **Extension ↔ backend HTTP.**
+- Use immutable transcript chunk IDs and timestamps.
+- Reject nonexistent citations server-side.
+- Check that cited evidence supports material answer claims.
+- Include answerable, unanswerable, and adversarial test fixtures.
+- Default to “not found in this lecture” when evidence is insufficient.
+- Treat transcript text as untrusted data, never as system instructions.
+- Expose general knowledge only as a clearly separate, user-requested mode.
+- Give transcript-grounded model calls no privileged tools or side effects.
+- Render transcript and model content as escaped text or sanitized Markdown; never inject it as raw HTML.
+- Construct citation controls only from validated, server-owned chunk IDs and timestamps.
 
-### Contract changes — split by compatibility, not by file
+For the MVP:
 
-| Change type | Examples | Process |
-|---|---|---|
-| **Additive** | New type, new optional field, new enum member at the end | Just do it. Post one line in `AGENT_COMMUNICATION.md`. No gate. |
-| **Breaking** | Rename, remove, narrow a union, make a field required, change a type | Tier 1 task: compatibility impact stated, fixtures updated, contract tests updated, coordinator approval, dependent task owners notified. |
-
-Gating additive changes is the fastest way to make the contract file the thing everyone is blocked on. Gate only what actually breaks other models' code.
-
----
-
-## 9. Fixtures and Simulation-First
-
-`shared/fixtures/calculus-lecture.json` is the canonical fixture. It must contain realistic transcript segments, stable IDs, start/end timestamps, optional speaker labels, confusion events, citation-ready passages, and expected example outputs. Fixtures validate against the same Zod schemas as live data.
-
-**Simulation Mode is built in Phase A, not deferred.** A streamer that replays the fixture as timed live transcript events (`TASK-205`) is the project's insurance policy:
-
-- It unblocks every UI, AI, and companion-app task with zero dependency on live audio.
-- It makes the demo survivable if ElevenLabs or tab capture fails on the day.
-- It is the substrate for the demo smoke test.
-
-Never commit real student data, private recordings, or credentials — including in fixtures and coordination logs.
+- Do not build a vector database by default.
+- Use the relevant recent time window plus lightweight lexical or topic selection.
+- Measure quality, latency, and cost before adding embeddings.
+- Never resend an entire lecture on every live request merely because it fits one model’s context window.
 
 ---
 
-## 10. The Demo Is a Deliverable
+## 13. Simulation Mode
 
-The demo is the product for a hackathon, and its most important beat is the callback: **"Practice My Weak Areas" targeting the exact concept where the student clicked "I'm Lost."** That is a cross-phase integration between Phases D and E, and it is the thing most likely to be discovered broken with hours left.
+Simulation Mode is built during bootstrap and uses the same event contracts, state transitions, and interface as the live source.
 
-**A demo smoke test is written in Phase A** and runs in CI from then on. It walks the full ideal flow against fixtures:
+It must provide:
 
-```
-start session → simulated transcript streams → "I'm Lost" returns 4-part diagnosis
-→ confusion signal logged → grounded ask returns a citation resolving to a real chunk
-→ bookmark saved → session ends → notes + flashcards + quiz generate
-→ weak-areas practice references the logged confusion concept
-```
+- Stable chunk IDs and timestamps.
+- Deterministic reset.
+- Pause and playback-speed controls.
+- Reproducible confusion and citation events.
+- A prominent persistent **SIMULATION** indicator.
 
-If this test is red, `main` is broken. It has the same status as a build failure.
+Fallback from live mode must be explicitly selected or visibly confirmed. The product must never silently present scripted transcript data as successfully captured live audio.
 
----
+Maintain two demo runbooks:
 
-## 11. Handoff Format
+1. Guaranteed deterministic Simulation Mode demo.
+2. Live-capture demo used only after the Section 15 preflight passes.
 
-```
-Task / Branch / Base commit / Final commit:
-Files changed:
-Summary:
-Acceptance criteria met:
-Commands run + actual output:
-Manual checks performed:
-Known limitations:
-Contract changes:
-Integration risks:
-```
-
-"All tests passed" without pasted command output is not a handoff and will be returned unreviewed.
+Record a backup demo from the frozen release candidate using synthetic fixture data or participants who separately consented to the recording.
 
 ---
 
-## 12. Review
+## 14. Testing and Quality Gates
 
-Reviewers check, scoped to the tier: acceptance criteria, correctness, contract compatibility, error handling, failure and empty states, security and privacy, regressions, test quality, and whether the work stayed inside its declared scope. UI tasks add accessibility; extension tasks add MV3 constraints.
+### Required on Every Relevant Pull Request
 
-```
-Verdict: APPROVED | CHANGES REQUESTED
-Blocking findings:
-Non-blocking findings:
-Tests reproduced:
-Tests NOT reproduced (and why):
-Residual risks:
-```
+- Format check.
+- Lint.
+- Typecheck.
+- Unit tests.
+- Runtime-schema and fixture contract tests.
+- Affected application builds.
+- Deterministic simulated smoke test.
+- Secret scan.
 
-**Be explicit about what could not be verified.** An AI reviewer cannot confirm that tab capture works, that audio passthrough still lets the student hear the professor, that the offscreen document survives service-worker termination, or that the transcription socket reconnects. Those require a human loading the unpacked extension against a real Meet. List them under "Tests NOT reproduced" so the coordinator schedules a manual check rather than assuming coverage.
+A command that merely prints a message and exits successfully is not a test.
 
-Blocking findings are fixed before merge.
+Live ElevenLabs or LLM requests must not gate every pull request. They are nondeterministic, secret-dependent, slower, and may incur cost.
 
-**Dispute escalation:** if a reviewer's objection is to the *approach* rather than the code, it escalates to the Product Owner — not to the coordinator, who wrote the spec being disputed.
+### Progressive Smoke-Test Ladder
 
----
+- **Bootstrap:** fixture validation and simulated transcript rendering.
+- **End of Day 5:** capture/provider spike evidence and continued fixture-to-transcript rendering.
+- **End of Day 10:** simulated transcript, side-panel action, citation resolution, and the full callback from “I’m Lost” through weak-area practice.
+- **After Day 10:** the full deterministic callback becomes a required pull-request gate.
+- **Twice weekly while Live remains enabled:** real unpacked-extension, audio, and provider check.
+- **Final week:** daily complete rehearsal.
 
-## 13. Merge and Integration
+### Human Verification Required
 
-The coordinator:
-1. Confirms the branch base and checks for out-of-scope changes.
-2. Confirms CI is green, including the demo smoke test.
-3. Merges.
-4. Sets the task to `MERGED`.
+Automation alone cannot prove:
 
-If a merge breaks `main` or the demo smoke test, the coordinator **reverts immediately, without review**, and opens a linked repair task. Recovering `main` always outranks preserving a contribution.
+- Capture of the intended browser tab.
+- Continued audible playback while capturing.
+- Correct behavior when the side panel closes.
+- Offscreen-document and service-worker lifecycle recovery.
+- Reconnection during a long lecture.
+- Permission and consent clarity.
 
----
-
-## 14. Quality Gates (CI — established in Phase A)
-
-Real commands only. A script that prints a message and exits 0 is not a test — the current root `"test": "echo ..."` must be replaced before Phase A closes.
-
-| Gate | Runs on |
-|---|---|
-| format check | every PR |
-| lint | every PR |
-| typecheck | every PR |
-| unit tests | every PR |
-| contract tests (Zod schemas ↔ fixtures) | every PR |
-| web build | every PR touching `web/` |
-| extension build | every PR touching `extension/` |
-| **demo smoke test** | **every PR** |
-| secret scanning (GitHub push protection) | always on |
-| integration / E2E | milestone merges and Phase F |
-| dependency review | milestone merges |
+These checks must be listed as **PENDING**, **PASS**, or **NOT APPLICABLE**. Safety checks are **NOT APPLICABLE** only when live capture is disabled; they cannot be waived for a live demonstration.
 
 ---
 
-## 15. Security and Privacy
+## 15. Chrome Extension Capture Baseline
 
-### Demo-blocking — must be correct before any real audio is captured
+The initial implementation targets Chrome 116 or later. The manifest must declare an appropriate **minimum_chrome_version**; the required **tabCapture**, **offscreen**, and **sidePanel** permissions; exact narrow **host_permissions** for the selected backend; and only the required **connect-src** HTTPS/WSS endpoints. Never request access to all URLs for convenience. All executable extension and SDK code must be bundled; remotely hosted executable code is prohibited.
 
-**The ElevenLabs master key must never exist in the extension.** Required flow:
+The intended capture flow is:
 
-1. Extension requests transcription authorisation from the backend.
-2. Backend verifies the caller.
-3. Backend issues a short-lived, single-use credential.
-4. Extension opens the transcription socket with that credential only.
+1. The user starts capture through a qualifying extension invocation, such as its toolbar action, for the selected lecture tab.
+2. The service worker creates or reuses one offscreen document with the **USER_MEDIA** reason.
+3. The service worker obtains a tab media stream ID and passes it immediately to the offscreen document.
+4. The offscreen document immediately consumes the single-use stream ID, owns audio processing and socket state, and remains independent of side-panel visibility.
+5. Captured audio is routed back to the output so the lecture remains audible.
+6. Audio is downmixed and resampled to one selected, provider-supported mono PCM format and sent in tested chunk sizes with timestamp events enabled.
 
-Also required:
-- Explicit user action before capture begins.
-- Persistent visible recording indicator.
-- Always-available Stop control.
-- Minimum viable Chrome permissions; capture the selected tab only.
-- No persistent raw audio. Store transcripts, not recordings.
-- Secrets never committed; secret scanning enabled.
-- Sensitive data redacted from logs.
-- **Transcript content is untrusted input.** Lecture audio can carry prompt-injection text — spoken, or on a shared screen. Never let transcript content act as instructions to the model. Keep it in a clearly delimited data channel, and never let it change the system prompt, tool use, or citation behaviour.
-- **Never imply the AI heard something absent from the transcript.** When an answer is not grounded, say so explicitly and offer general knowledge as a clearly separate, labelled option.
+Tab capture covers the selected browser tab. It does not capture the user’s microphone or audio from unrelated desktop applications.
 
-### Production-only — explicitly deferred for the hackathon
+The implementation must handle:
 
-Multi-tenant scoping, full auth/RBAC, rate limiting, CORS hardening, retention automation, dependency review gates. Document these as known limitations in the submission rather than building them. The product brief lists advanced auth/permissions as an explicit non-goal; this workflow does not override that.
+- Duplicate Start requests.
+- Explicit Stop.
+- Side-panel closure.
+- Tab close or navigation.
+- Service-worker suspension.
+- Provider disconnect and reconnect.
+- Preservation and deduplication of committed transcript chunks.
+- Monotonic lecture timestamps across provider connections.
+- The one-offscreen-document constraint.
+- The recording indicator and a documented Stop/reopen path outside the side panel, such as an extension-action badge, so capture remains visible and controllable after the panel closes.
 
----
+Capture and provider transport should first be proven as independent technical spikes, then combined.
 
-## 16. Architecture Decisions Required Before Parallel Coding
+### Live Preflight
 
-Record each in `docs/DECISIONS.md` before dependent work starts.
+The live runbook may be used only after a human verifies:
 
-1. **Storage: Postgres/Supabase vs SQLite.** Default to whichever ships fastest for a single-user demo. Do not adopt Supabase *for auth* — auth is deferred per §15.
-2. **ElevenLabs browser authentication.** The ephemeral-credential flow in §15. Tier 1, and it blocks Phase B.
-3. **Transcript segment and timestamp schema.** Already drafted in `shared/types/index.ts`; ratify or amend once, then freeze.
-4. **Retrieval strategy — decide before anyone builds a RAG layer.** A 50-minute lecture is roughly 6,500–7,500 words, about 9–10k tokens. The whole transcript fits in context many times over. **Recommended: no embeddings, no vector store.** Pass the chunks with their IDs and have the model cite chunk IDs directly. Reserve retrieval for the case where a real transcript demonstrably overflows the budget. This materially simplifies the ask / lost / catch-up endpoints.
-5. **Structured-output strategy.** Which model generates notes, quizzes and flashcards; Zod schema per response; repair-or-retry policy; section-by-section generation for large objects.
-6. **Latency budget for live features.** "I'm Lost" must answer while the lecture keeps moving. Set a hard target (suggested: first token under 2s, complete under 6s). If it takes twelve seconds the feature is dead regardless of answer quality. This constrains model choice and whether you stream.
-7. **Where AI calls originate.** Extension → backend → LLM, or extension → LLM. Determines key handling and CORS.
-8. **Extension ↔ companion app handoff.** How the web app is opened and how it identifies the session.
-9. **Raw-audio retention.** Default: none.
-10. **Failure behaviour** when transcription or the AI provider is unavailable — including automatic fallback to Simulation Mode during the demo.
+- The intended tab is captured.
+- Lecture audio remains audible.
+- Recording state and Stop remain visible and usable with the side panel closed.
+- Credential issuance and an actual captured-stream-to-Scribe connection succeed.
+- Committed text includes usable timestamps.
+- Reconnect uses a fresh single-use credential without duplicate chunks.
+- Provider quota, rate-limit, and session-limit failures produce a visible recoverable state.
 
----
-
-## 17. Implementation Order
-
-### Phase A — Bootstrap (10%)
-Resolve §16 decisions · ratify contracts · **fix the ownership overlaps in Appendix A** · stand up real CI with the §14 gates · build the fixture · **build Simulation Mode** · **write the demo smoke test** · protect `main` · set up issue tracking.
-
-Phase A is the only phase with no abort rule. Everything downstream depends on it.
-
-### Phase B — Transcription Proof of Concept (20%)
-MV3 extension shell · side panel shell · tab audio capture with passthrough · ephemeral transcription credential · ElevenLabs Scribe realtime connection · timestamped transcript rendering.
-
-**Abort rule:** at the timebox, stop. Simulation Mode becomes the demo path and live transcription becomes a stretch goal. Because Simulation Mode already exists from Phase A, this is a recoverable outcome, not a project failure.
-
-### Phases C and D — run in parallel (35%)
-
-**C — Session & transcript backend:** session lifecycle API · transcript ingestion and retrieval · storage per §16.1 · delete-a-lecture.
-
-**D — Live learning assistance:** grounded ask with clickable citations · "I'm Lost" 4-part diagnosis · Catch Me Up · Explain This · bookmarks and confusion logging.
-
-D develops against fixtures and in-memory storage and does **not** wait on C. The product's entire differentiation lives in D; it must never be blocked behind infrastructure.
-
-### Phase E — Companion Web App (20%)
-Dashboard · lecture page · structured notes · flashcards · quiz · weak-area identification · Practice My Weak Areas.
-
-### Phase F — Integration and Hardening (15%)
-Feature freeze at entry. Full extension → backend → web testing · long-session and reconnection testing · partial-failure paths · accessibility pass · privacy and permissions review · demo rehearsal · submission packaging.
+The final live-versus-simulation go/no-go decision occurs no later than the end of Day 18.
 
 ---
 
-## 18. Failure and Recovery Policies
+## 16. Security and Privacy Baseline
 
-| Situation | Policy |
-|---|---|
-| Task exceeds its timebox | Model stops and reports. Coordinator re-scopes, reassigns, or cuts. Never silent overrun. |
-| Model abandons a task / runs out of context | Coordinator reclaims it after one timebox with no update, releases its file ownership, and deletes or reassigns the branch. No orphan branches survive a phase boundary. |
-| Merge breaks `main` or the smoke test | Immediate revert by coordinator, no review needed. Linked repair task opened. |
-| Defect found after merge | Normal repair task — unless it breaks the demo flow, which preempts all in-flight work. |
-| Reviewer disputes the approach, not the code | Escalate to Product Owner. |
-| Phase overruns its share of budget | Apply that phase's abort rule from §0. The abort rule is a decision already made — it is not reopened under time pressure. |
+### Secrets, Provider Credentials, and Callable Endpoints
+
+Permanent ElevenLabs and generation-model API keys must never exist in the extension or browser bundle.
+
+Required flow:
+
+1. The extension requests transcription authorization from the backend.
+2. The backend validates the caller or restricts access to a deliberately private demo environment.
+3. The backend applies token-issuance rate, origin, quota, and spending controls.
+4. The backend creates a short-lived, single-use transcription credential.
+5. The extension uses that credential for one provider connection.
+
+The extension or transcription provider enforces the active connection duration unless audio is deliberately proxied through the backend. Every reconnect requires a fresh single-use credential and explicit handling for provider session-limit, quota, and rate-limit failures.
+
+Minimum protection for the credential endpoint is required during the hackathon:
+
+- Minimal caller authentication or a private local-only backend.
+- Narrow allowed origins.
+- Rate limiting and quota protection.
+- A maximum session duration enforced by the component that owns the live connection.
+- Server-only restricted provider key.
+- No secrets in source, fixtures, screenshots, handoffs, or logs.
+
+Every callable generation or transcription backend endpoint also requires caller authentication or private-demo restriction, request-size limits, rate/quota/spending controls, and redacted logging.
+
+### Recording and Data Handling
+
+Before capture:
+
+- Explain what is captured.
+- Explain which third-party services receive it.
+- Explain what the application stores.
+- Explain known provider-retention limitations.
+- Obtain affirmative informed consent to the preceding disclosure before capture.
+
+During capture:
+
+- Show a persistent recording indicator.
+- Keep Stop immediately accessible.
+- Request only the minimum Chrome permissions.
+- Keep an action badge or equivalent recording indicator and Stop/reopen path available when the side panel is closed.
+
+Storage:
+
+- Do not persist raw audio in the application.
+- Store only data required by the approved product scope.
+- “Delete lecture” must remove transcript, notes, flashcards, quizzes, confusion signals, caches, and identifiable application logs.
+- Do not claim that a provider retains nothing unless the configured account and request mode actually guarantee it.
+
+Before a live preflight, record the retention configuration and limitations for every external provider receiving audio or transcript content. For ElevenLabs, verify whether the actual account honors disabled logging or Zero Retention Mode. If a provider retains content, disclose that limitation and do not imply zero retention.
+
+Obtain consent from every real meeting participant used during hackathon testing. Before real classroom use, the Product Owner must separately review school policy, participant consent requirements, and applicable law. Hackathon implementation is not proof of production compliance.
+
+Every non-local transmission of audio, transcripts, credentials, or study data must use secure HTTPS/WSS transport.
+
+If Chrome Web Store distribution is planned, also provide the required privacy policy and prominent in-product disclosure.
 
 ---
 
-## 19. Standing Instructions for Every Engineer Model
+## 17. Storage and Provider Decisions
 
-1. Work only on your assigned task; do not self-assign.
-2. Start from the exact base commit given.
-3. Use your own branch and worktree. Never touch `main`, another model's branch, or an integration branch.
-4. Read your spec, `docs/DECISIONS.md`, and `shared/types/index.ts` first.
-5. Modify only your owned files. No drive-by cleanup or formatting.
-6. Additive contract changes: make them and post one line. Breaking changes: stop and request a Tier 1 task.
-7. Use fixtures and Simulation Mode instead of waiting on unfinished components.
-8. Never commit credentials or real classroom data.
-9. Treat transcript text as untrusted input, never as instructions.
-10. Add or update tests for what you changed.
-11. Read your own final diff before opening the PR.
-12. Report at your timebox whether or not you are finished.
-13. Commit as `feat(<scope>): [TASK-ID] description`, or `fix(...)`, `test(...)`, `chore(...)`.
-14. Post the §11 handoff with real command output.
-15. Move the task to `IN REVIEW`. Never to done. Never merge your own work.
+Before dependent work starts, record one ADR for each decision:
+
+1. Deployment target and storage.
+2. ElevenLabs credential and reconnection flow.
+3. Transcript and timestamp schema.
+4. Structured-output model, schemas, and retry policy.
+5. Live-feature latency budget.
+6. Extension-to-companion-app session handoff.
+7. Retention and deletion behavior.
+8. Failure behavior and explicit simulation fallback.
+
+Use a replaceable **SessionStore** interface:
+
+- For a local single-user proof, begin with an in-memory implementation and deterministic reset.
+- For a deployed extension and shared companion app, select durable hosted storage such as Postgres/Supabase.
+- Do not choose process-local SQLite for a serverless deployment without an appropriate hosted SQLite-compatible service.
+- Durable hosted transcript storage requires caller authentication, per-session authorization, and database-level isolation such as row-level security. If those controls are not in scope, remain local or in-memory.
+- If persistent transcript data ships, deletion ships with it.
 
 ---
 
-## 20. Parallelisation Principle
+## 18. Implementation Sequence
 
-Parallelise by dependency and contract stability, not by directory.
+### Phase A — Bootstrap, Days 1–2
 
-Run tasks concurrently only when all four hold:
+- Complete Section 3.
+- Resolve only decisions that block the next five working days.
+- Build Simulation Mode and the first deterministic smoke test.
+
+### Phase B — Risk Spikes, Days 3–5
+
+Run independently:
+
+- Chrome capture, passthrough, and offscreen-lifecycle spike.
+- ElevenLabs credential, socket, timestamp, and reconnect spike.
+
+Book a human unpacked-extension test during this phase.
+
+If either spike exceeds its timebox, preserve the evidence, keep Simulation Mode as the guaranteed path, move the failing live feature below the cut line, and continue the core product.
+
+At the end of Day 5, each spike is either **PASS** with evidence or **CUT** with a checkpoint handoff. No ambiguous partial live dependency may block Phase C.
+
+Before Phase C branches start, freeze the minimum contracts for the “I’m Lost” response, citations, confusion events, session handoff, weak-area drill, and SessionStore.
+
+### Phase C — Must-Ship Vertical Slice, Days 6–10
+
+Build:
+
+    simulated session
+    → transcript
+    → “I’m Lost”
+    → verified citation
+    → confusion event
+    → session end
+    → companion handoff
+    → weak-area drill using the same event
+
+The extension, backend, and minimum companion web screens develop together against frozen contracts and fixtures.
+
+The full simulated callback and first integrated demonstration are Phase C exit conditions.
+
+### Phase D — Integration and Essential Breadth, Days 11–13
+
+- Integrate live capture if its spike passed.
+- Fix findings from the Day 10 integrated demonstration.
+- Add durable storage only if the simulated must-ship path is green and the required access controls are approved; otherwise retain the in-memory SessionStore.
+- Add deletion whenever durable persistence ships, while keeping deterministic reset for in-memory mode.
+- Strengthen reconnection and failure handling.
+
+### Phase E — Should-Ship Features, Days 14–15
+
+Add only prioritized features that do not destabilize the vertical slice:
+
+- Grounded Ask.
+- Catch Me Up or Explain This.
+- Bookmarks.
+- Structured notes.
+
+### Phase F — Freeze and Hardening, Days 16–19
+
+- Freeze features.
+- Perform clean-profile installation and setup.
+- Run long-session and reconnection tests.
+- Complete accessibility and privacy reviews.
+- Exercise provider and network failures.
+- Prepare both demo runbooks and backup recording.
+- Tag the release candidate and record the deployed commit.
+- Rehearse and package the submission.
+
+Phase F hardens an already integrated product. It is not the first time components meet.
+
+Day 20 is reserved for recovery, final packaging, and submission. No planned feature or hardening work is assigned to it.
+
+---
+
+## 19. Timeboxes and Work-in-Progress Limits
+
+- Limit active implementation lanes to three or four.
+- At 50% of a task timebox, the engineer reports trajectory and blockers.
+- At 80%, the Coordinator explicitly cuts, extends, or replaces the approach.
+- At expiration, the engineer creates a checkpoint commit and partial handoff, then stops.
+- The Coordinator re-scopes, reassigns, or cuts the task.
+- Silent overruns are prohibited.
+
+Human availability windows should be reserved in advance for:
+
+- Product decisions.
+- Browser and audio verification.
+- Midpoint demonstration.
+- Feature-freeze acceptance.
+- Final submission.
+
+---
+
+## 20. Handoff Format
+
+Every implementation handoff contains:
+
+    Task:
+    Branch:
+    Exact base commit:
+    Exact final commit:
+    Files changed:
+    Outcome:
+    Acceptance criteria met:
+    Commands run and concise actual results:
+    Manual checks:
+    Checks not run:
+    Contract, dependency, or migration effects:
+    Known limitations:
+    Security and privacy considerations:
+    Integration risks:
+    Rollback or disable path:
+
+Evidence must be concise and redacted. Full logs are attached only when they add diagnostic value.
+
+---
+
+## 21. Review Format
+
+Reviewers report:
+
+    Verdict: APPROVED | CHANGES REQUESTED
+    Blocking findings:
+    Non-blocking findings:
+    Acceptance criteria verified:
+    Tests reproduced:
+    Tests not reproduced and why:
+    Residual risks:
+
+Severity:
+
+- **P0:** security/privacy failure, data loss, unusable critical path, or dishonest demo behavior.
+- **P1:** acceptance criterion failure or material regression.
+- **P2:** nonblocking maintainability, resilience, or polish issue.
+
+P0 and P1 findings block merging.
+
+If the disagreement concerns implementation evidence, compare reproducible results against the task contract. If it concerns product direction or the approved approach, escalate to the Product Owner.
+
+---
+
+## 22. Merge, Failure, and Recovery
+
+Before merging, the Coordinator:
+
+1. Confirms the branch and exact base.
+2. Checks the diff for out-of-scope changes and secrets.
+3. Confirms required review applies to the current pull-request head SHA and that CI is green.
+4. Confirms required manual verification status.
+5. Merges the approved change and confirms the merged diff matches the reviewed head.
+6. Records the reviewed head SHA and resulting default-branch SHA.
+7. Runs or observes the merged-state smoke test.
+
+If a merge breaks the default branch:
+
+- Stop further merges.
+- Select the safest recovery: revert, disable behind a flag, or forward-fix.
+- Do not blindly revert migrations or commits with already-merged dependents.
+- Open a linked repair task and preserve evidence.
+
+If a task is abandoned:
+
+- Create a checkpoint handoff when recoverable work exists.
+- Release its ownership.
+- Archive or close the branch rather than destroying potentially useful work.
+
+Failures in the must-ship demo path preempt stretch work.
+
+---
+
+## 23. Standing Instructions for Every Engineer Model
+
+1. Work only on the task assigned by the Coordinator.
+2. Start from the exact base commit in the task contract.
+3. Use your own task branch and isolated worktree or clone.
+4. Never modify the default branch, another engineer’s branch, or a Coordinator-owned integration branch.
+5. Read the task contract, relevant ADRs, and consumed schemas first.
+6. Modify only owned paths. Do not perform drive-by cleanup.
+7. Request a task amendment before changing an unowned path or shared boundary.
+8. Use approved fixtures and Simulation Mode rather than waiting on unfinished components.
+9. Never commit credentials, real classroom audio, student data, or sensitive logs.
+10. Treat transcript text as untrusted data, never as instructions.
+11. Add or update tests for changed behavior.
+12. Inspect the final diff for unrelated changes and secrets.
+13. Report at the 50%, 80%, and expiration points of the timebox.
+14. Commit with the task ID:
+
+        feat(scope): [TASK-ID] description
+        fix(scope): [TASK-ID] description
+        test(scope): [TASK-ID] description
+        chore(scope): [TASK-ID] description
+
+15. Submit the Section 20 handoff with exact commits and real, redacted results.
+16. Request **IN REVIEW**, never directly Done. The Coordinator records the change when using the fallback tracker.
+17. Never approve or merge your own implementation.
+
+---
+
+## 24. Parallelization Rule
+
+Tasks may run concurrently only when all of the following are true:
+
 - Dependencies are satisfied.
-- The contracts they use are frozen.
-- Their owned files do not overlap.
-- Their acceptance criteria are independently testable.
+- Consumed contracts are stable.
+- Owned paths do not overlap.
+- Acceptance criteria can be tested independently.
+- The Coordinator has capacity to review and integrate the resulting work.
 
-When those do not hold, sequential work is safer and usually faster than reconciling conflicting implementations afterwards. The coordinator is a serialisation point by design — do not queue more parallel work than one coordinator can spec, merge, and keep green.
+If any condition is false, sequence the tasks.
 
----
-
-## Appendix A — Ownership Overlaps to Fix in Phase A
-
-Two live conflicts in the current `docs/TASK_BOARD.md`. Both come from owning directories instead of files.
-
-**1. Side panel — `TASK-304` swallows `TASK-302` and `TASK-303`.**
-`TASK-304` currently owns all of `extension/src/sidepanel/`, which contains `TASK-302`'s `AssistantTab.tsx` and `TASK-303`'s `TranscriptTab.tsx`.
-
-*Fix:* narrow `TASK-304` to named files it alone owns — for example `extension/src/sidepanel/lib/citations.ts` and `extension/src/sidepanel/hooks/useTranscriptJump.ts` — and sequence it after 302 and 303, since it integrates both.
-
-**2. AI library — `TASK-103` and `TASK-104` both own `web/src/lib/ai/`.**
-Both declare the same shared directory.
-
-*Fix:* split by file. `TASK-103` owns `web/src/lib/ai/ground.ts` and `web/src/lib/ai/ask.ts`; `TASK-104` owns `web/src/lib/ai/lost.ts`. Any shared helper (`client.ts`, prompt scaffolding, Zod schemas) becomes its own Tier 1 task that lands **before** both.
-
-Audit `TASK-105`, `TASK-106` and `TASK-107` the same way before assigning them.
+The Coordinator is intentionally a serialization point. Starting more parallel work than can be reviewed and integrated produces activity, not progress.
