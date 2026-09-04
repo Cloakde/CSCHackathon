@@ -1,7 +1,7 @@
 # TASK-201 — Complete the Local Learning Demo
 
 **Tier:** 1
-**State:** IN PROGRESS
+**State:** MERGED when the independently approved integration transaction reaches main; IN REVIEW until then
 **Coordinator:** Codex Coordinator
 **Exact base:** `426bfda6f14172b3d5b3c9bd1c3cf2104ed6861f`
 **Integration branch:** `coord/TASK-201-learning-demo`
@@ -43,3 +43,7 @@ The Coordinator's integration branch contains only reviewed/cherry-picked agent 
 - An automated test exercises the complete deterministic callback; it runs under `npm run check`.
 - Run the full repository check, inspect the exact diff, obtain independent Tier-1 review, and use a temporary independent integrator for Coordinator-authored changes.
 - Actual AI quality, unpacked-Chrome/manual UI verification, an uncoached learner demonstration, and final judge-route acceptance remain separately PENDING. Do not label the whole milestone ready from automated checks alone.
+
+## Implementation Handoff
+
+The candidate implementation is `e78852dd61be569a1120bd9a71d70b9e7986f0df`. The source-lane reviews, integration condition, and separate M2 readiness areas are recorded in `docs/TASK_BOARD.md`. `npm run check` includes both the real component/API callback and the production HTTP walkthrough; `npm run dev:demo` starts the private demo without opening a browser. Temporary integrator `m2_integrator` must use the exact final approved commit and a successful full check. No shared schema, provider choice, audio capability, permanent key, or durable lecture storage was introduced.

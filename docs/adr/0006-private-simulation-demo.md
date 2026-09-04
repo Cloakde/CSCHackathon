@@ -1,6 +1,6 @@
 # ADR 0006 — Private Local Simulation Demo
 
-**Status:** Implementation decision for TASK-201; subject to independent review before integration
+**Status:** Accepted for the TASK-201 integration transaction after independent exact-commit approval
 
 The authorized first learning flow runs against a local server bound to `127.0.0.1:3000`, with explicit demo enablement. It accepts only the canonical synthetic lecture content. Session state and generated practice live in the existing in-memory SessionStore boundary or bounded ephemeral service records; restart/deletion removes application data. No audio or provider credentials are used.
 
