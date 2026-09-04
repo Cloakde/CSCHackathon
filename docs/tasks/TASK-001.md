@@ -2,7 +2,7 @@
 
 **Tier:** 1
 
-**State:** IN REVIEW
+**State:** MERGED
 
 **Assigned engineer:** Codex Lead
 
@@ -42,7 +42,7 @@ Independent Tier 1 review is required because this changes repository-wide check
 
 ## Verification Handoff
 
-TASK-001 is frozen for **IN REVIEW**.
+TASK-001 is **MERGED**.
 
 Fresh Windows worktree verification against the code-identical pre-handoff commit `569b242b4d058d4ce9cffd2649d50116c5c37276` passed:
 
@@ -52,4 +52,8 @@ Fresh Windows worktree verification against the code-identical pre-handoff commi
 - `npm run check` passed formatting, zero-warning lint, local secret scan, all workspace typechecks, 56 tests, all production builds, and packaged-extension verification.
 - `git status --porcelain` remained empty before and after verification.
 
-The exact submitted commit differs only by this verification record and task-state update. It still requires an exact-commit fresh-worktree rerun and independent Tier 1 approval before integration.
+Exact submitted commit `d98343dd6f7b11bd0f0d5eebb6affc8ebae0882b` was then checked out into another new Windows worktree with `core.autocrlf=true`. All 67 tracked files contained no unexpected CRLF, the worktree remained clean, and the clean install plus complete 56-test/build gate passed again.
+
+- Three independent exact-commit reviews approved `d98343dd6f7b11bd0f0d5eebb6affc8ebae0882b` with no P1/P2 findings.
+- A temporary independent integrator fast-forwarded the exact reviewed commit onto `main` without modifying the diff.
+- [GitHub Actions run 33869364979](https://github.com/Cloakde/CSCHackathon/actions/runs/33869364979) passed both repository verification and full-history Gitleaks scanning on the integrated commit.

@@ -8,13 +8,13 @@ Only the Coordinator edits this file. Engineers request state changes in their h
 
 Until GitHub branch protection and required checks are confirmed, contributors may push only their assigned task branches. Only the Coordinator may update `main`, except that a Coordinator-authored change must be integrated by a temporary independent integrator after exact-commit approval and a green full repository check. Force-pushes to `main` are prohibited. This fallback policy remains active until the Coordinator records verified branch protection here.
 
-| Task                                         | Tier | State     | Owner      | Dependency                      | Owned scope                               |
-| -------------------------------------------- | ---: | --------- | ---------- | ------------------------------- | ----------------------------------------- |
-| TASK-000 Canonical bootstrap                 |    1 | MERGED    | Codex Lead | none                            | baseline `e4641e29`; CI run `33868115745` |
-| TASK-001 Windows line-ending reproducibility |    1 | IN REVIEW | Codex Lead | TASK-000                        | `.gitattributes` and coordination docs    |
-| TASK-101 Chrome capture spike                |    1 | TODO      | unassigned | TASK-001                        | Assigned in its future task contract      |
-| TASK-102 Scribe transport spike              |    1 | TODO      | unassigned | TASK-001                        | Assigned in its future task contract      |
-| TASK-201 Must-ship vertical slice            |    1 | TODO      | unassigned | TASK-101 and TASK-102 decisions | Split into non-overlapping task contracts |
+| Task                                         | Tier | State  | Owner      | Dependency                      | Owned scope                               |
+| -------------------------------------------- | ---: | ------ | ---------- | ------------------------------- | ----------------------------------------- |
+| TASK-000 Canonical bootstrap                 |    1 | MERGED | Codex Lead | none                            | baseline `e4641e29`; CI run `33868115745` |
+| TASK-001 Windows line-ending reproducibility |    1 | MERGED | Codex Lead | TASK-000                        | fix `d98343dd`; CI run `33869364979`      |
+| TASK-101 Chrome capture spike                |    1 | TODO   | unassigned | TASK-001                        | Assigned in its future task contract      |
+| TASK-102 Scribe transport spike              |    1 | TODO   | unassigned | TASK-001                        | Assigned in its future task contract      |
+| TASK-201 Must-ship vertical slice            |    1 | TODO   | unassigned | TASK-101 and TASK-102 decisions | Split into non-overlapping task contracts |
 
 TASK-000 integration record:
 
@@ -23,11 +23,12 @@ TASK-000 integration record:
 - A temporary independent integrator fast-forwarded the identical reviewed commit to `main`.
 - [GitHub Actions run 33868115745](https://github.com/Cloakde/CSCHackathon/actions/runs/33868115745) passed repository verification and full-history secret scanning on the integrated commit.
 
-Current TASK-001 status:
+TASK-001 integration record:
 
 - A fresh Windows checkout reproduced a false Prettier failure because Git converted LF blobs to CRLF while the formatter requires LF.
-- The `.gitattributes` fix passed a clean-install full check in a newly created Windows worktree.
-- Exact-commit independent review remains required; TASK-001 blocks new feature branches until integration.
+- The exact `.gitattributes` fix passed a clean-install full check in a newly created Windows worktree, including all 56 tests and builds.
+- Three independent reviewers approved exact commit `d98343dd6f7b11bd0f0d5eebb6affc8ebae0882b`, and an independent integrator fast-forwarded it to `main`.
+- [GitHub Actions run 33869364979](https://github.com/Cloakde/CSCHackathon/actions/runs/33869364979) passed both required jobs on the integrated commit.
 
 Allowed states:
 
