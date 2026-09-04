@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "LiveLecture AI",
+  "description": "A learning companion grounded in the lecture currently being taught.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "116",
+  "permissions": ["sidePanel"],
+  "action": {
+    "default_title": "Open LiveLecture AI"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
+}

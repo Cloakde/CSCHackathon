@@ -1,0 +1,47 @@
+{
+  "name": "livelecture-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A live learning assistant grounded in the lecture currently being taught.",
+  "packageManager": "npm@11.9.0",
+  "engines": {
+    "node": ">=24.0.0 <25.0.0"
+  },
+  "workspaces": [
+    "shared",
+    "web",
+    "extension"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=@livelecture/shared && npm run build --workspace=@livelecture/web && npm run build --workspace=@livelecture/extension && npm run verify:extension-package",
+    "dev:web": "npm run dev --workspace=@livelecture/web",
+    "dev:extension": "npm run dev --workspace=@livelecture/extension",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
+    "secret:scan": "node scripts/secret-scan.mjs",
+    "verify:extension-package": "node scripts/verify-extension-package.mjs",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "check": "npm run format:check && npm run lint && npm run secret:scan && npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.1",
+    "@types/chrome": "0.2.8",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "eslint": "10.9.1",
+    "globals": "17.12.0",
+    "jsdom": "29.0.0",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.69.0",
+    "vite": "8.2.2",
+    "vitest": "5.0.0"
+  }
+}
