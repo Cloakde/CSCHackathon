@@ -16,7 +16,7 @@ Until GitHub branch protection and required checks are confirmed, contributors m
 | TASK-101 Chrome capture spike                |    1 | BLOCKED   | unassigned        | TASK-001 + schedule activation                                                           | `docs/tasks/TASK-101.md`                                                                                                                                      |
 | TASK-102 Scribe transport spike              |    1 | BLOCKED   | unassigned        | TASK-001 + schedule; spend for PASS                                                      | `docs/tasks/TASK-102.md`                                                                                                                                      |
 | TASK-103 Actual AI help evaluation           |    1 | BLOCKED   | unassigned        | Schedule + approved core contracts + assignment; separate capped spend for real evidence | Contract must be written before implementation; no paths reserved                                                                                             |
-| TASK-104 Judge requirements and access route |    3 | TODO      | Coordinator       | Official competition requirements and Product Owner confirmation                         | Read-only requirements check; Coordinator records findings here; no hosting/storage implementation authorized                                                 |
+| TASK-104 Judge requirements and access route |    3 | BLOCKED   | Coordinator       | Source check complete; deadline conflict and chosen submission route remain unresolved   | Read-only findings below; no hosting/storage implementation authorized                                                                                        |
 | TASK-201 Must-ship learning experience       |    1 | BLOCKED   | unassigned        | Schedule + approved core contracts + assignment; no TASK-101/102 dependency              | Split into non-overlapping task contracts before implementation                                                                                               |
 
 TASK-000 integration record:
@@ -48,35 +48,43 @@ New task contracts must record an exact current reviewed base and exclusive path
 
 M0 is complete, but non-bootstrap feature work remains blocked until the Product Owner and Coordinator record the calendar and human-test windows required by the accepted workflow. No contributor may infer these values from relative day numbers.
 
-| Required value                           | Current authoritative value                                                                  |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Actual project Day 1 and timezone        | **UNSET — Product Owner required**                                                           |
-| Submission deadline and timezone         | **UNSET — Product Owner required**                                                           |
-| End-of-Day-5 live CONTINUE/CUT decision  | **UNSET — derive after Day 1 is fixed**                                                      |
-| Day-10 integrated demonstration          | **UNSET — derive and book after Day 1 is fixed**                                             |
-| End-of-Day-15 feature freeze             | **UNSET — derive after Day 1 is fixed**                                                      |
-| End-of-Day-18 release candidate          | **UNSET — derive after Day 1 is fixed**                                                      |
-| Day-18 clean-environment rehearsal       | **UNSET — human window required**                                                            |
-| Day-19 final rehearsal and packaging     | **UNSET — human window required**                                                            |
-| Live capture/audio verification windows  | **UNSET — required for scheduled live work; NOT APPLICABLE only after an explicit Live CUT** |
-| Learner demonstration participant/window | **UNSET — participant who did not build the app required**                                   |
-| Available engineering lanes              | **UNSET — Coordinator assignment required**                                                  |
-| Live feature classification              | **CONDITIONAL** under the accepted workflow; not promoted to Must Ship                       |
-| Provider-spend authorization             | **$0 authorized for automated work; explicit capped smoke approval required**                |
+| Required value                           | Current authoritative value                                                                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Actual project Day 1 and timezone        | **UNSET — Product Owner required**                                                                                                                     |
+| Submission deadline and timezone         | **CONFLICT — October 5, 2026: schedule says 12:00am PDT; rules text says 12:00pm Pacific. Final confirmation pending; do not rely on the later time.** |
+| End-of-Day-5 live CONTINUE/CUT decision  | **UNSET — derive after Day 1 is fixed**                                                                                                                |
+| Day-10 integrated demonstration          | **UNSET — derive and book after Day 1 is fixed**                                                                                                       |
+| End-of-Day-15 feature freeze             | **UNSET — derive after Day 1 is fixed**                                                                                                                |
+| End-of-Day-18 release candidate          | **UNSET — derive after Day 1 is fixed**                                                                                                                |
+| Day-18 clean-environment rehearsal       | **UNSET — human window required**                                                                                                                      |
+| Day-19 final rehearsal and packaging     | **UNSET — human window required**                                                                                                                      |
+| Live capture/audio verification windows  | **UNSET — required for scheduled live work; NOT APPLICABLE only after an explicit Live CUT**                                                           |
+| Learner demonstration participant/window | **UNSET — participant who did not build the app required**                                                                                             |
+| Available engineering lanes              | **UNSET — Coordinator assignment required**                                                                                                            |
+| Live feature classification              | **CONDITIONAL** under the accepted workflow; not promoted to Must Ship                                                                                 |
+| Provider-spend authorization             | **$0 authorized for automated work; explicit capped smoke approval required**                                                                          |
 
 ## Evidence and Submission Decisions
 
-| Required value                                                        | Current authoritative value                                       |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Competition rules/source, checked date, judging criteria              | **UNSET — TASK-104**                                              |
-| Submission artifacts, demo length, allowed disclosures                | **UNSET — TASK-104**                                              |
-| Judge access route and related network/access constraints             | **UNSET — TASK-104; resolve before dependent setup choices**      |
-| Actual AI evaluation owner/reviewer and frozen cases                  | **UNSET — TASK-103; Coordinator assignment required**             |
-| Actual AI response-time targets and capped provider-run authorization | **UNSET — no provider run authorized**                            |
-| Actual AI quality evidence                                            | **PENDING — no actual AI success established by bootstrap tests** |
-| Learner demonstration and two-concept practice evidence               | **PENDING — M2**                                                  |
-| Judge access rehearsal                                                | **PENDING — first complete demonstration**                        |
-| Scripted-assistance submission scope acceptance                       | **NOT APPROVED — would require explicit Product Owner decision**  |
+| Required value                                                        | Current authoritative value                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Competition rules/source, checked date, judging criteria              | **CHECKED 2026-09-04 — official Devpost overview, rules, and schedule; findings below**                                                     |
+| Submission artifacts, demo length, allowed disclosures                | **CHECKED — multiple evidence formats allowed; 1–2 minute video optional; AI-use disclosure required**                                      |
+| Judge access route and related network/access constraints             | **SELECTION PENDING — website, demo, repository, screenshots, or video accepted; hosted app/extension installation not stated as required** |
+| Actual AI evaluation owner/reviewer and frozen cases                  | **UNSET — TASK-103; Coordinator assignment required**                                                                                       |
+| Actual AI response-time targets and capped provider-run authorization | **UNSET — no provider run authorized**                                                                                                      |
+| Actual AI quality evidence                                            | **PENDING — no actual AI success established by bootstrap tests**                                                                           |
+| Learner demonstration and two-concept practice evidence               | **PENDING — M2**                                                                                                                            |
+| Judge access rehearsal                                                | **PENDING — first complete demonstration**                                                                                                  |
+| Scripted-assistance submission scope acceptance                       | **NOT APPROVED — would require explicit Product Owner decision**                                                                            |
+
+### TASK-104 Source Check — 2026-09-04
+
+The Product Owner supplied the [CSC Back-to-School Devpost page](https://csc-back-to-school.devpost.com/). Its overview lists Learning, Design, Creativity, Functionality, and Impact as judging criteria. Submit a project title, problem and solution description, evidence showing the project, tools/resources used, AI-use disclosure, team names, and source/build/design files when available. A 1–2 minute video is optional; repository links, demos, screenshots, and websites are also accepted evidence. The posted requirements do not mandate a hosted app or judge-installed extension. The team still needs to select and rehearse its submission route; there is no reason to add hosting solely on an assumed requirement.
+
+The [rules](https://csc-back-to-school.devpost.com/rules) require disclosure of pre-existing work and major outside resources, including AI contributions; teams must be able to explain their work. Award consideration involves a separate opt-in and a public/viewable project link; this source check does not opt the team in or accept promotional terms.
+
+The [schedule](https://csc-back-to-school.devpost.com/details/dates) closes submissions at **October 5, 2026, 12:00am PDT**, also shown in the rules-page banner. The rules body instead states **12:00pm Pacific** that day. Record this as an unresolved official-source conflict, not a confirmed deadline or permission to use the later time. No rehearsal dates or working-day mapping have been inferred from it.
 
 Until schedule activation is complete:
 

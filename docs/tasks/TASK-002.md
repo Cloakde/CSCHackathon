@@ -27,7 +27,7 @@ The Product Owner approved four changes: build the complete simulated learning e
 - `docs/TASK_BOARD.md` — Coordinator remains its sole writer
 - `docs/tasks/TASK-002.md`
 
-All other paths are forbidden. Do not change application code, provider choices, existing spike contracts, security ADRs, calendar dates, or spending permissions.
+All other paths are forbidden. Do not change application code, provider choices, existing spike contracts, security ADRs, activated calendar dates, or spending permissions. Record factual submission requirements from the competition link subsequently supplied by the Product Owner, including any conflicting published cutoff times, without inventing a resolved deadline.
 
 ## Acceptance Criteria
 
