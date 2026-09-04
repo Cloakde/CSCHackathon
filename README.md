@@ -1,85 +1,80 @@
 # LiveLecture AI
 
-LiveLecture AI is an in-class learning assistant designed around one continuous loop:
-
-> lecture → confusion → grounded help → continued learning → targeted practice afterward
-
-The Chrome extension will eventually capture a user-selected browser tab, stream a realtime transcript, and help a student recover when they fall behind. The companion Next.js app will turn each recorded confusion event into focused post-class practice.
+LiveLecture AI connects a moment of confusion during a lecture to focused practice afterward.
 
 ## Current state
 
-This repository is at the **canonical bootstrap** milestone. It currently includes:
+The local learning demo connects a sample transcript, “I’m Lost” explanations, clickable lecture evidence, saved confusion moments, and matching post-class practice. It covers two distinct calculus concepts: identifying inner/outer functions and including the inner derivative.
 
-- A buildable Manifest V3 side-panel extension shell.
-- A buildable Next.js companion shell.
-- Zod-first transcript, session, assistance, citation, confusion, and study contracts.
-- A server-derived, revision-bound grounding snapshot and atomic assistance-response/confusion-event store boundary.
-- Server-owned citation hydration, a fixed safe insufficient-evidence response, and a fail-closed independent semantic evidence-verification boundary.
-- A deterministic eight-minute synthetic calculus lecture fixture.
-- A visibly labeled Simulation Mode with Start, Pause, speed, Stop, reset, partial text, and committed transcript chunks.
-- Real format, lint, local secret-scan, typecheck, test, and build commands, plus full-history Gitleaks scanning in CI.
+**The transcript is simulated and the help/practice are prewritten. No AI provider is called.** This proves the learning flow, not real AI quality or live transcription. Actual AI evaluation, an unpacked-Chrome check, an uncoached learner demonstration, and the final judge route remain pending.
 
-It does **not** currently record audio, call ElevenLabs, call a generation model, or persist classroom data. Those capabilities must pass later isolated tasks and cannot silently replace Simulation Mode.
+No audio is captured or stored. Synthetic sessions live only in bounded local server memory; they expire, can be deleted, and disappear when the server restarts. This demo is not a public service or an authenticated multi-user app.
 
-## Requirements
+## Install and check
 
-- Node.js 24; the same release line is used in CI.
-- npm 11.9.0 (declared in `packageManager`).
-- Chrome 116 or newer for the eventual offscreen tab-capture architecture.
-
-## Install and verify
+Use Node.js 24 and npm 11.9.0:
 
 ```bash
 npm ci
 npm run check
 ```
 
-The first local install uses `npm install` only when intentionally updating `package-lock.json`. CI and clean verification use `npm ci`.
+The check covers formatting, lint, secret scanning, types, automated tests, production builds, the packaged extension, and a real local HTTP walkthrough. Stop any existing server on port 3000 first; the check refuses to interfere with it. CI also scans Git history for secrets.
 
-## Run the companion app
+## Try the demo
 
 ```bash
-npm run dev:web
+npm run dev:demo
 ```
 
-Open `http://localhost:3000`. The page describes the current synthetic baseline without claiming that live providers are enabled.
+Open **http://127.0.0.1:3000/demo** yourself. The command does not open or control a browser. No keys or `.env` file are needed. Keep this server private; it binds only to your own computer.
 
-## Build and load the extension
+1. Start the sample lecture. At the default 12× speed, its eight minutes play in about forty seconds.
+2. After lecture time 02:30, pause and use **I’m Lost** to explore inner and outer functions. Click a timestamp to see its evidence.
+3. Continue until after 05:10, then ask for help again to explore the inner derivative.
+4. Finish the lecture and open the practice page. Choose each confusion moment, attempt its question, and reveal the answer and explanation.
+5. Delete the sample session when done. Stop the server with Ctrl+C.
+
+These steps are a builder rehearsal, not evidence that a new learner can use the app without coaching. The browser rehearsal reuses the extension's actual lecture component and the same HTTP API.
+
+For a production-build rehearsal, run `npm run build` followed by `npm run start:demo`. The fixed address is the same. Ordinary `dev:web`/`start` commands do not opt the learning API into demo mode.
+
+After building, `npm run verify:demo` runs a real HTTP check and stops its own temporary server. It requires port 3000 to be free, opens no browser, and never calls an AI provider. It checks the production pages and API across separate route modules.
+
+## Optional Chrome extension rehearsal
 
 ```bash
 npm run build --workspace=@livelecture/extension
 ```
 
-Then open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `extension/dist`. Click the extension action to open its side panel.
+When you choose to use Chrome, open `chrome://extensions`, enable Developer mode, load `extension/dist`, and copy the extension's ID. Start the local server with that exact ID:
 
-The side panel currently replays synthetic fixture data. Its persistent **SIMULATION** banner must remain visible whenever this source is active.
+```bash
+npm run dev:demo -- --extension-id=YOUR_32_LETTER_EXTENSION_ID
+```
+
+Click the extension action to open its side panel. The server permits only that configured extension origin and the local companion origin. The extension requests side-panel access and narrow loopback server access; no tab audio or microphone permission is requested.
+
+The unpacked extension still needs a manual Chrome check. Automated component and package checks do not establish browser permission behavior or visual quality.
+
+## Environment and data boundaries
+
+The demo launcher explicitly enables `LIVELECTURE_DEMO_ENABLED=true` and optionally sets `LIVELECTURE_EXTENSION_ID`. The origin is fixed to `http://127.0.0.1:3000`. Every learning API request requires a nonsecret preflight header plus strict host/origin validation. This is a private demo boundary, not authentication or authorization for public hosting.
+
+Permanent provider credentials must stay on the server, never use a `NEXT_PUBLIC_` prefix, and never enter extension bundles, URLs, or Git. Do not use real classroom recordings or student data in automated tests. No provider keys are required by this demo.
+
+The server accepts only exact canonical synthetic transcript chunks. Assistance uses the existing revision-bound store transaction, server-owned citations, and a separate verifier that rejects altered scripted claims or evidence. Insufficient evidence produces a safe explanation of the limitation. Practice must match the selected stored confusion event and its supported concept.
 
 ## Repository map
 
 ```text
-extension/  Chrome MV3 side-panel shell and Simulation transcript UI
-shared/     Runtime schemas, deterministic fixture, source adapter, and store boundary
-web/        Next.js companion shell and server-side API home
-docs/       Workflow, milestone plan, task contracts, and architecture decisions
+extension/  Chrome side panel and reusable lecture/help screen
+shared/     Runtime contracts, canonical fixture, grounding, and session store
+web/        Local learning API, browser rehearsal, and companion practice page
+scripts/    Demo launcher and repository verification
+docs/       Milestones, workflow, task ownership, decisions, and evidence
 ```
-
-## Environment and secrets
-
-Copy `.env.example` only when a later approved provider task requires it. Permanent provider credentials are server-only and must never use a `NEXT_PUBLIC_` prefix, enter extension bundles, appear in URLs, or be committed.
-
-Never use real classroom recordings or student data in automated tests. The canonical fixture is synthetic.
-
-Grounded-assistance callers must use the public verified build-and-record transaction with a server-derived grounding snapshot. They may not accept client-authored anchors, model-authored citation timing, or model-authored insufficient-evidence prose. A proposed grounded answer is released only after an independent verifier supports every material claim; unsupported, invalid, or failed verification returns the fixed safe fallback and is atomically logged against the same validated transcript snapshot. Exact retries reuse the committed result without a second verifier call.
 
 ## Collaboration
 
-Before changing the repository, read:
-
-1. `docs/MULTI_AGENT_WORKFLOW.md`
-2. `docs/MILESTONE_PLAN.md`
-3. The assigned file in `docs/tasks/`
-4. Relevant records in `docs/adr/`
-
-Until repository branch protection is confirmed, the temporary default-branch write policy recorded in `docs/TASK_BOARD.md` applies.
-
-Experimental model-named branches are reference material only. New task branches start from the latest reviewed `main` baseline.
+Read `AGENTS.md`, `docs/MULTI_AGENT_WORKFLOW.md`, `docs/MILESTONE_PLAN.md`, the assigned task contract, and relevant `docs/adr/` decisions before changes. `docs/TASK_BOARD.md` records ownership and readiness. Use isolated task branches and preserve existing work. Historical model-named branches are reference material only.

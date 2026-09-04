@@ -1,0 +1,142 @@
+.review {
+  width: min(900px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 24px 0 60px;
+  line-height: 1.6;
+}
+.review nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+}
+.review header {
+  padding: 44px 0 24px;
+}
+.review h1 {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+.review h2 {
+  font-size: 1.5rem;
+  line-height: 1.3;
+}
+.review section {
+  border-top: 1px solid #344650;
+  padding: 28px 0;
+}
+.label {
+  color: #9cf0d2;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.muted {
+  color: #b4c4cd;
+  font-size: 0.9rem;
+}
+.review button,
+.review textarea {
+  font: inherit;
+  border: 1px solid #68808d;
+  border-radius: 8px;
+  background: #122630;
+  color: #eef3f7;
+  padding: 10px 16px;
+}
+.review button {
+  cursor: pointer;
+  margin: 8px 8px 8px 0;
+  min-height: 44px;
+}
+.review button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.review .primary {
+  background: #9cf0d2;
+  color: #071118;
+  font-weight: 700;
+  border-color: transparent;
+}
+.review :focus-visible {
+  outline: 3px solid #9cf0d2;
+  outline-offset: 4px;
+}
+.review fieldset {
+  border: 0;
+  padding: 0;
+  margin: 24px 0;
+}
+.review legend {
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.moment {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid #344650;
+  cursor: pointer;
+}
+.moment small {
+  display: block;
+  color: #b4c4cd;
+}
+.moment input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: #9cf0d2;
+}
+.answerLabel {
+  display: block;
+  font-weight: 700;
+  margin: 20px 0 8px;
+}
+.review textarea {
+  width: 100%;
+  resize: vertical;
+}
+.answer {
+  border-left: 3px solid #9cf0d2;
+  padding: 4px 20px;
+  margin: 16px 0;
+  background: #122630;
+}
+.citations {
+  display: flex;
+  flex-wrap: wrap;
+}
+.transcript {
+  border-block: 1px solid #344650;
+  padding: 20px 0;
+}
+.transcript summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.transcript ol {
+  list-style: none;
+  padding: 0;
+}
+.transcript li {
+  padding: 14px;
+  margin: 8px 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  scroll-margin: 24px;
+}
+.transcript .highlight {
+  border-color: #9cf0d2;
+  background: #122630;
+}
+.review footer {
+  padding-top: 24px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .review * {
+    scroll-behavior: auto;
+  }
+}
