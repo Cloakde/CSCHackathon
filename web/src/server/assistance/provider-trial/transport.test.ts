@@ -358,11 +358,18 @@ describe("offline bounded Responses transport", () => {
     },
   );
 
-  it.each(["fetch", "body", "output", "request-id", "response-id"])(
+  it.each(["fetch", "body", "output", "escaped-output", "request-id", "response-id"])(
     "never exposes the credential through %s",
     async (mode) => {
       const raw = envelope();
       if (mode === "output") raw.output[0]!.content[0]!.text = JSON.stringify({ result: key });
+      if (mode === "escaped-output") {
+        raw.output[0]!.content[0]!.text = JSON.stringify({ result: key }).replace(
+          key,
+          `\\u006f${key.slice(1)}`,
+        );
+        expect(JSON.stringify(raw)).not.toContain(key);
+      }
       if (mode === "response-id") raw.id = key;
       const state = setup(
         vi.fn(async () => {

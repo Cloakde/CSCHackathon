@@ -214,6 +214,14 @@ export function createTrialTransport({
     );
     let response: Response | undefined;
     let usage: TrialUsage | undefined;
+    const rejectCredentialEcho = (value: unknown) => {
+      if (JSON.stringify(value)?.includes(apiKey)) {
+        // An encoded echo is as untrustworthy as a literal one. Do not refund
+        // this reservation even when the surrounding response reports usage.
+        usage = undefined;
+        throw failed("output");
+      }
+    };
     try {
       if (controller.signal.aborted) throw failed("cancelled");
       const pending = Promise.resolve().then(() => {
@@ -262,7 +270,10 @@ export function createTrialTransport({
       if (!envelope.success) throw failed("response");
       let result: T;
       try {
-        result = parse(JSON.parse(envelope.data.output[0]!.content[0]!.text));
+        const decoded = JSON.parse(envelope.data.output[0]!.content[0]!.text);
+        rejectCredentialEcho(decoded);
+        result = parse(decoded);
+        rejectCredentialEcho(result);
       } catch {
         throw failed("output");
       }
