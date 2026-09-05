@@ -51,7 +51,7 @@ Coordinator amendment: `m3_extension` additionally owns only `scripts/rework-env
 
 ## Acceptance and Verification
 
-Coordinator amendment after the first production build: the Coordinator owns the narrow MeltingPot `web/next.config.ts` package-transpilation correction for the vendored TypeScript contract dependency. No other configuration or feature ownership changes; final exact review includes this correction.
+Coordinator amendment after production build and review: the Coordinator owns the narrow MeltingPot `web/next.config.ts` package-transpilation correction for the vendored TypeScript contract dependency and `web/lib/lectures/relay.ts` plus its existing test for sharing the production request quota across Next route bundles. No other configuration or feature ownership changes; final exact review includes these corrections.
 
 - The actual extension component finishes the sample lecture and exposes the canonical MeltingPot URL for the same completed session. Repeated Finish is safe; explicit prototype destination still works. An unavailable destination leaves a reopening link.
 - The actual private MeltingPot component loads that completed synthetic session, displays its confusing topics, produces different practice for two concepts, lets the learner attempt and inspect feedback, and focuses/returns from the correct evidence without losing the attempt.
