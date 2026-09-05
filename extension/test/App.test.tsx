@@ -280,11 +280,9 @@ describe("local learning demo", () => {
     await advance(2500);
     await click("I’m Lost");
     expect(screen.getByRole("heading", { name: "Inner and outer functions" })).toBeVisible();
-    expect(h.calls.map((call) => call.url.split("/").at(-1))).toEqual([
-      "sessions",
-      "chunks",
-      "im-lost",
-    ]);
+    expect(h.calls[0]?.url).toBe(`${DEMO_ORIGIN}/api/sessions`);
+    expect(h.calls.at(-1)?.url).toBe(`${DEMO_ORIGIN}/api/sessions/session_demo_1/im-lost`);
+    expect(h.getUploaded()).toHaveLength(3);
     await click("Go to 0:45–1:30");
     const passage = screen.getByRole("article", { name: "Lecture passage at 0:45" });
     expect(passage).toHaveClass("citation-highlight");
@@ -485,7 +483,6 @@ describe("local learning demo", () => {
   it("flushes new passages that arrive during an upload before asking for help", async () => {
     vi.useFakeTimers();
     const h = harness();
-    await start(h, 1500);
     const pending = deferred<{ acceptedChunkIds: string[] }>();
     const append = h.client.append;
     vi.spyOn(h.client, "append").mockImplementationOnce(async (...args) => {
@@ -493,7 +490,9 @@ describe("local learning demo", () => {
       await pending.promise;
       return result;
     });
+    await start(h, 1500);
     await click("I’m Lost");
+    expect(h.calls.some((call) => call.url.endsWith("/im-lost"))).toBe(false);
     await advance(1500);
     await act(async () => {
       pending.resolve({ acceptedChunkIds: [] });
@@ -501,5 +500,167 @@ describe("local learning demo", () => {
     const paths = h.calls.map((call) => call.url.split("/").at(-1));
     expect(paths).toEqual(["sessions", "chunks", "chunks", "im-lost"]);
     expect(h.getUploaded()).toHaveLength(3);
+  });
+
+  it("uploads a new passage during pending help at normal speed and accepts its newer canonical anchor", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    h.source.setSpeed(1);
+    const pending = deferred<void>();
+    const originalHelp = h.client.help;
+    vi.spyOn(h.client, "help").mockImplementationOnce(async (...args) => {
+      await pending.promise;
+      return originalHelp(...args);
+    });
+    await start(h, 144_000);
+    expect(h.getUploaded()).toHaveLength(2);
+    await click("I’m Lost");
+    expect(screen.getByRole("button", { name: "Finish lecture" })).toBeDisabled();
+    await advance(2000);
+    expect(h.getUploaded()).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "Preparing help…" })).toBeDisabled();
+    await act(async () => pending.resolve());
+    expect(screen.getByRole("heading", { name: "Inner and outer functions" })).toBeVisible();
+    expect(screen.getByText("Help for this moment · 2:25")).toBeVisible();
+    await click("Go to 0:45–1:30");
+    expect(screen.getByRole("article", { name: "Lecture passage at 0:45" })).toHaveFocus();
+  });
+
+  it("rejects old same-session help before the request minimum anchor", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    await start(h);
+    const oldAnswer = await h.client.help("session_demo_1");
+    await advance(3000);
+    vi.spyOn(h.client, "help").mockResolvedValueOnce(oldAnswer);
+    await click("I’m Lost");
+    expect(screen.getByRole("alert")).toHaveTextContent("did not match the lecture passage");
+    expect(screen.queryByRole("button", { name: /Go to/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps a checked answer at the request anchor when later passages arrive before its response", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    h.source.setSpeed(1);
+    const pending = deferred<void>();
+    const originalHelp = h.client.help;
+    vi.spyOn(h.client, "help").mockImplementationOnce(async (...args) => {
+      const answer = await originalHelp(...args);
+      await pending.promise;
+      return answer;
+    });
+    await start(h, 144_000);
+    await click("I’m Lost");
+    await advance(2000);
+    expect(h.getUploaded()).toHaveLength(3);
+    await act(async () => pending.resolve());
+    expect(screen.getByText("Help for this moment · 1:30")).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("rejects an incomplete context even when all cited IDs and timestamps are valid", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    await start(h);
+    const originalHelp = h.client.help;
+    vi.spyOn(h.client, "help").mockImplementationOnce(async (...args) => {
+      const answer = await originalHelp(...args);
+      answer.confusionEvent.contextChunkIds.shift();
+      return answer;
+    });
+    await click("I’m Lost");
+    expect(screen.getByRole("alert")).toHaveTextContent("did not match the lecture passage");
+  });
+
+  it("retains failed background uploads until an explicit retry without losing visible passages", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    vi.spyOn(h.client, "append").mockRejectedValueOnce(new Error("Connection interrupted."));
+    await start(h);
+    expect(screen.getByRole("alert")).toHaveTextContent("Your visible passages are kept here");
+    expect(screen.getByText("Sample lecture · 3 passages")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Finish lecture" })).toBeDisabled();
+    await advance(500);
+    expect(h.client.append).toHaveBeenCalledTimes(1);
+    await click("Retry saving transcript");
+    expect(h.getUploaded()).toHaveLength(3);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await click("I’m Lost");
+    expect(screen.getByRole("heading", { name: "Inner and outer functions" })).toBeVisible();
+  });
+
+  it("Finish waits for a pending append after stopping replay", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    const pending = deferred<void>();
+    const append = h.client.append;
+    vi.spyOn(h.client, "append").mockImplementationOnce(async (...args) => {
+      await pending.promise;
+      return append(...args);
+    });
+    await start(h);
+    await click("Finish lecture");
+    expect(h.source.getSnapshot().status).toBe("stopped");
+    expect(h.calls.some((call) => call.url.endsWith("/end"))).toBe(false);
+    await advance(3000);
+    expect(screen.getByText("Sample lecture · 3 passages")).toBeVisible();
+    await act(async () => pending.resolve());
+    expect(h.getUploaded()).toHaveLength(3);
+    expect(h.calls.at(-1)?.body).toEqual({ endedAt: "2026-09-05T08:02:25.000Z" });
+    expect(screen.getByRole("link", { name: "Open my practice" })).toBeVisible();
+  });
+
+  it("Reset cancels a pending help and append, then ignores both late replies", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    await start(h);
+    const oldAnswer = await h.client.help("session_demo_1");
+    const help = deferred<ImLostResponse>();
+    const append = deferred<{ acceptedChunkIds: string[] }>();
+    const helpSpy = vi.spyOn(h.client, "help").mockReturnValueOnce(help.promise);
+    const appendSpy = vi.spyOn(h.client, "append").mockReturnValueOnce(append.promise);
+    await click("I’m Lost");
+    await advance(1100);
+    expect(appendSpy).toHaveBeenCalledOnce();
+    await click("Reset & delete session");
+    expect(helpSpy.mock.calls[0]?.[1]?.aborted).toBe(true);
+    expect(appendSpy.mock.calls[0]?.[2]?.aborted).toBe(true);
+    await click("Start sample lecture");
+    await act(async () => {
+      help.resolve(oldAnswer);
+      append.resolve({ acceptedChunkIds: [canonical[3]!.chunkId] });
+    });
+    expect(
+      screen.queryByRole("heading", { name: "Inner and outer functions" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Sample lecture · 0 passages")).toBeVisible();
+    await advance(2500);
+    expect(h.getUploaded().every((chunk) => chunk.sessionId === "session_demo_2")).toBe(true);
+    await click("I’m Lost");
+    expect(screen.getByRole("heading", { name: "Inner and outer functions" })).toBeVisible();
+  });
+
+  it("replacing the transcript source cancels its uploader before a fresh session starts", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    const pending = deferred<{ acceptedChunkIds: string[] }>();
+    const append = vi.spyOn(h.client, "append").mockReturnValueOnce(pending.promise);
+    const rendered = render(<App source={h.source} client={h.client} />);
+    await click("Start sample lecture");
+    await advance(800);
+    expect(append).toHaveBeenCalledOnce();
+    const replacement = new SimulationTranscriptSource();
+    replacement.setSpeed(60);
+    rendered.rerender(<App source={replacement} client={h.client} />);
+    expect(append.mock.calls[0]?.[2]?.aborted).toBe(true);
+    expect(h.source.getSnapshot().status).toBe("stopped");
+    await click("Start sample lecture");
+    await act(async () => pending.resolve({ acceptedChunkIds: [canonical[0]!.chunkId] }));
+    expect(screen.getByText("Sample lecture · 0 passages")).toBeVisible();
+    await advance(2500);
+    expect(h.getUploaded()).toHaveLength(3);
+    expect(h.getUploaded().every((chunk) => chunk.sessionId === "session_demo_2")).toBe(true);
+    rendered.unmount();
+    expect(replacement.getSnapshot().status).toBe("stopped");
   });
 });

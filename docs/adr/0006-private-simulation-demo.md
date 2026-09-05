@@ -12,6 +12,6 @@ All help uses the existing authoritative snapshot and verified build-and-record 
 
 Session IDs are fresh server identities, and fixture chunks are remapped only to that session. Lecture-relative timestamps remain unchanged; end time derives from server start plus the latest committed passage end, excluding partial text, to support accelerated playback. Handoff uses the existing server-validated path-only route; no content or credential is put in a URL.
 
-The demo uploads complete passages before Help and Finish; arrivals during Help remain queued for the next operation. This is enough for the scripted callback, not proof of actual AI latency or continued-ingestion behavior. TASK-103 must test that separate requirement without weakening the grounding guarantees.
+TASK-103 supersedes the original upload-on-Help behavior with one ordered committed-passage uploader that continues while Help is pending. Help waits for already-visible passages, then accepts only a canonical answer at or after that acknowledged moment. The server may retry one changed snapshot within the same bounded deadline, preserving atomic grounding checks. Finish drains the uploader; reset cancels both upload and assistance. Injected delay tests prove continued ingestion in the synthetic path, while actual AI quality and latency remain pending. See ADR 0009 and the TASK-103 evidence record.
 
 Future public deployment or actual generation requires separately reviewed provider, authorization, quota, retention, and spending decisions. ADR 0003's grounding guarantees are unchanged.

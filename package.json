@@ -19,6 +19,7 @@
     "start:demo": "node scripts/demo-server.mjs --production",
     "verify:demo": "node scripts/demo-smoke.mjs",
     "test:meltingpot": "node scripts/meltingpot-components.mjs",
+    "test:ai-readiness": "npm run test --workspace=@livelecture/web -- src/server/ai-evaluation/readiness.test.ts src/components/help-ingestion.test.tsx",
     "verify:meltingpot": "node scripts/meltingpot-http.mjs",
     "dev:extension": "npm run dev --workspace=@livelecture/extension",
     "format": "prettier --write .",

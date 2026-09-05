@@ -2,22 +2,41 @@ import { randomUUID } from "node:crypto";
 import {
   ApiContracts,
   ApiErrorSchema,
+  CompletedSessionViewSchema,
   InMemorySessionStore,
+  GroundingSupportVerdictSchema,
+  ModelImLostOutputSchema,
   StableIdSchema,
+  StaleGroundingContextError,
   WeakAreaDrillResponseSchema,
   assertWeakAreaDrillLinkage,
   buildImLostResponseFromStoredChunks,
   getCommittedChunksFromFixture,
+  hydrateCitationsFromChunkIds,
   simulationFixture,
   type ConfusionEvent,
   type ErrorCode,
   type GroundingContextSnapshot,
+  type GroundingSupportCandidate,
   type ModelImLostOutput,
   type WeakAreaDrillResponse,
 } from "@livelecture/shared";
 import { generateScriptedHelp } from "./scripted-help";
 import { generateScriptedPractice } from "./scripted-practice";
 import { verifyScriptedHelp } from "./scripted-verifier";
+import { verifyScriptedPractice } from "./scripted-practice-verifier";
+import {
+  AssistanceAbortedError,
+  createAssistanceOperation,
+  HELP_DEADLINE_MS,
+  PRACTICE_DEADLINE_MS,
+  type AssistanceOperation,
+} from "./assistance/operation";
+import {
+  PracticeSupportVerdictSchema,
+  type PracticeGenerationContext,
+  type PracticeVerificationCandidate,
+} from "./assistance/types";
 
 export const DEMO_ORIGIN = "http://127.0.0.1:3000";
 export const DEMO_HEADER = "scripted-v1";
@@ -39,8 +58,21 @@ export interface DemoDispatcherOptions {
   limits?: Partial<{ [K in keyof typeof DEMO_LIMITS]: number }>;
   generateHelp?: (
     context: GroundingContextSnapshot,
+    signal: AbortSignal,
   ) => ModelImLostOutput | Promise<ModelImLostOutput>;
-  generatePractice?: (event: ConfusionEvent, drillId: string) => WeakAreaDrillResponse;
+  verifyHelp?: (
+    candidate: GroundingSupportCandidate,
+    signal: AbortSignal,
+  ) => unknown | Promise<unknown>;
+  generatePractice?: (
+    event: ConfusionEvent,
+    drillId: string,
+    context: PracticeGenerationContext,
+  ) => WeakAreaDrillResponse | Promise<WeakAreaDrillResponse>;
+  verifyPractice?: (
+    candidate: PracticeVerificationCandidate,
+    signal: AbortSignal,
+  ) => unknown | Promise<unknown>;
 }
 
 interface SessionEntry {
@@ -51,6 +83,7 @@ interface SessionEntry {
   helps: number;
   rate: { start: number; count: number };
   drills: Map<string, WeakAreaDrillResponse>;
+  operations: Partial<Record<"help" | "practice", AssistanceOperation>>;
 }
 
 class DemoError extends Error {
@@ -174,10 +207,57 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
   function sweep() {
     for (const [sessionId, entry] of sessions) {
       if (entry.expiresAt <= now()) {
+        entry.operations.help?.abort("expired");
+        entry.operations.practice?.abort("expired");
         sessions.delete(sessionId);
         void entry.store.deleteSession(sessionId);
         entry.drills.clear();
       }
+    }
+  }
+  function dispose() {
+    for (const [sessionId, entry] of sessions) {
+      entry.operations.help?.abort("deleted");
+      entry.operations.practice?.abort("deleted");
+      void entry.store.deleteSession(sessionId);
+      entry.drills.clear();
+    }
+    sessions.clear();
+  }
+  function assertOperationCurrent(
+    sessionId: string,
+    entry: SessionEntry,
+    operation: AssistanceOperation,
+  ) {
+    if (sessions.get(sessionId) !== entry) operation.abort("deleted");
+    operation.assertCurrent();
+  }
+  async function withOperation<T>(
+    sessionId: string,
+    entry: SessionEntry,
+    kind: "help" | "practice",
+    request: Request,
+    work: (operation: AssistanceOperation) => Promise<T>,
+  ): Promise<T> {
+    if (entry.operations[kind])
+      throw new DemoError(
+        409,
+        "PROVIDER_UNAVAILABLE",
+        "An assistance request is already running. Try again when it finishes.",
+      );
+    const operation = createAssistanceOperation({
+      requestSignal: request.signal,
+      deadlineMs: kind === "help" ? HELP_DEADLINE_MS : PRACTICE_DEADLINE_MS,
+      expiresAt: entry.expiresAt,
+      now,
+    });
+    entry.operations[kind] = operation;
+    try {
+      assertOperationCurrent(sessionId, entry, operation);
+      return await work(operation);
+    } finally {
+      operation.dispose();
+      if (entry.operations[kind] === operation) delete entry.operations[kind];
     }
   }
   function rateCheck(bucket: { start: number; count: number }, maximum: number) {
@@ -242,6 +322,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         throw new DemoError(405, "INVALID_REQUEST", "This method is unavailable.");
       if (request.headers.get("x-livelecture-demo") !== DEMO_HEADER)
         throw new DemoError(403, "INVALID_REQUEST", "The local demo request header is required.");
+      if (request.signal.aborted) throw new AssistanceAbortedError("cancelled");
       rateCheck(globalRate, limits.requestsPerMinute);
       const body =
         request.method === "POST"
@@ -272,6 +353,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
           helps: 0,
           rate: { start: now(), count: 0 },
           drills: new Map(),
+          operations: {},
         };
         sessions.set(freshId, entry);
         try {
@@ -290,6 +372,8 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         }
       } else if (request.method === "DELETE") {
         const entry = sessions.get(sessionId);
+        entry?.operations.help?.abort("deleted");
+        entry?.operations.practice?.abort("deleted");
         sessions.delete(sessionId);
         entry?.drills.clear();
         const deleted = entry ? await entry.store.deleteSession(sessionId) : false;
@@ -331,33 +415,80 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         } else if (action === "im-lost") {
           const input = parse(ApiContracts.imLost.input, { params: { sessionId }, body });
           if (view.session.status !== "active") throw inactive();
-          if (entry.helps >= limits.helpPerSession) throw limited();
-          entry.helps += 1;
-          const context = await entry.store.createGroundingContext(
+          const response = await withOperation(
             sessionId,
-            input.body.lookbackMs,
+            entry,
+            "help",
+            request,
+            async (operation) => {
+              if (entry.helps >= limits.helpPerSession) throw limited();
+              entry.helps += 1;
+              const responseId = id("response");
+              const confusionId = id("confusion");
+              const generate = options.generateHelp ?? generateScriptedHelp;
+              const verify = options.verifyHelp ?? verifyScriptedHelp;
+              for (let attempt = 0; attempt < 2; attempt += 1) {
+                assertOperationCurrent(sessionId, entry, operation);
+                const context = await entry.store.createGroundingContext(
+                  sessionId,
+                  input.body.lookbackMs,
+                );
+                const modelOutput = ModelImLostOutputSchema.parse(
+                  await operation.run(() => generate(structuredClone(context), operation.signal)),
+                );
+                // Reject bad output before a concurrent revision change could mask
+                // it as a retryable store error.
+                if (JSON.stringify(modelOutput.context) !== JSON.stringify(context.reference))
+                  throw new Error("Model output does not identify its authoritative context");
+                if (modelOutput.groundingStatus === "grounded")
+                  hydrateCitationsFromChunkIds(
+                    sessionId,
+                    modelOutput.citationChunkIds,
+                    context.chunks,
+                  );
+                assertOperationCurrent(sessionId, entry, operation);
+                let verificationAllowsRetry = true;
+                try {
+                  // Await this transaction itself, so its identity reservations are
+                  // released before a fresh snapshot is allowed to reuse the IDs.
+                  const answer = await buildImLostResponseFromStoredChunks({
+                    store: entry.store,
+                    context,
+                    modelOutput,
+                    independentEvidenceVerifier: async (candidate) => {
+                      try {
+                        const result = await operation.run(() =>
+                          verify(structuredClone(candidate), operation.signal),
+                        );
+                        const verdict = GroundingSupportVerdictSchema.safeParse(result);
+                        verificationAllowsRetry =
+                          verdict.success && verdict.data.verdict === "supported";
+                        return result;
+                      } catch (error) {
+                        verificationAllowsRetry = false;
+                        throw error;
+                      }
+                    },
+                    responseId,
+                    confusionId,
+                    signal: operation.signal,
+                  });
+                  assertOperationCurrent(sessionId, entry, operation);
+                  return answer;
+                } catch (error) {
+                  assertOperationCurrent(sessionId, entry, operation);
+                  if (!(error instanceof StaleGroundingContextError)) throw error;
+                  if (attempt === 1 || !verificationAllowsRetry)
+                    throw new DemoError(
+                      409,
+                      "INSUFFICIENT_CONTEXT",
+                      "The lecture changed again while preparing help. Try again.",
+                    );
+                }
+              }
+              throw new Error("Assistance retry bound exceeded");
+            },
           );
-          const modelOutput = await (options.generateHelp ?? generateScriptedHelp)(
-            structuredClone(context),
-          );
-          let response;
-          try {
-            response = await buildImLostResponseFromStoredChunks({
-              store: entry.store,
-              context,
-              modelOutput,
-              independentEvidenceVerifier: verifyScriptedHelp,
-              responseId: id("response"),
-              confusionId: id("confusion"),
-            });
-          } catch {
-            throw new DemoError(
-              409,
-              "INVALID_REQUEST",
-              "The lecture changed while preparing help. Try again.",
-            );
-          }
-          if (sessions.get(sessionId) !== entry || entry.expiresAt <= now()) throw unavailable();
           result = ApiContracts.imLost.response.parse({ ok: true, data: response });
         } else if (action === "end") {
           const input = parse(ApiContracts.endSession.input, { params: { sessionId }, body });
@@ -366,6 +497,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
           ).toISOString();
           if (input.body.endedAt !== expectedEnd) throw invalid();
           const session = await entry.store.completeSession(sessionId, input.body.endedAt);
+          entry.operations.help?.abort("ended");
           result = ApiContracts.endSession.response.parse({
             ok: true,
             data: { session, handoff: { sessionId, companionRoute: `/sessions/${sessionId}` } },
@@ -391,18 +523,69 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
             );
           const drill =
             entry.drills.get(eventId) ??
-            WeakAreaDrillResponseSchema.parse(
-              (options.generatePractice ?? generateScriptedPractice)(
-                structuredClone(event),
-                id("drill"),
-              ),
-            );
+            (await withOperation(sessionId, entry, "practice", request, async (operation) => {
+              const completedView = CompletedSessionViewSchema.parse(view);
+              const generate = options.generatePractice ?? generateScriptedPractice;
+              const verify = options.verifyPractice ?? verifyScriptedPractice;
+              const generated = WeakAreaDrillResponseSchema.parse(
+                await operation.run(() =>
+                  generate(structuredClone(event), id("drill"), {
+                    view: structuredClone(completedView),
+                    signal: operation.signal,
+                  }),
+                ),
+              );
+              assertWeakAreaDrillLinkage(
+                { sessionId, confusionEventIds: [eventId] },
+                view.confusionEvents,
+                generated,
+              );
+              let verdict;
+              try {
+                verdict = PracticeSupportVerdictSchema.safeParse(
+                  await operation.run(() =>
+                    verify(
+                      structuredClone({
+                        view: completedView,
+                        confusionEvent: event,
+                        drill: generated,
+                      }),
+                      operation.signal,
+                    ),
+                  ),
+                );
+              } catch {
+                assertOperationCurrent(sessionId, entry, operation);
+                throw new DemoError(
+                  503,
+                  "PROVIDER_UNAVAILABLE",
+                  "This practice could not be independently verified. Try again.",
+                );
+              }
+              assertOperationCurrent(sessionId, entry, operation);
+              if (!verdict.success || verdict.data.verdict !== "supported")
+                throw new DemoError(
+                  503,
+                  "PROVIDER_UNAVAILABLE",
+                  "This practice could not be independently verified. Try again.",
+                );
+              const latest = await entry.store.getSession(sessionId);
+              assertOperationCurrent(sessionId, entry, operation);
+              if (JSON.stringify(latest) !== JSON.stringify(completedView)) throw unavailable();
+              assertWeakAreaDrillLinkage(
+                { sessionId, confusionEventIds: [eventId] },
+                latest!.confusionEvents,
+                generated,
+              );
+              operation.assertCurrent();
+              entry.drills.set(eventId, structuredClone(generated));
+              return generated;
+            }));
           assertWeakAreaDrillLinkage(
             { sessionId, confusionEventIds: [eventId] },
             view.confusionEvents,
             drill,
           );
-          entry.drills.set(eventId, drill);
           result = ApiContracts.createWeakAreaDrill.response.parse({ ok: true, data: drill });
         } else throw invalid();
       }
@@ -413,10 +596,27 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
       }
       return Response.json(result, { status: 200, headers });
     } catch (error) {
+      const interruption = error instanceof AssistanceAbortedError ? error.cause : undefined;
       const safe =
         error instanceof DemoError
           ? error
-          : new DemoError(500, "INTERNAL_ERROR", "The local demo could not complete this request.");
+          : interruption === "deleted" || interruption === "expired"
+            ? unavailable()
+            : interruption === "ended"
+              ? inactive()
+              : interruption === "deadline"
+                ? new DemoError(
+                    504,
+                    "PROVIDER_UNAVAILABLE",
+                    "The assistance request took too long. Try again.",
+                  )
+                : interruption === "cancelled"
+                  ? new DemoError(499, "INVALID_REQUEST", "The assistance request was cancelled.")
+                  : new DemoError(
+                      500,
+                      "INTERNAL_ERROR",
+                      "The local demo could not complete this request.",
+                    );
       if (safe.status === 429) headers.set("Retry-After", "60");
       return Response.json(
         ApiErrorSchema.parse({
@@ -424,14 +624,14 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
           error: {
             code: safe.code,
             message: safe.message,
-            retryable: [408, 409, 429, 500, 503].includes(safe.status),
+            retryable: [408, 409, 429, 500, 503, 504].includes(safe.status),
           },
         }),
         { status: safe.status, headers },
       );
     }
   };
-  return Object.assign(dispatch, { sweep });
+  return Object.assign(dispatch, { sweep, dispose });
 }
 
 // Next bundles routes independently; keep the actual service on globalThis.
@@ -449,7 +649,10 @@ export function handleDemoRequest(request: Request): Promise<Response> {
   ]);
   let runtime = runtimeGlobal.__livelectureScriptedDemoV1;
   if (!runtime || runtime.config !== config) {
-    if (runtime) clearInterval(runtime.timer);
+    if (runtime) {
+      clearInterval(runtime.timer);
+      runtime.dispatch.dispose();
+    }
     const dispatch = createDemoDispatcher({
       enabled: process.env.LIVELECTURE_DEMO_ENABLED === "true",
       extensionId: process.env.LIVELECTURE_EXTENSION_ID,

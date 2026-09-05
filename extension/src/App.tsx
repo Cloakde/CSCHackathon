@@ -1,5 +1,6 @@
 import {
   formatOffset,
+  ImLostResponseSchema,
   isReplayableTranscriptSource,
   SimulationTranscriptSource,
   type ActiveLectureSession,
@@ -11,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { createDemoClient, type DemoClient } from "./demo-api";
 import { demoHandoffUrl, type CompanionDestination } from "./demo-handoff";
+import { createDemoUploader, type DemoUploader } from "./demo-uploader";
 
 interface AppProps {
   source?: TranscriptSource;
@@ -21,6 +23,8 @@ interface AppProps {
 
 type Operation = "start" | "help" | "end" | "reset";
 const speedOptions = [1, 12, 60, 240];
+// The unchanged local demo client requests a fifteen-minute grounding window.
+const helpLookbackMs = 900_000;
 
 export function App({
   source: providedSource,
@@ -47,9 +51,10 @@ export function App({
   const [busy, setBusy] = useState<Operation>();
   const [error, setError] = useState<string>();
   const [retry, setRetry] = useState<Operation>();
+  const [uploadError, setUploadError] = useState<string>();
   const sessionRef = useRef<ActiveLectureSession | undefined>(undefined);
   const chunksRef = useRef<TranscriptChunk[]>([]);
-  const uploadedRef = useRef(new Set<string>());
+  const uploaderRef = useRef<DemoUploader | undefined>(undefined);
   const generationRef = useRef(0);
   const busyRef = useRef<Operation | undefined>(undefined);
   const abortRef = useRef<AbortController | undefined>(undefined);
@@ -62,7 +67,8 @@ export function App({
     busyRef.current = undefined;
     sessionRef.current = undefined;
     chunksRef.current = [];
-    uploadedRef.current.clear();
+    uploaderRef.current?.cancel();
+    uploaderRef.current = undefined;
     completedRef.current = false;
     setSnapshot(source.getSnapshot());
     setChunks([]);
@@ -75,6 +81,7 @@ export function App({
     setBusy(undefined);
     setError(undefined);
     setRetry(undefined);
+    setUploadError(undefined);
     const unsubscribe = source.subscribe((event) => {
       const currentSession = sessionRef.current;
       if (!currentSession || completedRef.current) return;
@@ -88,6 +95,7 @@ export function App({
             { ...event.chunk, sessionId: currentSession.sessionId },
           ].sort((left, right) => left.sequence - right.sequence);
           setChunks(chunksRef.current);
+          uploaderRef.current?.enqueue({ ...event.chunk, sessionId: currentSession.sessionId });
         }
         setPartial(undefined);
       }
@@ -100,6 +108,7 @@ export function App({
     return () => {
       generationRef.current += 1;
       abortRef.current?.abort();
+      uploaderRef.current?.cancel();
       unsubscribe();
       source.stop();
     };
@@ -135,6 +144,9 @@ export function App({
     if (operation === "reset") {
       generationRef.current += 1;
       abortRef.current?.abort();
+      uploaderRef.current?.cancel();
+      uploaderRef.current = undefined;
+      setUploadError(undefined);
       source.stop();
       setSnapshot(source.getSnapshot());
     }
@@ -162,6 +174,18 @@ export function App({
         }
         sessionRef.current = created;
         setSession(created);
+        uploaderRef.current = createDemoUploader({
+          sessionId: created.sessionId,
+          append: (...args) => client.append(...args),
+          onFailure: (failure) => {
+            if (
+              generation === generationRef.current &&
+              sessionRef.current?.sessionId === created.sessionId
+            ) {
+              setUploadError(failure.message);
+            }
+          },
+        });
         if (isReplayableTranscriptSource(source)) source.reset();
         source.start();
         setSnapshot(source.getSnapshot());
@@ -172,7 +196,6 @@ export function App({
         if (isReplayableTranscriptSource(source)) source.reset();
         sessionRef.current = undefined;
         chunksRef.current = [];
-        uploadedRef.current.clear();
         completedRef.current = false;
         setSession(undefined);
         setChunks([]);
@@ -181,6 +204,7 @@ export function App({
         setSavedConcepts([]);
         setHandoff(undefined);
         setHighlighted(undefined);
+        setUploadError(undefined);
         setSnapshot(source.getSnapshot());
       } else {
         const existing = sessionRef.current;
@@ -190,35 +214,36 @@ export function App({
           setPartial(undefined);
           setSnapshot(source.getSnapshot());
         }
-        // Upload committed visible passages in order. Arrivals during Help stay
-        // queued so the authoritative snapshot cannot change underneath it.
-        while (current()) {
-          const pending = chunksRef.current.filter(
-            (chunk) => !uploadedRef.current.has(chunk.chunkId),
-          );
-          if (pending.length === 0) break;
-          const accepted = await client.append(
-            existing.sessionId,
-            { chunks: pending },
-            controller.signal,
-          );
-          if (!current()) return;
-          if (pending.some((chunk) => !accepted.acceptedChunkIds.includes(chunk.chunkId)))
-            throw new Error("The transcript was not fully saved. Please try again.");
-          pending.forEach((chunk) => uploadedRef.current.add(chunk.chunkId));
-        }
+        const uploader = uploaderRef.current;
+        if (!uploader) throw new Error("Reset and delete this session before starting again.");
+        // Wait for passages already visible; newer passages keep uploading while Help runs.
+        await uploader.flush();
         if (!current()) return;
-        const context = [...chunksRef.current];
+        const minimumAnchorSequence = uploader.getAcknowledged().at(-1)?.sequence ?? -1;
         if (operation === "help") {
-          const answer = await client.help(existing.sessionId, controller.signal);
+          const incoming = await client.help(existing.sessionId, controller.signal);
           if (!current()) return;
-          const lastChunk = context.at(-1);
+          const parsed = ImLostResponseSchema.safeParse(incoming);
+          if (!parsed.success)
+            throw new Error(
+              "This explanation did not match the lecture passage. Try I’m Lost again.",
+            );
+          const answer = parsed.data;
+          const context = chunksRef.current;
           const event = answer.confusionEvent;
+          const anchor = context.find((chunk) => chunk.chunkId === event.anchorChunkId);
+          const expectedContext = context.filter(
+            (chunk) =>
+              chunk.endMs >= Math.max(0, event.occurredAtMs - helpLookbackMs) &&
+              chunk.endMs <= event.occurredAtMs,
+          );
           const invalidContext =
             answer.sessionId !== existing.sessionId ||
-            event.occurredAtMs !== (lastChunk?.endMs ?? 0) ||
-            event.anchorChunkId !== lastChunk?.chunkId ||
-            event.contextChunkIds.some((id) => !context.some((chunk) => chunk.chunkId === id));
+            (anchor?.sequence ?? -1) < minimumAnchorSequence ||
+            event.occurredAtMs !== (anchor?.endMs ?? 0) ||
+            (event.anchorChunkId !== undefined && !anchor) ||
+            event.contextChunkIds.length !== expectedContext.length ||
+            event.contextChunkIds.some((id, index) => id !== expectedContext[index]?.chunkId);
           const invalidCitation = answer.citations.some(
             (citation) =>
               !context.some(
@@ -253,10 +278,12 @@ export function App({
       }
     } catch (failure) {
       if (current()) {
-        setError(
-          failure instanceof Error ? failure.message : "Something went wrong. Please try again.",
-        );
-        setRetry(operation);
+        if (failure !== uploaderRef.current?.getFailure()) {
+          setError(
+            failure instanceof Error ? failure.message : "Something went wrong. Please try again.",
+          );
+          setRetry(operation);
+        }
       }
     } finally {
       if (current()) setOperation(undefined);
@@ -328,6 +355,23 @@ export function App({
               Try again
             </button>
           ) : null}
+        </div>
+      ) : null}
+      {uploadError ? (
+        <div className="error-message" role="alert">
+          <p>{uploadError} Your visible passages are kept here until they can be saved.</p>
+          <button
+            type="button"
+            disabled={Boolean(busy)}
+            onClick={() => {
+              const uploader = uploaderRef.current;
+              if (!uploader) return;
+              setUploadError(undefined);
+              void uploader.retry().catch(() => undefined);
+            }}
+          >
+            Retry saving transcript
+          </button>
         </div>
       ) : null}
       <section className="controls" aria-label="Lecture controls">
@@ -406,14 +450,26 @@ export function App({
           <button
             className="primary-button"
             type="button"
-            disabled={!session || Boolean(busy) || Boolean(handoff)}
+            disabled={
+              !session ||
+              Boolean(busy) ||
+              Boolean(handoff) ||
+              Boolean(uploadError) ||
+              !uploaderRef.current
+            }
             onClick={() => void run("help")}
           >
             {busy === "help" ? "Preparing help…" : "I’m Lost"}
           </button>
           <button
             type="button"
-            disabled={!session || Boolean(busy) || Boolean(handoff)}
+            disabled={
+              !session ||
+              Boolean(busy) ||
+              Boolean(handoff) ||
+              Boolean(uploadError) ||
+              !uploaderRef.current
+            }
             onClick={() => void run("end")}
           >
             {busy === "end" ? "Finishing…" : "Finish lecture"}

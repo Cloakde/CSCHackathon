@@ -54,6 +54,39 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
+/** Only this trusted store failure permits a fresh-snapshot generation retry. */
+export class StaleGroundingContextError extends Error {
+  constructor() {
+    super("Grounding context is stale because the transcript changed");
+    this.name = "StaleGroundingContextError";
+  }
+}
+
+// Each caller owns its wait. A follower's abort cannot cancel the operation it joins.
+function waitWithSignal<T>(operation: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return operation;
+  return new Promise<T>((resolve, reject) => {
+    const cleanup = () => signal.removeEventListener("abort", cancel);
+    const cancel = () => {
+      cleanup();
+      reject(signal.reason);
+    };
+    signal.addEventListener("abort", cancel, { once: true });
+    operation.then(
+      (value) => {
+        cleanup();
+        if (signal.aborted) cancel();
+        else resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+    if (signal.aborted) cancel();
+  });
+}
+
 export class InMemorySessionStore implements SessionStore {
   readonly #records = new Map<string, SessionRecord>();
   readonly #usedSessionIds = new Set<string>();
@@ -202,6 +235,8 @@ export class InMemorySessionStore implements SessionStore {
   }
 
   async buildAndRecordImLostResponse(input: BuildImLostResponseCommand): Promise<ImLostResponse> {
+    const signal = input.signal;
+    signal?.throwIfAborted();
     const normalized = normalizeImLostResponseCommand(input);
     const commandFingerprint = JSON.stringify({
       context: normalized.context,
@@ -230,7 +265,7 @@ export class InMemorySessionStore implements SessionStore {
       if (inFlight.commandFingerprint !== commandFingerprint) {
         throw new Error(`Assistance command cannot be mutated: ${normalized.confusionId}`);
       }
-      return clone(await inFlight.promise);
+      return clone(await waitWithSignal(inFlight.promise, signal));
     }
     if (
       [...this.#inFlightAssistance.values()].some(
@@ -245,7 +280,9 @@ export class InMemorySessionStore implements SessionStore {
     this.#validateGroundingContext(record, normalized.context);
 
     const promise = Promise.resolve().then(async () => {
-      const evaluated = await evaluateImLostResponse(normalized);
+      signal?.throwIfAborted();
+      const evaluated = await waitWithSignal(evaluateImLostResponse(normalized), signal);
+      signal?.throwIfAborted();
       return this.#recordAssistanceAgainstContext(
         evaluated.context,
         evaluated.response,
@@ -318,7 +355,7 @@ export class InMemorySessionStore implements SessionStore {
       throw new Error(`Session is not active: ${context.reference.sessionId}`);
     }
     if (record.transcriptRevision !== context.reference.transcriptRevision) {
-      throw new Error("Grounding context is stale because the transcript changed");
+      throw new StaleGroundingContextError();
     }
     const authoritativeAnchorMs = this.#orderedChunks(record).at(-1)?.endMs ?? 0;
     if (context.reference.anchorMs !== authoritativeAnchorMs) {
