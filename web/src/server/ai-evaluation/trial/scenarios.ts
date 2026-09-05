@@ -13,7 +13,8 @@ export type TrialDispatcher = (request: Request) => Promise<Response>;
 export type FrozenCase = (typeof AI_EVALUATION_CASES)[number];
 export interface TrialScenarioResult {
   id: string;
-  timingPath: "dispatcher" | "extension_component_real_clock";
+  timingPath:
+    "dispatcher" | "extension_component_real_clock" | "extension_component_injected_clock";
   status: "observed_for_review" | "changes_required";
   helpDurationMs?: number;
   practiceDurationMs?: number;
