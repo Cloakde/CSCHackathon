@@ -1,6 +1,6 @@
 # ADR 0008 — Local Synthetic MeltingPot Handoff
 
-**Status:** Proposed for TASK-301–303; implementation waits for independent contract review
+**Status:** Accepted for synthetic TASK-301–303 implementation; independently reviewed by `m3_review` at `5427e097ec73234e886f63049189cf136fcc7378`
 
 ## Decision
 

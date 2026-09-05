@@ -43,6 +43,26 @@ After building, `npm run verify:demo` runs a real HTTP check and stops its own t
 
 ## Optional Chrome extension rehearsal
 
+The packaged extension now sends finished sample lectures to the separate MeltingPot rework preview at `http://127.0.0.1:3111/lectures/:sessionId`. The existing `/demo` rehearsal still opens the prototype companion. `/demo/meltingpot` rehearses the extension's new destination using the same lecture screen. These are explicit choices; an unavailable MeltingPot preview never silently changes the destination.
+
+In the separate, prepared MeltingPot copy, install its locked dependencies and run:
+
+```bash
+node scripts/rework-check.mjs
+node scripts/rework-preview.mjs
+```
+
+Its preview launcher permits only the isolated synthetic build, rejects inherited service settings/local environment files, and binds to port 3111. Keep the LiveLecture service running on port 3000. After Finish, choose **Open in MeltingPot**, practice a confusing moment, compare your answer, and use the lecture citation and **Return to practice** link. Answers stay in the page and are never added to a shared Pot or class record. Deleting the sample lecture clears its transient service data.
+
+The paired automated check requires the unpublished local rework copy, so it is a separate required integration command, alongside this repository's usual CI:
+
+```bash
+npm run test:meltingpot -- --meltingpot-root=PATH_TO_REWORK
+npm run verify:meltingpot -- --meltingpot-root=PATH_TO_REWORK --livelecture-server-root=PATH_TO_RUNNING_LECTURE_CHECKOUT --livelecture-server-commit=EXACT_RUNNING_REVISION
+```
+
+The HTTP check requires both previews already running, proves backend source parity before reusing a server, and deletes only its own test sessions. It never starts, stops, opens, or controls a browser. See `docs/tasks/TASK-301.md` and ADR 0008 for ownership, isolation, and the human/actual-AI acceptance still pending.
+
 ```bash
 npm run build --workspace=@livelecture/extension
 ```

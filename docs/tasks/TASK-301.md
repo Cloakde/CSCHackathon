@@ -2,7 +2,7 @@
 
 **Tier:** 1
 
-**State:** IN PROGRESS only after independent approval of ADR 0008 and this contract
+**State:** IN PROGRESS; independent contract approval recorded at `5427e097ec73234e886f63049189cf136fcc7378` by `m3_review`
 
 **Coordinator:** Codex Coordinator
 
@@ -42,12 +42,16 @@ This request does not authorize provider spending, credentials, real classroom d
 
 **TASK-303 / Codex Coordinator**, LiveLecture branch `coord/TASK-303-meltingpot-integration` and nonoverlapping paths in the MeltingPot task worktree:
 
-- LiveLecture: `docs/TASK_BOARD.md`, this contract, ADR 0008, `README.md`, `package.json`, `.github/workflows/ci.yml` only if needed for verification, `scripts/meltingpot-*.mjs`, `web/src/app/demo/meltingpot/**`, `web/src/components/meltingpot-*.test.tsx`, and a dedicated integration-test configuration if needed.
-- MeltingPot: `AGENTS.md`, `REWORK.md`, `docs/LIVELECTURE_HANDOFF.md`, `vendor/livelecture-contracts/**`, `web/package.json`, `web/pnpm-lock.yaml`, `scripts/rework-*.mjs`, and `scripts/verify-livelecture-*.mjs`.
+- LiveLecture: `docs/TASK_BOARD.md`, this contract, ADR 0008, `README.md`, `package.json`, `.github/workflows/ci.yml` only if needed for verification, `scripts/meltingpot-*` (including the dedicated test/configuration), and `web/src/app/demo/meltingpot/**`.
+- MeltingPot: `AGENTS.md`, `.gitattributes` for canonical vendor line endings, `REWORK.md`, `docs/LIVELECTURE_HANDOFF.md`, `vendor/livelecture-contracts/**`, `web/package.json`, `web/pnpm-lock.yaml`, `scripts/rework-*.mjs`, and `scripts/verify-livelecture-*.mjs`.
 
 All other paths are forbidden without a Coordinator amendment. In particular, no original MeltingPot checkout, shared LiveLecture schema/store/grounding files, backend API, production migration, old provider selection, or unrelated screen is owned. Reviewers are read-only. Each lane commits only its owned files; the Coordinator alone cherry-picks reviewed LiveLecture lane commits. The independent integrator promotes final approved revisions.
 
+Coordinator amendment: `m3_extension` additionally owns only `scripts/rework-environment.test.mjs` in the MeltingPot task worktree for offline launcher/fingerprint regression coverage, and `scripts/meltingpot-http.mjs` in the LiveLecture integration worktree for the bounded paired HTTP check. These are separate from its extension lane; it may commit only its explicit paths in each worktree.
+
 ## Acceptance and Verification
+
+Coordinator amendment after the first production build: the Coordinator owns the narrow MeltingPot `web/next.config.ts` package-transpilation correction for the vendored TypeScript contract dependency. No other configuration or feature ownership changes; final exact review includes this correction.
 
 - The actual extension component finishes the sample lecture and exposes the canonical MeltingPot URL for the same completed session. Repeated Finish is safe; explicit prototype destination still works. An unavailable destination leaves a reopening link.
 - The actual private MeltingPot component loads that completed synthetic session, displays its confusing topics, produces different practice for two concepts, lets the learner attempt and inspect feedback, and focuses/returns from the correct evidence without losing the attempt.
