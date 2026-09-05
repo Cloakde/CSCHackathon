@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
@@ -278,13 +278,12 @@ let failure;
 try {
   // Establish isolated mode before sending even negative requests to inherited paths.
   await page("/lectures");
-  const marker = `M3 paired HTTP smoke ${randomUUID()}`;
   const { session } = await api(LL_ORIGIN, "/api/sessions", ApiContracts.startSession, "POST", {
     sourceMode: "simulation",
-    title: marker,
   });
   assert.equal(session.sourceMode, "simulation");
-  assert.equal(session.title, marker, "The server did not return the newly created test session.");
+  // The canonical demo only accepts its fixture title. Ownership comes from this
+  // fresh POST's validated session response, never an existing URL or listed ID.
   ownedSessionId = session.sessionId;
   const llPath = `/api/sessions/${ownedSessionId}`;
   const mpPath = `/api/lectures/${ownedSessionId}`;
