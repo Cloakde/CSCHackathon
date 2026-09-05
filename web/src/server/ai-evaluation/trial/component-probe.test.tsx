@@ -9,7 +9,9 @@ import { runComponentProbe, type ProbeTiming } from "./component-probe";
 
 const injectedTiming: ProbeTiming = {
   mode: "injected_clock",
-  wait: (milliseconds) => vi.advanceTimersByTimeAsync(milliseconds),
+  wait: async (milliseconds) => {
+    await vi.advanceTimersByTimeAsync(milliseconds);
+  },
   waitForResult: async (result) => {
     await vi.advanceTimersByTimeAsync(2000);
     await result;

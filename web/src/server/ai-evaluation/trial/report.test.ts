@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { buildTrialReport, createTrialReportWriter, finalizeTrialRecording } from "./report";
+import { openTrialLedger } from "./budget";
+import { TRIAL_POLICY_HASH, TRIAL_RESERVE_MICRO_USD } from "./policy";
 import type { TrialLedgerSnapshot } from "./types";
 
 it("keeps human quality pending, missing cases visible and key values out of saved reports", () => {
@@ -84,23 +86,27 @@ it("retains a durable checkpoint when publishing the latest report fails", () =>
 });
 
 it("records interrupted reservations after close and does not finish an interrupted trial", () => {
-  let status = "reserved";
-  const seen: string[] = [];
-  const ledger = {
-    finish: vi.fn(),
-    close: vi.fn(() => {
-      status = "uncertain";
-    }),
-  };
-  finalizeTrialRecording(
-    ledger,
-    () => {
-      seen.push(status);
-    },
-    false,
-  );
-  expect(ledger.finish).not.toHaveBeenCalled();
-  expect(seen).toEqual(["reserved", "uncertain"]);
+  const directory = temporaryDirectory();
+  const options = { directory, sourceTree: "a".repeat(40), policyHash: TRIAL_POLICY_HASH };
+  const ledger = openTrialLedger(options);
+  const writer = createTrialReportWriter(directory);
+  ledger.reserve({
+    kind: "help_generate",
+    scenarioId: "offline_interruption",
+    requestSha256: "b".repeat(64),
+    requestBytes: 512,
+  });
+  finalizeTrialRecording(ledger, () => writer.save(ledger.snapshot()), false);
+  const saved = JSON.parse(fs.readFileSync(path.join(directory, "report.json"), "utf8"));
+  expect(saved).toMatchObject({
+    finished: false,
+    reservedMicroUsd: 0,
+    chargedMicroUsd: TRIAL_RESERVE_MICRO_USD,
+    attempts: [{ status: "uncertain", chargedMicroUsd: TRIAL_RESERVE_MICRO_USD }],
+  });
+  const reopened = openTrialLedger(options);
+  expect(reopened.snapshot()).toEqual(saved);
+  reopened.close();
 });
 
 it("does not seal after a failed checkpoint and still closes and saves final accounting", () => {
