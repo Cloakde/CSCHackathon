@@ -9,18 +9,25 @@ import {
   type TranscriptSource,
 } from "@livelecture/shared";
 import { useEffect, useRef, useState } from "react";
-import { createDemoClient, DEMO_ORIGIN, type DemoClient } from "./demo-api";
+import { createDemoClient, type DemoClient } from "./demo-api";
+import { demoHandoffUrl, type CompanionDestination } from "./demo-handoff";
 
 interface AppProps {
   source?: TranscriptSource;
   client?: DemoClient;
   navigate?: (url: string) => void;
+  companionDestination?: CompanionDestination;
 }
 
 type Operation = "start" | "help" | "end" | "reset";
 const speedOptions = [1, 12, 60, 240];
 
-export function App({ source: providedSource, client: providedClient, navigate }: AppProps) {
+export function App({
+  source: providedSource,
+  client: providedClient,
+  navigate,
+  companionDestination = "prototype",
+}: AppProps) {
   const [fallbackSource] = useState(() => {
     const source = new SimulationTranscriptSource();
     source.setSpeed(12);
@@ -239,8 +246,9 @@ export function App({ source: providedSource, client: providedClient, navigate }
           ).toISOString();
           const result = await client.end(existing.sessionId, endedAt, controller.signal);
           if (!current()) return;
+          const destination = demoHandoffUrl(companionDestination, existing.sessionId, result);
           completedRef.current = true;
-          setHandoff(`${DEMO_ORIGIN}${result.handoff.companionRoute}`);
+          setHandoff(destination);
         }
       }
     } catch (failure) {
@@ -419,7 +427,9 @@ export function App({ source: providedSource, client: providedClient, navigate }
             <p>
               {savedConcepts.length
                 ? "Your difficult moments are ready to practice."
-                : "Lecture finished. Open the companion app to review this session."}
+                : companionDestination === "meltingpot"
+                  ? "Lecture finished. Open MeltingPot to review this session."
+                  : "Lecture finished. Open the companion app to review this session."}
             </p>
             <a
               className="primary-button"
@@ -435,10 +445,12 @@ export function App({ source: providedSource, client: providedClient, navigate }
                   : undefined
               }
             >
-              Open my practice
+              {companionDestination === "meltingpot" ? "Open in MeltingPot" : "Open my practice"}
             </a>
             <p className="small-note">
-              Opens the companion app in a new tab. Keep the local demo server running.
+              {companionDestination === "meltingpot"
+                ? "Opens MeltingPot in a new tab. If it is unavailable, start the MeltingPot rework app and use this link again. Keep both local demo servers running."
+                : "Opens the companion app in a new tab. Keep the local demo server running."}
             </p>
           </div>
         ) : null}

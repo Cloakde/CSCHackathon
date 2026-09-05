@@ -18,6 +18,8 @@
     "dev:demo": "node scripts/demo-server.mjs",
     "start:demo": "node scripts/demo-server.mjs --production",
     "verify:demo": "node scripts/demo-smoke.mjs",
+    "test:meltingpot": "node scripts/meltingpot-components.mjs",
+    "verify:meltingpot": "node scripts/meltingpot-http.mjs",
     "dev:extension": "npm run dev --workspace=@livelecture/extension",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
