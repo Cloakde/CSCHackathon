@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { it } from "vitest";
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { createDemoDispatcher } from "../../demo-api";
 import {
@@ -14,7 +14,7 @@ import { AI_EVALUATION_CASES } from "../cases";
 import { openTrialLedger } from "./budget";
 import { TRIAL_MODEL, TRIAL_POLICY_HASH } from "./policy";
 import type { TrialMeter, TrialCallKind } from "./types";
-import { buildTrialReport } from "./report";
+import { buildTrialReport, createTrialReportWriter, finalizeTrialRecording } from "./report";
 import { runStaticScenario, type TrialScenarioResult } from "./scenarios";
 import { runComponentProbe } from "./component-probe";
 
@@ -36,7 +36,12 @@ it("records the authorized synthetic trial without declaring human or browser ac
     process.env.LIVELECTURE_AI_TRIAL_POLICY !== TRIAL_POLICY_HASH
   )
     throw new Error("Missing verified trial execution identity.");
+  const fixtureSha256 = createHash("sha256")
+    .update(readFileSync(path.join(process.cwd(), "shared/fixtures/calculus-lecture.json")))
+    .digest("hex");
+  const writer = createTrialReportWriter(directory);
   const ledger = openTrialLedger({ directory, sourceTree, policyHash: TRIAL_POLICY_HASH });
+  const previousAttemptCount = ledger.snapshot().attempts.length;
   const startedAt = new Date().toISOString();
   const results: TrialScenarioResult[] = [];
   const active = new Set<number>();
@@ -59,6 +64,7 @@ it("records the authorized synthetic trial without declaring human or browser ac
         scenarioId: input.scenarioId,
         startedAt: new Date().toISOString(),
       });
+      save();
       return id;
     },
     settle(id, usage) {
@@ -69,12 +75,10 @@ it("records the authorized synthetic trial without declaring human or browser ac
         const timing = attemptTimings.find((item) => item.attemptId === id);
         if (timing && timing.durationMs === undefined)
           timing.durationMs = performance.now() - clocks.get(id)!;
+        save();
       }
     },
   };
-  const fixtureSha256 = createHash("sha256")
-    .update(readFileSync(path.join(process.cwd(), "shared/fixtures/calculus-lecture.json")))
-    .digest("hex");
   function save() {
     const report = buildTrialReport(
       {
@@ -86,17 +90,22 @@ it("records the authorized synthetic trial without declaring human or browser ac
         model: TRIAL_MODEL,
         startedAt,
         endedAt: new Date().toISOString(),
+        invocation: {
+          id: writer.invocationId,
+          previousAttemptCount,
+          scenarioPolicy: "repeat_all_cases_with_remaining_allowance",
+        },
         results,
         attemptTimings,
         ledger: ledger.snapshot(),
       },
       [apiKey!],
     );
-    writeFileSync(path.join(directory!, "report.json"), `${JSON.stringify(report, null, 2)}\n`, {
-      mode: 0o600,
-    });
+    writer.save(report);
   }
+  let complete = false;
   try {
+    save();
     for (const fixture of AI_EVALUATION_CASES) {
       const dispatcher = createDemoDispatcher({
         enabled: true,
@@ -129,14 +138,14 @@ it("records the authorized synthetic trial without declaring human or browser ac
         save();
       }
     }
-    ledger.finish();
-    save();
-    if (results.some((result) => result.status !== "observed_for_review"))
-      throw new Error(
-        "Trial completed with findings; inspect the local report before further work.",
-      );
+    complete = true;
   } finally {
-    cleanup();
-    ledger.close();
+    try {
+      cleanup();
+    } finally {
+      finalizeTrialRecording(ledger, save, complete);
+    }
   }
+  if (results.some((result) => result.status !== "observed_for_review"))
+    throw new Error("Trial completed with findings; inspect the local report before further work.");
 });
