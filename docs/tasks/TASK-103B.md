@@ -69,7 +69,7 @@ Each implementation worktree starts at the independently approved contract revis
 
 - **`m2_contract_review`**, backend implementing engineer: new `web/src/server/assistance/provider-trial/**` only. Four hooks, prompts, response schemas/transport and fully offline tests. No dispatcher/shared/client files.
 - **`m3_extension`**, budget engineer for this phase: new `web/src/server/ai-evaluation/trial/{types.ts,policy.ts,budget.ts,budget.test.ts}` only. The private seam must land before adapter integration. No other evaluation files.
-- **Coordinator**, `coord/TASK-103-ai-trial`: this contract; new ADR 0010; task board/README and Phase B evaluation documentation; `package.json` for `ai:trial`; `scripts/ai-trial.mjs`, its `.test.mjs`, `scripts/ai-trial-vitest.config.ts`; new `web/src/server/ai-evaluation/trial/{scenarios.ts,scenarios.test.ts,actual.run.tsx,report.ts,report.test.ts}`. No edits to frozen Phase A cases or tests.
+- **Coordinator**, `coord/TASK-103-ai-trial`: this contract; new ADR 0010; task board/README and Phase B evaluation documentation; `package.json` for `ai:trial` and inclusion of the new offline CLI guard test in `test`; `scripts/ai-trial.mjs`, its `.test.mjs`, `scripts/ai-trial-vitest.config.ts`; new `web/src/server/ai-evaluation/trial/{scenarios.ts,scenarios.test.ts,actual.run.tsx,report.ts,report.test.ts}`. No edits to frozen Phase A cases or tests.
 - **`m3_review`**, read-only exact contract/source review and final independent promotion after green CI. No authored implementation.
 
 ## Runner and evidence
