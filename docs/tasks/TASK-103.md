@@ -33,6 +33,32 @@ No provider, credential, spend, audio, browser/desktop control, original Melting
 
 ## Exclusive implementation ownership
 
+Frozen private backend seams, exported from `web/src/server/assistance/types.ts`:
+
+```typescript
+interface PracticeGenerationContext {
+  view: CompletedSessionView;
+  signal: AbortSignal;
+}
+interface PracticeVerificationCandidate {
+  view: CompletedSessionView;
+  confusionEvent: ConfusionEvent;
+  drill: WeakAreaDrillResponse;
+}
+type PracticeSupportVerdict =
+  | {
+      verdict: "supported";
+      supportedChecks: (
+        "question_supported" | "answer_correct" | "explanation_supported" | "confusion_aligned"
+      )[];
+    }
+  | { verdict: "unsupported" };
+```
+
+`PracticeSupportVerdictSchema` strictly validates the discriminated union; supported checks must contain all four unique values, with no missing/extra checks or fields. `generateHelp(context, signal)` and `generatePractice(event, drillId, context)` return their corresponding model/drill shape or Promise; hook output is still treated as untrusted at runtime. `verifyHelp(candidate, signal)` and `verifyPractice(candidate, signal)` return `unknown | Promise<unknown>`. `assistance/operation.ts` exports `HELP_DEADLINE_MS = 10_000` and `PRACTICE_DEADLINE_MS = 4_000`. No caller can raise these production limits through request input.
+
+A stale retry begins only after the prior store transaction has settled and released its in-flight identity reservation. Cancellation of a coalesced follower rejects only that follower; it neither cancels the owner nor releases the owner's reservation. Owner cancellation settles/releases its own reservation, and no late verifier result can revive it. Exact successful retries retain their existing behavior.
+
 Each lane uses an isolated branch/worktree based on the approved contract revision. No concurrent writes to shared hotspots.
 
 1. **Coordinator**, branch `coord/TASK-103-ai-readiness`: this contract, `docs/TASK_BOARD.md`, ADR 0006 and new ADR 0009, `README.md`, `package.json` for a dedicated readiness command; `shared/src/grounding.ts`, `shared/src/store.ts`, `shared/test/grounding.test.ts` for internal cancellation only; `web/src/server/ai-evaluation/**` and `docs/evaluations/TASK-103/**`; `web/src/components/help-ingestion.test.tsx`, existing `web/src/components/learning-demo.test.tsx` only if ordered uploads require a regression adjustment. The Coordinator lands the reviewed shared cancellation seam on the integration branch before backend integration.
