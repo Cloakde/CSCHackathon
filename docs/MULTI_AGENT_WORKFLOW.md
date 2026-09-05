@@ -157,13 +157,15 @@ At activation, the Coordinator also owns confirmation of the official judging/su
 
 The core simulated learning experience has first claim on implementation and review capacity. M1 feasibility work and M2 core implementation overlap after the minimum contracts are frozen; capture/Scribe PASS or CUT is not a prerequisite to starting M2. Schedule optional live tasks only with spare capacity and exclusive owned files. In particular, TASK-101's UI ownership can conflict with core UI work, and TASK-102's shared export must be serialized. Amend boundaries or sequence those edits before assignment.
 
+Current approved direction: the extension during class, the separate MeltingPot rework copy afterward. M0 is complete and M2's local prototype is implemented; pending human, actual AI, and judge-access evidence remains visible. M3 is the next build milestone. Its bounded synthetic preparation may proceed after its own task gates while M2 evidence is arranged, without marking M2 complete. Preserve historical milestone/task identifiers and provisional day numbers. ADR 0007 records the product direction and protection of both original MeltingPot repositories and live services.
+
 | Period | Focus | Exit condition |
 |---|---|---|
 | Days 1–2 | Bootstrap | Section 3 gate passes |
 | Days 3–5 | Start core learning flow; early AI and optional live feasibility checks | Core work proceeds; actual AI evidence or blocker recorded; optional live spikes PASS or CUT |
 | Days 6–10 | Complete and demonstrate the learning experience started in Day 3 | Full simulated callback, uncoached learner journey, and confirmed judge access route work; actual AI readiness reported separately |
-| Days 11–13 | Integration and resilience | Live adapter integrates only if passed; core failure paths work |
-| Days 14–15 | Should-ship breadth | Only prioritized additions that do not destabilize the vertical slice |
+| Days 11–13 | MeltingPot connection and resilience | Private lecture review, targeted practice, citation return, connected learner checks, and core failure paths pass; live remains conditional |
+| Days 14–15 | Prioritized additions and reuse | Suitable study components reused only after the connected journey and acceptance gates pass; broader redesign waits |
 | Days 16–18 | Feature freeze and hardening | Simulation and, if enabled, Live runbooks pass; release candidate is stable |
 | Day 19 | Final rehearsal and packaging | Exact release candidate and both runbooks are confirmed |
 | Day 20 | Submission contingency | Final packaging, recovery time, and submission |
@@ -171,6 +173,7 @@ The core simulated learning experience has first claim on implementation and rev
 Required rehearsals:
 
 - First integrated demonstration as soon as the complete flow works, no later than Day 10, using the learner and judge-access checks in Section 18.
+- Repeat those checks on the M3 MeltingPot connection; the implemented M2 prototype and copied MeltingPot baseline do not establish acceptance of the new destination.
 - Second rehearsal at feature freeze.
 - Release candidate, backup recording, and clean-environment rehearsal completed by the end of Day 18.
 - Daily rehearsal during the final release-candidate period.
@@ -181,8 +184,9 @@ Required rehearsals:
 - “I’m Lost” response grounded in existing chunks from the prominently labeled active source—Simulation or Live.
 - Clickable timestamp citation resolving to an existing chunk.
 - Confusion-event logging.
-- Session end and handoff to the companion app.
+- Session end and handoff to private lecture review in the separate MeltingPot rework copy.
 - “Practice My Weak Areas” using the logged confusion concept.
+- Private transcripts, confusion, and practice must not automatically enter shared class Pots or teacher reports. Sharing requires a separate explicit student action.
 - Visible recording/simulation state and a reliable Stop control.
 
 ### Conditional Live Target
@@ -680,7 +684,9 @@ Alongside the protected core lane, schedule the actual AI-help evaluation in Sec
 
 By the end of Day 5, each live spike is **PASS** with evidence or **CUT**, including when capacity or authorization is unavailable. Preserve checkpoint evidence and keep the core lane moving. Report actual AI quality separately; a blocked real-model test is not PASS and cannot be concealed by scripted answers.
 
-### Phase C — Must-Ship Learning Experience, Days 3–10
+### Phase C — Current Learning Prototype, Days 3–10
+
+TASK-201–204 implemented this scope. Preserve its automated checks and outstanding acceptance findings. The existing companion is a working prototype while M3 connects MeltingPot; do not expand it into a competing post-class product or claim that its checks cover the new destination.
 
 Build:
 
@@ -699,18 +705,25 @@ The first complete demonstration is due as soon as the flow connects, no later t
 
 Exercise the confirmed judge access route in the same demonstration. Report functional automated success, learner success, actual AI quality, and judge-access readiness separately. Actual AI remains unproven until the measured check passes; only explicit Product Owner acceptance can select a visibly scripted submission scope. Unresolved evidence must not be silently rolled into a blanket milestone-ready claim.
 
-### Phase D — Integration and Essential Breadth, Days 11–13
+### Phase D — MeltingPot Connection and Resilience, Days 11–13
 
-- Integrate live capture if its spike passed.
-- Fix findings from the Day 10 integrated demonstration.
+- Define and independently review the handoff/access contract before either consumer changes. Record current exact bases and exclusive file ownership in both repositories. Preserve lecture/session, confusion-event, concept, and transcript citation identities, plus reset/deletion and access rules.
+- Build private lecture review using synthetic examples and transient state in the separate MeltingPot rework copy, then connect the extension's Finish action, targeted practice, and citation return. Do not use the original repositories, credentials, accounts, database tests, or live deployments. ADR 0006's private localhost API is not public authentication or an approved cross-app handoff.
+- Keep transcripts, confusion, and personal practice out of shared Pot contributions and teacher reports unless the student separately approves sharing. Reuse components only after checking their data access and reporting behavior.
+- Preserve the existing M2 callback and add automated coverage for the new journey on exact revisions of both apps. Repeat the uncoached two-concept learner and content checks, including practice feedback and a return to the supporting passage; repeat the chosen judge route with the new destination.
+- Test repeated Finish, missing/wrong/stale/deleted sessions, unavailable destination, practice failures, citation return, and deterministic reset/deletion. Failures must be visible, recoverable, and confined to the correct lecture.
+- Integrate live capture only if both required spikes passed and core engineering/review capacity remains protected.
+- Fix outstanding M2 findings and findings from the connected demonstration.
 - Prioritize unresolved learner-flow, actual-AI-quality, and judge-access blockers over optional breadth.
 - Add durable storage only if the simulated must-ship path is green and the required access controls are approved; otherwise retain the in-memory SessionStore.
 - Add deletion whenever durable persistence ships, while keeping deterministic reset for in-memory mode.
 - Strengthen reconnection and failure handling.
 
-### Phase E — Should-Ship Features, Days 14–15
+If M3 misses, cut optional breadth and unintegrated live work first. Preserve the current prototype, but any M2-only submission fallback requires an explicit Product Owner scope decision and must not be reported as completed MeltingPot integration. Privacy and grounding guarantees are never cut. No implementation task is assigned or enabled by this workflow text alone; its contract and applicable authorization must be recorded first.
 
-Add only prioritized features after the core learning journey and approved submission scope are ready. Actual-AI-quality and judge-access blockers preempt this breadth:
+### Phase E — Prioritized Additions and Reuse, Days 14–15
+
+Add only prioritized features after the connected M3 learning journey, learner/privacy checks, and approved submission scope are ready. Broader MeltingPot redesign and unrelated screens wait. Inspect existing study components before building equivalents, without importing shared-class behavior into private lectures. Inherited features are not automatically new release commitments. Actual-AI-quality and judge-access blockers preempt this breadth:
 
 - Grounded Ask.
 - Catch Me Up or Explain This.
@@ -728,6 +741,7 @@ Add only prioritized features after the core learning journey and approved submi
 - Tag the release candidate and record the deployed commit.
 - Rehearse and package the submission.
 - Repeat the accepted learner journey and confirmed judge access route on the exact release candidate, with accurate transcript-source and scripted/actual-AI disclosures.
+- Record the exact delivered extension and MeltingPot revisions. Exercise their private handoff, targeted practice, and citation return together. Identify inherited MeltingPot work and newly built integration in the submission records, retaining attribution and license information.
 
 Phase F hardens an already integrated product. It is not the first time components meet.
 

@@ -6,6 +6,8 @@
 
 The workflow document defines how contributors coordinate. This document defines what gets built, in what order, and what is cut when time runs out. If the documents conflict, the workflow controls.
 
+The approved product direction is **the extension during class, MeltingPot afterward**, as recorded in [ADR 0007](adr/0007-meltingpot-rework-direction.md). M0 is complete. M2's local prototype is implemented, with acceptance evidence still pending. M3 is the next build milestone. Milestone numbers and historical task records are retained; working-day ranges remain provisional and do not activate calendar dates.
+
 ---
 
 ## 1. Schedule Activation
@@ -44,8 +46,9 @@ Any unresolved requirement remains explicit in the task board. Reversible local 
 - “I’m Lost” grounded in existing transcript chunks from the labeled active source.
 - A clickable citation that resolves to an existing transcript chunk.
 - Confusion-event logging.
-- Session end and companion-app handoff.
+- Session end and handoff to private lecture review in the separate MeltingPot rework copy.
 - “Practice My Weak Areas” using the same confusion event.
+- Personal lecture, confusion, and practice data remain private unless the student explicitly chooses to share.
 - Visible source/capture state and reliable Stop/reset behavior.
 
 ### Conditional Live Target
@@ -117,6 +120,10 @@ For the MVP:
 
 Simulation fallback is selected or confirmed visibly. It never activates silently and never presents fixture content as captured live audio.
 
+### MeltingPot Rework Boundary
+
+M3 builds against the isolated MeltingPot rework copy, not either original repository or its live services. Preserve the M2 prototype while the replacement is developed. Review the new handoff/access contract before changing routes or origins; ADR 0006's private demo restrictions remain in force for the existing app. Reuse of MeltingPot's study UI does not authorize reuse of shared Pot data, teacher reporting, accounts, or production storage for private lectures. See ADR 0007 for the source baseline and privacy requirements.
+
 ---
 
 ## 4. Milestone Summary
@@ -125,9 +132,9 @@ Simulation fallback is selected or confirmed visibly. It never activates silentl
 |---|---:|---|
 | M0 — Canonical bootstrap | 1–2 | One reviewed baseline on the default branch |
 | M1 — Early feasibility checks | 3–5, alongside M2 | Actual AI help measured or explicitly blocked; each optional live spike PASS or CUT |
-| M2 — Must-ship learning experience | 3–10 | Full simulated learning loop and learner demonstration pass; actual AI readiness reported separately |
-| M3 — Integration and resilience | 11–13 | Live adapter integrated if passed; core failure paths work |
-| M4 — Should-ship breadth | 14–15 | Prioritized additions land without breaking the callback |
+| M2 — Current learning prototype | 3–10 | Implemented simulated loop; human/learner and judge checks still required, actual AI readiness reported separately |
+| M3 — MeltingPot connection and resilience | 11–13 | Private extension-to-MeltingPot practice journey, citation return, learner checks, and core failure paths pass |
+| M4 — Prioritized additions and reuse | 14–15 | Suitable study tools reused only after the connected journey and acceptance gates pass |
 | M5 — Freeze and release candidate | 16–18 | Clean-environment rehearsal and backup recording pass |
 | M6 — Final rehearsal and submission | 19–20 | Day 19 package ready; Day 20 held for contingency |
 
@@ -227,11 +234,13 @@ TASK-101 currently owns extension UI files also needed by M2, and TASK-102 owns 
 
 ---
 
-## 7. M2 — Must-Ship Learning Experience, Days 3–10
+## 7. M2 — Current Learning Prototype, Days 3–10
 
 ### Goal
 
-This is the next main implementation milestone after M0. Start as soon as schedule activation, its own task assignments, and minimum contract approval are complete; TASK-101/TASK-102 decisions are not dependencies. Aim for the first complete walkthrough as soon as the pieces connect, no later than Day 10.
+TASK-201–204 implemented this local simulated learning loop. Keep that completed work and its automated regression checks. Chrome/manual behavior, the uncoached learner check, actual AI evidence, and judge access remain pending as recorded on the task board; this is not a whole-milestone PASS. M3 is now the next build milestone. Its bounded synthetic preparation may proceed after its own task gates while pending M2 evidence is arranged; no pending acceptance is waived or silently marked complete.
+
+The following scope and gates describe the existing prototype. Its companion remains a fallback/reference while the MeltingPot replacement is built. A passed check on this prototype does not establish acceptance of the new destination; repeat the complete learner and judge journey on the M3 connection before release.
 
 Before its branches start, freeze the minimum contracts for the “I’m Lost” response, citation, confusion event, session handoff, weak-area drill, and SessionStore. Reuse the reviewed bootstrap contracts where sufficient, and serialize any required shared changes before their consumers start.
 
@@ -300,13 +309,26 @@ If the callback is not demonstrable by the end of Day 10:
 
 ---
 
-## 8. M3 — Integration and Resilience, Days 11–13
+## 8. M3 — MeltingPot Connection and Resilience, Days 11–13
+
+### Goal and Sequence
+
+Finish a lecture in the extension, open its private review in MeltingPot, see why a topic needs practice, answer a relevant question, and return to the supporting transcript passage.
+
+1. Define and independently review the handoff/access contract, using the current exact bases in both repositories. Preserve session, concept, confusion-event, and citation identity. Name exclusive file ownership before assigning consumers.
+2. Build the private lecture-review area in the isolated MeltingPot copy with synthetic examples and transient state. It must run without the original project's accounts, keys, database, or live deployment. Do not start the inherited app against production services.
+3. Connect the extension's Finish action to that area. Preserve the current M2 demo until the new path passes; do not merely redirect to an unrelated class page or put lecture content or credentials in URLs.
+4. Connect concept-specific practice and resolving transcript citations. Reuse suitable study components only where they preserve private data and source references.
+
+No full MeltingPot redesign, shared-class publishing feature, new database, or provider change is required to prove this first journey. Each implementation task needs its own reviewed contract, current base, owned paths, and applicable authorization. This plan revision does not itself assign those tasks.
 
 ### Work
 
-- Fix findings from the Day-10 demonstration.
+- Fix outstanding M2 findings and findings from the connected MeltingPot demonstration.
+- Keep personal transcripts, confusion, and practice separate from shared Pot contributions and teacher reports. Any later sharing requires an explicit student action and the existing contribution-review rules.
+- Test missing, stale, wrong-session, and deleted handoffs; repeated Finish; unavailable destination; practice failures; citation return; and deterministic reset/deletion. Errors must be visible and recoverable without crossing lecture identities or exposing data.
 - Resolve blocking learner-flow and actual AI-quality findings before optional feature breadth. Any proposed change to grounding guarantees requires its own reviewed decision.
-- Integrate the live adapter only if both required live spikes passed.
+- Integrate the live adapter only if both required live spikes passed and the core MeltingPot connection has protected engineering/review capacity.
 - Keep Live and Simulation behind the same transcript-source interface.
 - Test provider disconnect, reconnect, and duplicate prevention.
 - Test side-panel closure and service-worker lifecycle recovery.
@@ -319,7 +341,10 @@ If the callback is not demonstrable by the end of Day 10:
 
 ### Exit Gate
 
-- The simulated runbook remains green.
+- The existing M2 callback remains green, and the new extension-to-MeltingPot callback has automated coverage tied to exact revisions in both repositories.
+- An uncoached learner completes the connected journey for two distinct confusion concepts, including answering practice, finding feedback, and returning to the correct transcript passage. A knowledgeable human reviews both sets of content. Existing prototype-only evidence does not satisfy this gate.
+- Private lecture data do not automatically enter shared Pots or teacher reports. The handoff/access contract and failure paths receive independent review.
+- Track M2 acceptance findings, actual AI quality, and the chosen judge access route separately. Resolve them for the claimed release scope and repeat the judge route with the delivered extension and MeltingPot revisions; scripted help still requires honest disclosure and explicit scope acceptance if used for submission.
 - Any enabled live mode passes its human browser/audio checks.
 - Core provider and application failures produce visible recoverable states.
 - No persistence is enabled without its access-control and deletion gates.
@@ -329,14 +354,17 @@ If the callback is not demonstrable by the end of Day 10:
 If M3 is not complete by the end of Day 13:
 
 1. Disable any unintegrated Live mode for the release candidate.
-2. Use Days 14–15 for unresolved must-ship resilience.
+2. Use Days 14–15 for the missing MeltingPot connection and unresolved must-ship resilience.
 3. Cut should-ship breadth rather than moving feature freeze.
+4. If the connection still cannot ship, record the blocker and obtain an explicit Product Owner decision on any M2-only submission fallback. Do not call the old companion a completed MeltingPot milestone.
 
 ---
 
-## 9. M4 — Should-Ship Breadth, Days 14–15
+## 9. M4 — Prioritized Additions and Reuse, Days 14–15
 
-Add only the highest-value work after the core callback, learner demonstration, and approved submission scope are ready. Unresolved actual AI quality or judge-access blockers take priority over this list:
+Add only the highest-value work after the connected M3 callback, learner demonstration, privacy checks, and approved submission scope are ready. Unresolved actual AI quality or judge-access blockers take priority. Broader MeltingPot redesign and unrelated screens wait until this gate. Inspect existing notes, flashcard, and practice components before building equivalents; reuse does not waive grounding, privacy, or acceptance checks, and existing features do not automatically enter scope.
+
+Prioritize:
 
 1. General grounded Ask.
 2. Catch Me Up or Explain This.
@@ -370,7 +398,7 @@ No new features.
 - Deletion and authorization, if persistence is enabled.
 - Retention settings and limitations recorded for every provider receiving audio or transcript content.
 - README setup steps run from a clean environment.
-- Repeat the accepted learner journey and judge access route on the release candidate, with transcript-source and scripted/actual-AI disclosures matching what is actually running.
+- Repeat the accepted extension-to-MeltingPot learner journey and judge access route on the release candidate, with transcript-source and scripted/actual-AI disclosures matching what is actually running. Record and test the exact revision of each delivered repository, including private-data separation and citation return.
 
 ### Day-18 Go/No-Go
 
@@ -391,8 +419,9 @@ By the end of Day 18:
 
 - Rehearse the chosen primary runbook cold.
 - Rehearse the Simulation Mode runbook.
-- Verify the exact deployed and packaged commit.
+- Verify the exact packaged extension and delivered MeltingPot revision; do not use the original MeltingPot deployment as the rework release.
 - Finish submission text and artifacts against the official requirements recorded at activation; verify all previously resolved access and disclosure requirements still hold.
+- Identify inherited MeltingPot work and the new lecture integration, retaining source attribution and license information.
 - Confirm the backup recording is playable.
 
 ### Day 20
@@ -415,9 +444,11 @@ The must-ship critical path is:
     → simulated transcript
     → grounded “I’m Lost” and verified citation
     → confusion event
-    → companion handoff
-    → weak-area drill
-    → Day-10 demonstration
+    → M2 prototype callback (implemented; acceptance pending)
+    → reviewed MeltingPot handoff/access contract
+    → private MeltingPot lecture review
+    → weak-area drill and citation return
+    → connected learner and judge-access demonstration
     → frozen release candidate
 
 Real audio is a conditional adapter to this path. Its failure must not erase the demonstrable core product.
@@ -440,6 +471,9 @@ The core path starts during M1. Actual AI proof and judge-access preparation run
 | Scripted success is mistaken for proven AI help | Separate M1 actual-AI result | Keep the proof pending and disclose scripted answers; obtain an explicit scope decision if used for submission |
 | Judges cannot open or use the submitted demo | Activation requirements check and first complete rehearsal | Resolve the required access route early; defer dependent hosting/storage choices until requirements are known |
 | Durable storage exposes sessions | M3 authorization test | Disable persistence and remain local/in-memory |
+| A private lecture becomes shared class material or teacher-report data | M3 data-flow and access review | Separate private lecture state; require explicit student sharing; block release on unintended exposure |
+| New handoff loses the lecture, confusion concept, or citation | M3 two-concept callback and retry/reset tests | Reject mismatched or missing references and preserve the working M2 prototype |
+| MeltingPot redesign delays the complete journey | M3 scope review | Defer unrelated screens and reuse only suitable private study components |
 | Provider retains submitted audio/text | M1/M5 privacy preflight | Disclose the limitation; use synthetic or separately consented demo data |
 | Coordinator becomes a bottleneck | More than two changes awaiting integration | Reduce active lanes and cut lower-priority work |
 
@@ -448,6 +482,8 @@ The core path starts during M1. Actual AI proof and judge-access preparation run
 ## 14. Cut Order
 
 When behind, cut in this order:
+
+Defer unrelated MeltingPot redesign before cutting the learning journey. Existing inherited features are not new commitments; the order below applies to additions planned for this release.
 
 1. Study guide and export.
 2. Quiz variations and difficulty controls.
@@ -469,4 +505,5 @@ Never cut:
 - A real resolving citation.
 - Confusion logging.
 - The weak-area callback.
+- Private lecture-data boundaries. Replacing the planned MeltingPot destination with the M2 companion requires an explicit scope decision.
 - Honest source labeling and capture safety.
