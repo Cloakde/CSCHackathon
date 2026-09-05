@@ -37,7 +37,7 @@ Combined candidate `284d56a92fec20c024ff27eddcc6bab4b5a86acf` passes 303 ordinar
 
 First obtain the user's explicit approval of this model, synthetic-data scope and $1 total ceiling after exact independent review and green CI. Configure `OPENAI_API_KEY` only in the local server process. Never paste a key into a conversation, write it into the command arguments, commit it, or put it in the extension. The launcher does not read environment files and refuses CI, dirty source, mismatched source identity or missing credentials.
 
-From the clean, reviewed checkout, record the exact commit and `git rev-parse HEAD^{tree}`. Supply that reviewed tree value explicitly:
+From the clean, reviewed checkout, record the exact commit and `git rev-parse 'HEAD^{tree}'`. Supply that reviewed tree value explicitly:
 
 ```text
 npm run ai:trial -- --execute --approve-usd=1 --source-tree=REVIEWED_40_CHARACTER_TREE_HASH
