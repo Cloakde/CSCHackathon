@@ -85,6 +85,10 @@ Permanent provider credentials must stay on the server, never use a `NEXT_PUBLIC
 
 The server accepts only exact canonical synthetic transcript chunks. Assistance uses the existing revision-bound store transaction, server-owned citations, and a separate verifier that rejects altered scripted claims or evidence. Insufficient evidence produces a safe explanation of the limitation. Practice must match the selected stored confusion event and its supported concept.
 
+Committed transcript passages continue uploading while an explanation is being prepared. Help can retry once if the transcript advances; cancellation prevents late saved results. Practice also passes a separate content check before it can be reused. These safeguards are exercised with injected delays and failures, while normal help and practice remain prewritten.
+
+Run `npm run test:ai-readiness` for the frozen synthetic cases and the extension-to-service test at normal lecture speed. It uses no provider or browser. [The evaluation record](docs/evaluations/TASK-103/README.md) separates these engineering checks from the real-model trial, which still needs a selected provider, bounded cost plan and explicit spending authorization. The unchanged MeltingPot relay is checked against the new dispatcher separately; the preserved older running lecture server cannot establish new paired production HTTP evidence.
+
 ## Repository map
 
 ```text

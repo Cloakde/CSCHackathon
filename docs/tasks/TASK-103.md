@@ -2,7 +2,9 @@
 
 **Tier:** 1
 
-**State:** Contract IN REVIEW; implementation begins after independent approval
+**State:** Phase A IN PROGRESS; actual-model evaluation remains PENDING
+
+**Contract approval:** Independent reviewer `m3_review` approved exact contract `48929fa71ee258851dfb7df1704de14bdd7173b8` before implementation. The same reviewer approved the shared cancellation seam at `dd8fd6c3467483f7accec1a4e3c985ab0ea98eb9`; final combined approval and CI remain required.
 
 **Exact base:** `49ae3f88e7fc9b286e77449aea188c2acc8d2c5c`
 

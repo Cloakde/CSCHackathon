@@ -1,6 +1,6 @@
 # ADR 0009 — Bounded Asynchronous Assistance
 
-**Status:** Proposed for TASK-103 Phase A; independent review required before implementation
+**Status:** Accepted for TASK-103 Phase A after independent contract approval at `48929fa71ee258851dfb7df1704de14bdd7173b8`; implementation requires final exact-commit review and green CI
 
 Keep receiving committed transcript passages while Help is pending. The extension uses a single ordered uploader independent of foreground Help. It accepts a verified answer only for a canonical anchor at or after the request's minimum acknowledged moment. Finish drains that same uploader; reset cancels both lanes.
 
