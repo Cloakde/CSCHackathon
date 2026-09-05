@@ -12,6 +12,7 @@ import {
 } from "@livelecture/shared";
 import { App } from "../src/App";
 import { createDemoClient, DEMO_ORIGIN, type DemoFetch } from "../src/demo-api";
+import { MELTINGPOT_ORIGIN } from "../src/demo-handoff";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -155,6 +156,117 @@ function deferred<T>() {
 }
 
 describe("local learning demo", () => {
+  it("keeps the MeltingPot reopening link after Finish without probing or silently changing destinations", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    const navigate = vi.fn();
+    render(
+      <App
+        source={h.source}
+        client={h.client}
+        companionDestination="meltingpot"
+        navigate={navigate}
+      />,
+    );
+    await click("Start sample lecture");
+    await advance(2500);
+    await click("I’m Lost");
+    await click("Finish lecture");
+    expect(navigate).not.toHaveBeenCalled();
+    const link = screen.getByRole("link", { name: "Open in MeltingPot" });
+    const expected = `${MELTINGPOT_ORIGIN}/lectures/session_demo_1`;
+    expect(link).toHaveAttribute("href", expected);
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(screen.getByText(/If it is unavailable/)).toHaveTextContent(
+      "start the MeltingPot rework app and use this link again",
+    );
+    expect(screen.queryByRole("link", { name: "Open my practice" })).not.toBeInTheDocument();
+    // Opening a tab does not acknowledge availability. It must not clear or replace the link.
+    fireEvent.click(link);
+    fireEvent.click(link);
+    await click("Finish lecture");
+    expect(navigate.mock.calls).toEqual([[expected], [expected]]);
+    expect(screen.getByRole("link", { name: "Open in MeltingPot" })).toHaveAttribute(
+      "href",
+      expected,
+    );
+    expect(h.calls.filter((call) => call.url.endsWith("/end"))).toHaveLength(1);
+    expect(h.calls.every((call) => call.url.startsWith(`${DEMO_ORIGIN}/api/sessions`))).toBe(true);
+    expect(screen.getByText(/Saved for practice:/)).toHaveTextContent("Inner and outer functions");
+  });
+
+  it("ignores a late Finish after reset and opens only the new MeltingPot session", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    const finish = h.client.end;
+    const pending = deferred<void>();
+    const endSpy = vi.spyOn(h.client, "end").mockImplementationOnce(async (...args) => {
+      const result = await finish(...args);
+      await pending.promise;
+      return result;
+    });
+    render(<App source={h.source} client={h.client} companionDestination="meltingpot" />);
+    await click("Start sample lecture");
+    await advance(2500);
+    await click("Finish lecture");
+    await click("Finishing…");
+    expect(endSpy).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("link", { name: "Open in MeltingPot" })).not.toBeInTheDocument();
+    await click("Reset & delete session");
+    expect(endSpy.mock.calls[0]?.[2]?.aborted).toBe(true);
+    await click("Start sample lecture");
+    await advance(2500);
+    await act(async () => pending.resolve());
+    expect(screen.queryByRole("link", { name: "Open in MeltingPot" })).not.toBeInTheDocument();
+    await click("Finish lecture");
+    expect(screen.getByRole("link", { name: "Open in MeltingPot" })).toHaveAttribute(
+      "href",
+      `${MELTINGPOT_ORIGIN}/lectures/session_demo_2`,
+    );
+    await click("Reset & delete session");
+    expect(screen.queryByRole("link", { name: "Open in MeltingPot" })).not.toBeInTheDocument();
+    expect(screen.getByText("Sample lecture · 0 passages")).toBeVisible();
+  });
+
+  it("rejects a foreign completed session and retries Finish without losing the lecture", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    const finish = h.client.end;
+    vi.spyOn(h.client, "end").mockImplementationOnce(async (...args) => {
+      const result = await finish(...args);
+      return {
+        session: { ...result.session, sessionId: "session_other_1" },
+        handoff: { sessionId: "session_other_1", companionRoute: "/sessions/session_other_1" },
+      };
+    });
+    render(<App source={h.source} client={h.client} companionDestination="meltingpot" />);
+    await click("Start sample lecture");
+    await advance(2500);
+    await click("Finish lecture");
+    expect(screen.getByRole("alert")).toHaveTextContent("did not match this sample session");
+    expect(screen.queryByRole("link", { name: "Open in MeltingPot" })).not.toBeInTheDocument();
+    expect(screen.getByText("Sample lecture · 3 passages")).toBeVisible();
+    await click("Try again");
+    expect(screen.getByRole("link", { name: "Open in MeltingPot" })).toHaveAttribute(
+      "href",
+      `${MELTINGPOT_ORIGIN}/lectures/session_demo_1`,
+    );
+  });
+
+  it("keeps the explicitly selected prototype handoff available", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    render(<App source={h.source} client={h.client} companionDestination="prototype" />);
+    await click("Start sample lecture");
+    await click("Finish lecture");
+    expect(screen.getByRole("link", { name: "Open my practice" })).toHaveAttribute(
+      "href",
+      `${DEMO_ORIGIN}/sessions/session_demo_1`,
+    );
+    expect(screen.queryByRole("link", { name: "Open in MeltingPot" })).not.toBeInTheDocument();
+  });
+
   it("connects two different help moments to citations and a deliberate companion handoff", async () => {
     vi.useFakeTimers();
     const h = harness();

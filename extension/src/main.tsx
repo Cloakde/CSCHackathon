@@ -9,6 +9,6 @@ if (!rootElement) throw new Error("LiveLecture side-panel root was not found");
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <App companionDestination="meltingpot" />
   </StrictMode>,
 );
