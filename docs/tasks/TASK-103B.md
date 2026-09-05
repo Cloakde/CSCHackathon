@@ -2,7 +2,9 @@
 
 **Tier:** 1
 
-**State:** Contract IN REVIEW; no provider calls authorized yet
+**State:** Contract APPROVED; implementation IN REVIEW; no provider calls authorized yet
+
+**Contract review:** `m3_review` approved `7cd0ccb7b143cf20c8f5f4e9e3197d9d5363d4a6` before implementation and the component-probe ownership amendment `6f11e96673b71b4b356da3af10285b1b894a3798` before extraction. Implementation becomes merged only through the exact review/CI transaction recorded on the task board.
 
 **Base:** `0b80cb902c9db3edec3fb1266fa440e3d0e70e84` (clean local/remote main verified)
 
