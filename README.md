@@ -87,7 +87,9 @@ The server accepts only exact canonical synthetic transcript chunks. Assistance 
 
 Committed transcript passages continue uploading while an explanation is being prepared. Help can retry once if the transcript advances; cancellation prevents late saved results. Practice also passes a separate content check before it can be reused. These safeguards are exercised with injected delays and failures, while normal help and practice remain prewritten.
 
-Run `npm run test:ai-readiness` for the frozen synthetic cases and the extension-to-service test at normal lecture speed. It uses no provider or browser. [The evaluation record](docs/evaluations/TASK-103/README.md) separates these engineering checks from the real-model trial, which still needs a selected provider, bounded cost plan and explicit spending authorization. The unchanged MeltingPot relay is checked against the new dispatcher separately; the preserved older running lecture server cannot establish new paired production HTTP evidence.
+Run `npm run test:ai-readiness` for the frozen synthetic cases and the extension-to-service test at normal lecture speed. It uses no provider or browser. [The evaluation record](docs/evaluations/TASK-103/README.md) separates these engineering checks from actual AI evidence. The unchanged MeltingPot relay is checked against the new dispatcher separately; the preserved older running lecture server cannot establish new paired production HTTP evidence.
+
+An inactive trial connection is also prepared for `gpt-4.1-mini-2025-04-14`. `npm run ai:trial` prints its plan offline. Paid execution needs separate approval of the proposed **$1 total** limit, a locally configured server-process key, and the exact reviewed source. Ordinary tests and demo commands make no provider calls. [The trial runbook](docs/evaluations/TASK-103/PHASE-B.md) records the fixed limits, commands, retention disclosure and pending human review.
 
 ## Repository map
 

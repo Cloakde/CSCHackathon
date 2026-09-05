@@ -35,8 +35,8 @@ Combined implementation `0acf4dd04edf9c71f590175db0441d33804f1aec` passed all se
 
 These are injected engineering results only: zero provider calls and zero provider cost. Actual-model quality and latency, human content/learner review, manual Chrome behavior, judge access and a new paired production HTTP run remain PENDING. The passing component journey is not a replacement for those checks.
 
-## Phase B remains pending
+## Phase B trial preparation
 
-A real trial must name the provider/model, verify official pricing/retention, bound input/output tokens and all attempts, reserve worst-case cost before each call, and obtain explicit capped authorization and server-side credentials. No network-capable adapter is activated by this phase. The previous draft's proposed $2 and 40 attempts are not permission to spend.
+A separately invoked trial adapter, persistent spending ledger and frozen-case runner are prepared under [TASK-103B](../../tasks/TASK-103B.md). [The Phase B runbook](PHASE-B.md) records the pinned provider, verified pricing/retention, proposed $1 total cap, execution guards and commands. Paid execution still requires explicit approval and a locally configured server-process key. Neither ordinary tests nor the demo activate the adapter. The previous draft's proposed $2 and 40 attempts are not permission to spend.
 
 Record the exact source/model configuration, human content review, each retry and timing, observed continuing ingestion, and actual cost. Report actual-model PASS, CHANGES REQUIRED or BLOCKED separately from Phase A engineering checks. Chrome, uncoached learner and judge-access acceptance remain open as well.

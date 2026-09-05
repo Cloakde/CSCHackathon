@@ -20,6 +20,7 @@
     "verify:demo": "node scripts/demo-smoke.mjs",
     "test:meltingpot": "node scripts/meltingpot-components.mjs",
     "test:ai-readiness": "npm run test --workspace=@livelecture/web -- src/server/ai-evaluation/readiness.test.ts src/components/help-ingestion.test.tsx",
+    "ai:trial": "node scripts/ai-trial.mjs",
     "verify:meltingpot": "node scripts/meltingpot-http.mjs",
     "dev:extension": "npm run dev --workspace=@livelecture/extension",
     "format": "prettier --write .",
@@ -28,7 +29,7 @@
     "secret:scan": "node scripts/secret-scan.mjs",
     "verify:extension-package": "node scripts/verify-extension-package.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "node --test scripts/demo-server.test.mjs && npm run test --workspaces --if-present",
+    "test": "node --test scripts/demo-server.test.mjs scripts/ai-trial.test.mjs && npm run test --workspaces --if-present",
     "check": "npm run format:check && npm run lint && npm run secret:scan && npm run typecheck && npm run test && npm run build && npm run verify:demo"
   },
   "devDependencies": {
