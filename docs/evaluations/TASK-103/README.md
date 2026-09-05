@@ -29,6 +29,12 @@ Run `npm run test:ai-readiness` for the frozen cases and real component/dispatch
 
 The preserved running server is an older backend. Earlier paired production HTTP results remain historical after this task changes backend code. A new paired production HTTP result requires deliberately updating the running lecture service later; this phase does not switch or stop it.
 
+## Recorded Phase A evidence
+
+Combined implementation `0acf4dd04edf9c71f590175db0441d33804f1aec` passed all seven dedicated readiness tests, all 187 ordinary tests (including those seven), and the additional MeltingPot component/relay journey for both confusing concepts. The paired check uses unchanged MeltingPot `9244a641e0639982d4eece09b2274a05ee355096` and enforces canonical contract parity. Type checking, lint, formatting and the local secret scan also passed. Independent source reviews cover the shared cancellation seam, both implementation lanes and combined source; exact final-head approval and full CI remain prerequisites of the task's integration transaction.
+
+These are injected engineering results only: zero provider calls and zero provider cost. Actual-model quality and latency, human content/learner review, manual Chrome behavior, judge access and a new paired production HTTP run remain PENDING. The passing component journey is not a replacement for those checks.
+
 ## Phase B remains pending
 
 A real trial must name the provider/model, verify official pricing/retention, bound input/output tokens and all attempts, reserve worst-case cost before each call, and obtain explicit capped authorization and server-side credentials. No network-capable adapter is activated by this phase. The previous draft's proposed $2 and 40 attempts are not permission to spend.

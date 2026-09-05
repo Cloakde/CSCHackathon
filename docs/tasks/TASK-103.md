@@ -2,7 +2,7 @@
 
 **Tier:** 1
 
-**State:** Phase A IN PROGRESS; actual-model evaluation remains PENDING
+**State:** Phase A MERGED under the integration transaction below; until that transaction completes it is IN REVIEW. Actual-model evaluation remains PENDING.
 
 **Contract approval:** Independent reviewer `m3_review` approved exact contract `48929fa71ee258851dfb7df1704de14bdd7173b8` before implementation. The same reviewer approved the shared cancellation seam at `dd8fd6c3467483f7accec1a4e3c985ab0ea98eb9`; final combined approval and CI remain required.
 
@@ -86,3 +86,13 @@ All MeltingPot paths, original repositories, provider adapters/network clients, 
 ## Phase B gate
 
 No network-capable provider adapter is activated in Phase A. Before a real trial, record provider/model selection, official current pricing and retention controls, per-attempt input/output/token bounds, maximum attempts and concurrency, worst-case cost reservation, a concrete hard cap, and user authorization. The old proposed $2/40-attempt draft is not spending permission. Do not ask to approve an unspecified provider run or report synthetic checks as model evidence.
+
+## Phase A integration transaction
+
+Implementation candidate `0acf4dd04edf9c71f590175db0441d33804f1aec` contains the independently approved shared seam `dd8fd6c`, extension source `11cdd5f1005d5ee5c547df3744019c1c70d8e8b3`, and backend source `73beb420050d9134eb1e3f16113bcd06d08707f6`, plus frozen cases and actual component/dispatcher tests. `m3_review` reviewed the combined source with no new findings. A separate review of the Coordinator's cases by `m3_extension` led to stronger independent-practice invocation/content and precise insufficient-response assertions at `992ef68`.
+
+The combined candidate passed all 187 ordinary tests, type checking, lint, formatting and local secret scanning. Its seven dedicated readiness tests and the additional two-concept MeltingPot component/relay journey passed. The latter also enforces unchanged canonical schema parity against MeltingPot `9244a641e0639982d4eece09b2274a05ee355096`.
+
+This accompanying coordination revision records those results. Phase A becomes MERGED only when `m3_review` approves its exact final head, full clean-install CI (including production builds/HTTP and history secret scanning) passes, and that independent integrator promotes the approved tree to main. The integration handoff records the reviewed head, resulting main revision and CI. No further implementation change is exempt from exact review.
+
+Actual model quality/latency/cost, human content and Chrome/learner checks, judge access and full M3/M4 acceptance remain open. The current older local service is not switched. New paired production HTTP evidence remains PENDING, as distinct from the passing new dispatcher/component journey and ordinary production CI.
