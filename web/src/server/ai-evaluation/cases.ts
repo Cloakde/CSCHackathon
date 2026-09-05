@@ -20,7 +20,7 @@ export const AI_EVALUATION_CASES = [
     evidenceIds: ["chunk_calc_004", "chunk_calc_006"],
     expectedAnswer: "The missing factor is 2. The derivative is 8(2x + 3)³.",
     review:
-      "Multiply by the inside derivative. Include passage 005 as well if the explanation reconstructs the lecture's full (3x² + 1)⁵ example.",
+      "Multiply by the inside derivative. Passage 004 gives the rule; 006 identifies both the fifth-power step and 3x² + 1 with derivative 6x, supporting the reconstructed lecture example. Passage 005 supplies additional setup.",
   },
   {
     id: "insufficient",

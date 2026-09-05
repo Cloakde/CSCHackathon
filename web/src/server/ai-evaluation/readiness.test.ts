@@ -14,6 +14,7 @@ import { generateScriptedPractice } from "../scripted-practice";
 import { verifyScriptedHelp } from "../scripted-verifier";
 import { verifyScriptedPractice } from "../scripted-practice-verifier";
 import { HELP_DEADLINE_MS, PRACTICE_DEADLINE_MS } from "../assistance/operation";
+import type { PracticeVerificationCandidate } from "../assistance/types";
 import { AI_EVALUATION_CASES, AI_EVIDENCE_STATUS } from "./cases";
 
 afterEach(() => vi.restoreAllMocks());
@@ -80,6 +81,38 @@ describe("TASK-103 injected readiness (not actual AI quality)", () => {
           ? approveInjectedSine(candidate)
           : verifyScriptedHelp(candidate),
       );
+      const verifyPractice = vi.fn(
+        (candidate: PracticeVerificationCandidate, signal: AbortSignal) => {
+          expect(signal.aborted).toBe(false);
+          if (fixture.id !== "instruction_text") return verifyScriptedPractice(candidate);
+          // Independently frozen checks: a correct answer string alone cannot approve a drill.
+          expect(candidate.confusionEvent.conceptId).toBe("concept_sine_composition");
+          expect(candidate.drill).toMatchObject({
+            conceptId: "concept_sine_composition",
+            conceptTitle: "The inside derivative in a sine composition",
+            evidenceChunkIds: ["chunk_calc_004", "chunk_calc_009"],
+            shortExplanation: "Use both factors from the lecture's sine composition example.",
+            practiceItems: [
+              {
+                prompt: "Differentiate sin(x²). Which factor comes from the inside?",
+                expectedAnswer: "2x cos(x²)",
+                explanation:
+                  "The inside contributes 2x. The outside contributes cos(x²). Multiply the two factors.",
+              },
+            ],
+          });
+          expect(candidate.drill.practiceItems).toHaveLength(1);
+          return {
+            verdict: "supported",
+            supportedChecks: [
+              "question_supported",
+              "answer_correct",
+              "explanation_supported",
+              "confusion_aligned",
+            ],
+          };
+        },
+      );
       const dispatch = createDemoDispatcher({
         enabled: true,
         generateHelp: async (context, signal) => {
@@ -113,21 +146,7 @@ describe("TASK-103 injected readiness (not actual AI quality)", () => {
             ],
           };
         },
-        verifyPractice: (candidate, signal) => {
-          expect(signal.aborted).toBe(false);
-          if (fixture.id !== "instruction_text") return verifyScriptedPractice(candidate);
-          expect(candidate.drill.practiceItems[0]?.expectedAnswer).toBe("2x cos(x²)");
-          expect(candidate.drill.evidenceChunkIds).not.toContain("chunk_calc_007");
-          return {
-            verdict: "supported",
-            supportedChecks: [
-              "question_supported",
-              "answer_correct",
-              "explanation_supported",
-              "confusion_aligned",
-            ],
-          };
-        },
+        verifyPractice,
       });
       async function call(path: string, method = "POST", body?: unknown) {
         return dispatch(
@@ -184,7 +203,11 @@ describe("TASK-103 injected readiness (not actual AI quality)", () => {
           });
           expect(helped.data.confusionEvent.conceptId).toBeUndefined();
           expect(verifyHelp).not.toHaveBeenCalled();
-          expect(practiceResponse.ok).toBe(false);
+          expect(verifyPractice).not.toHaveBeenCalled();
+          expect(practiceResponse.status).toBe(400);
+          expect(
+            ApiContracts.createWeakAreaDrill.response.parse(await practiceResponse.json()),
+          ).toMatchObject({ ok: false, error: { code: "INSUFFICIENT_CONTEXT", retryable: false } });
         } else {
           expect(helped.data.confusionEvent.conceptId).toBe(fixture.conceptId);
           expect(verifyHelp).toHaveBeenCalledOnce();
@@ -192,6 +215,7 @@ describe("TASK-103 injected readiness (not actual AI quality)", () => {
             await practiceResponse.json(),
           );
           if (!practiced.ok) throw new Error(practiced.error.code);
+          expect(verifyPractice).toHaveBeenCalledOnce();
           expect(practiced.data.practiceItems[0]?.expectedAnswer).toBe(fixture.expectedAnswer);
           assertWeakAreaDrillLinkage(
             { sessionId: session.sessionId, ...request },
