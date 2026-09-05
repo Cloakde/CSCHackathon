@@ -2,7 +2,7 @@
 
 **Tier:** 1
 
-**State:** IN PROGRESS; independent contract approval recorded at `5427e097ec73234e886f63049189cf136fcc7378` by `m3_review`
+**State:** Engineering IN REVIEW for independent integration; automated journey PASS and human acceptance PENDING. Task board integration conditions govern the final TASK-301/302 MERGED state; TASK-303 acceptance remains open.
 
 **Coordinator:** Codex Coordinator
 
@@ -12,7 +12,7 @@
 
 **Independent reviewer:** `m3_review`
 
-**Temporary independent integrator:** assigned before merging any Coordinator-authored revision
+**Temporary independent integrator:** `m2_contract_review`, assigned for this M3 transaction only; did not author or review this M3 implementation
 
 **Timebox:** One implementation/review session; checkpoint with evidence if a required external check cannot run
 
@@ -64,5 +64,7 @@ Coordinator amendment after production build and review: the Coordinator owns th
 - Obtain independent exact-commit review and green relevant checks for both repositories. The original MeltingPot remotes remain absent/blocked. Do not self-merge Coordinator-authored changes.
 
 ## Handoff
+
+Independent contract approval was recorded at `5427e097ec73234e886f63049189cf136fcc7378` by `m3_review`. The task board's TASK-301–303 integration transaction records implementation sources, MeltingPot exact approval, 334 guarded tests plus 19 launcher tests, paired component and production HTTP evidence, the two corrected production issues, and remaining acceptance. No source changes follow the recorded implementation candidate without another exact review/check.
 
 Record exact bases and final commits, changed paths, commands and results, tests not run, paired-source/schema parity, manual acceptance status, launcher instructions, transient data behavior, known limitations, and the explicit prototype fallback. Keep the current M2 service alive; no automatic switch to an old companion is allowed.
