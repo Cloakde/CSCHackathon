@@ -18,6 +18,8 @@ export type GroundingSupportVerifier = (
 ) => unknown | Promise<unknown>;
 
 export interface BuildImLostResponseCommand {
+  /** Server-internal cancellation; never serialized into lecture/API data. */
+  signal?: AbortSignal;
   context: GroundingContextSnapshot;
   modelOutput: ModelImLostOutput;
   independentEvidenceVerifier: GroundingSupportVerifier;
@@ -33,6 +35,7 @@ export async function buildImLostResponseFromStoredChunks(
   input: BuildImLostResponseInput,
 ): Promise<ImLostResponse> {
   return input.store.buildAndRecordImLostResponse({
+    signal: input.signal,
     context: input.context,
     modelOutput: input.modelOutput,
     independentEvidenceVerifier: input.independentEvidenceVerifier,

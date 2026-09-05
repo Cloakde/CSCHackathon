@@ -7,6 +7,7 @@ import {
   ImLostResponseSchema,
   INSUFFICIENT_EVIDENCE_MESSAGE,
   InMemorySessionStore,
+  StaleGroundingContextError,
   ModelImLostOutputSchema,
   simulationFixture,
   type GroundingClaim,
@@ -78,6 +79,136 @@ async function expectNoRecordedConfusion(store: InMemorySessionStore): Promise<v
 }
 
 describe("grounded assistance boundary", () => {
+  it("rejects cancellation before work without invoking a verifier or recording fallback", async () => {
+    const store = await createPopulatedStore();
+    const context = await store.createGroundingContext(
+      simulationFixture.session.sessionId,
+      300_000,
+    );
+    const controller = new AbortController();
+    controller.abort();
+    const verifier = vi.fn(approveEveryClaim);
+    await expect(
+      buildImLostResponseFromStoredChunks({
+        store,
+        context,
+        modelOutput: groundedModelOutput(context),
+        independentEvidenceVerifier: verifier,
+        responseId: "response_cancelled",
+        confusionId: "confusion_cancelled",
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(verifier).not.toHaveBeenCalled();
+    await expectNoRecordedConfusion(store);
+  });
+
+  it.each(["supported", "unsupported"])(
+    "aborts a pending %s verdict and releases only the cancelled owner's reservation",
+    async (verdict) => {
+      const store = await createPopulatedStore();
+      const context = await store.createGroundingContext(
+        simulationFixture.session.sessionId,
+        300_000,
+      );
+      const controller = new AbortController();
+      let release!: (value: unknown) => void;
+      const waiting = new Promise<unknown>((resolve) => {
+        release = resolve;
+      });
+      const input = {
+        store,
+        context,
+        modelOutput: groundedModelOutput(context),
+        independentEvidenceVerifier: () => waiting,
+        responseId: "response_cancelled_owner",
+        confusionId: "confusion_cancelled_owner",
+      };
+      const request = buildImLostResponseFromStoredChunks({ ...input, signal: controller.signal });
+      const rejected = expect(request).rejects.toMatchObject({ name: "AbortError" });
+      await Promise.resolve();
+      controller.abort();
+      await rejected;
+      await expectNoRecordedConfusion(store);
+      // Same identities become usable only after the aborted owner's transaction settles.
+      const replacement = await buildImLostResponseFromStoredChunks({
+        ...input,
+        independentEvidenceVerifier: approveEveryClaim,
+      });
+      release(verdict === "supported" ? approveEveryClaim() : { verdict: "unsupported" });
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(
+        (await store.getSession(simulationFixture.session.sessionId))?.confusionEvents,
+      ).toEqual([replacement.confusionEvent]);
+    },
+  );
+
+  it("a cancelled follower leaves the owner's identity reservation and result intact", async () => {
+    const store = await createPopulatedStore();
+    const context = await store.createGroundingContext(
+      simulationFixture.session.sessionId,
+      300_000,
+    );
+    let release!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const verifier = vi.fn(async () => {
+      await waiting;
+      return approveEveryClaim();
+    });
+    const input = {
+      store,
+      context,
+      modelOutput: groundedModelOutput(context),
+      independentEvidenceVerifier: verifier,
+      responseId: "response_owner",
+      confusionId: "confusion_owner",
+    };
+    const owner = buildImLostResponseFromStoredChunks(input);
+    const controller = new AbortController();
+    const follower = buildImLostResponseFromStoredChunks({ ...input, signal: controller.signal });
+    const rejected = expect(follower).rejects.toMatchObject({ name: "AbortError" });
+    controller.abort();
+    await rejected;
+    await expect(
+      buildImLostResponseFromStoredChunks({
+        ...input,
+        modelOutput: { ...input.modelOutput, conceptTitle: "Changed identity" },
+      }),
+    ).rejects.toThrow(/cannot be mutated/);
+    const secondFollower = buildImLostResponseFromStoredChunks(input);
+    release();
+    const result = await owner;
+    expect(await secondFollower).toEqual(result);
+    expect(verifier).toHaveBeenCalledOnce();
+    expect((await store.getSession(simulationFixture.session.sessionId))?.confusionEvents).toEqual([
+      result.confusionEvent,
+    ]);
+  });
+
+  it("classifies only an authoritative revision change as retryable stale context", async () => {
+    const store = new InMemorySessionStore();
+    const sid = simulationFixture.session.sessionId;
+    await store.createSession(simulationFixture.session);
+    const chunks = getCommittedChunksFromFixture();
+    await store.appendCommittedChunks(sid, chunks.slice(0, 3));
+    const context = await store.createGroundingContext(sid, 300_000);
+    await store.appendCommittedChunks(sid, chunks.slice(3, 4));
+    await expect(
+      buildImLostResponseFromStoredChunks({
+        store,
+        context,
+        modelOutput: insufficientModelOutput(context),
+        independentEvidenceVerifier: approveEveryClaim,
+        responseId: "response_stale_typed",
+        confusionId: "confusion_stale_typed",
+      }),
+    ).rejects.toBeInstanceOf(StaleGroundingContextError);
+    await expectNoRecordedConfusion(store);
+  });
+
   it("persists the canonical grounded callback atomically and completes the session", async () => {
     const store = await createPopulatedStore();
     const sessionId = simulationFixture.session.sessionId;
