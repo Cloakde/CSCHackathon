@@ -42,6 +42,8 @@ The human Product Owner:
 
 The user-selected AI holds the active turn and performs the coordination needed for its assigned work. Coordinator is a role that can pass between models; it is not a requirement to keep one particular model running.
 
+Current user assignment: **Codex provides senior direction**, Claude implements the Gemini provider correction, and Gemini reviews it and continues eligible milestones sequentially. The active AI maintains day-to-day status within that scope; material architecture or priority changes return to Codex for review. See [AI_ASSIGNMENTS.md](AI_ASSIGNMENTS.md). Senior direction does not start concurrent work or grant provider, desktop or release authorization.
+
 The Coordinator:
 
 - Maintains architecture, sequencing, task contracts, and the cut line.

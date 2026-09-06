@@ -1,27 +1,27 @@
 # LiveLecture AI — Current handoff
 
-Verify this record against the repository and user instructions. It does not grant new scope or spending permission.
+Verify this record against the repository and user instructions. It does not grant new spending or desktop permission.
 
 - **Folder:** `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon`
 - **Branch:** `shared/livelecture`
-- **Active AI:** none — ready for the next user-selected AI.
-- **Last AI/task:** Codex, 2026-09-06; establish sequential shared-branch work.
-- **Starting main:** `8cfa83b88c0f6186d3475266b005069da4fbe820`. Read the current checkpoint with `git log -1 --oneline`.
+- **Active AI:** none — Claude is next when the user starts its turn.
+- **Last AI/task:** Codex, 2026-09-06; write the Claude/Gemini assignments and record the Gemini provider decision.
+- **Starting shared head:** `48172a2b82e9615b4fc1b39217b37868ae006d09`. Read the current checkpoint with `git log -1 --oneline`; never reset to the historical starting hash.
 
-## Last turn
+## Claude's next task
 
-Updated only `AGENTS.md`, `README.md`, this handoff, the workflow, milestone plan, task board and ADR 0011. All AIs now use this folder/branch one at a time and leave a handoff. Old branches/worktrees remain preserved. The workflow change is committed on the shared branch; independent review and promotion to main remain open.
+Read [AI_ASSIGNMENTS.md](AI_ASSIGNMENTS.md), [TASK-103C](tasks/TASK-103C.md) and [ADR 0012](adr/0012-gemini-assistance-direction.md). Replace the inactive OpenAI assistance trial with Gemini, within the assigned private trial files. Verify current official Google model/pricing/privacy facts, adapt the transport and accounting, and run offline checks. Leave a committed IN REVIEW handoff for Gemini or Codex. Do not execute the old OpenAI trial, make provider calls, change transcription or add future features.
 
-Checks: local Markdown links, applicable formatting, secret scan and diff whitespace passed. The two long planning documents retain their existing formatter exclusions and received scoped diff/link checks. No application code or dependencies changed, so application tests were not repeated. No known unfinished application edits were present; check `git status --short` before touching any later dirty files.
+The user chose the provider and assigned the implementation; they have not approved API spending. The Gemini model and exact configuration remain for Claude to verify. Preserve the proposed ceiling of at most $1 total / 32 attempts, with $0 authorized. Keys remain local to the server process. The normal demo remains prewritten until a separately reviewed integration after real-model evidence.
 
-## Product position and next step
+## Gemini's following turn
 
-The simulated extension-to-MeltingPot flow and inactive real-AI trial preparation are implemented. [PR 4](https://github.com/Cloakde/CSCHackathon/pull/4) records the latter at the starting main above: 303 ordinary tests, the separate MeltingPot component journey, builds and PR/main CI passed during that work.
+Independently review Claude's exact migration, then follow the gated sequence in AI_ASSIGNMENTS.md: actual-model evidence with approval, remaining M3 learner/privacy/judge checks, and only then eligible M4 additions. Codex provides senior direction for material decisions. Do not skip a blocked gate or approve a fix you authored.
 
-Next AI: review this workflow change if requested, then continue the user's selected task. The real trial still needs **explicit approval of the proposed $1 total cap and a locally configured server-process key**. This workflow request did not approve spending. Read `docs/tasks/TASK-103B.md` and `docs/evaluations/TASK-103/PHASE-B.md`; bind eventual execution to a clean, independently reviewed source tree. Do not redo completed trial preparation or reset its allowance.
+## What this turn changed
 
-Human answer/learner review, Chrome inspection and judge access remain pending; broad M4 work is gated. Original MeltingPot repositories remain out of scope. The approved isolated copy is `C:\Users\abuiz\Documents\Codex\2026-09-04\MeltingPot-rework`. No services or desktop surfaces were controlled this turn; laptop control needs session-specific permission.
+Coordination documents only: assignments, task contract, provider decision, current instructions/status and prominent notices that the old OpenAI runbook is historical. No provider code or model configuration was changed. Prior baseline: main `8cfa83b88c0f6186d3475266b005069da4fbe820`, with 303 ordinary tests and green CI recorded for the older preparation. Those results are not Gemini verification and were not rerun for these documents.
 
-## When switching AIs
+Checks for this documentation checkpoint: relative Markdown links, applicable formatting, local secret scan and diff whitespace. Actual results are in the checkpoint commit message. Always inspect `git status --short` before touching later dirty files. No services, original MeltingPot repositories, credentials or desktop surfaces were used this turn.
 
-At the start, record your name, assigned task, starting commit and scoped files. At the end, replace this summary with actual changes/checks, unfinished or dirty files and one next step. Commit only scoped work when safe, otherwise explain what is uncommitted. Set Active AI to none and stop before the next AI starts.
+Before yielding, replace the active turn, actual changes/checks, unfinished work and next step here. Commit only scoped files when safe, otherwise list what remains dirty; set Active AI to none and stop before another AI starts.

@@ -1,5 +1,7 @@
 # TASK-103 Phase B trial runbook
 
+> **Historical OpenAI runbook — do not execute these paid-run instructions.** The user selected Gemini on 2026-09-06. Claude owns the replacement and this runbook's update under [TASK-103C](../../tasks/TASK-103C.md). Until that implementation is independently reviewed, the commands and provider-specific limits below are historical preparation, not an approved Gemini setup. No provider run is authorized.
+
 The trial connection is prepared for independent review and integration. **No real-model run, spending approval or human acceptance is recorded.** The normal extension and companion continue using clearly labelled prewritten help and practice. This trial does not enable live audio or change the transcription provider.
 
 ## What the trial measures

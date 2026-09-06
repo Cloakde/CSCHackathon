@@ -1,5 +1,7 @@
 # TASK-103 evaluation cases and evidence
 
+**Current direction:** Gemini replaces the prepared OpenAI assistance trial under [TASK-103C](../../tasks/TASK-103C.md). Claude implements, then Gemini independently reviews and continues the eligible work in [AI_ASSIGNMENTS.md](../../AI_ASSIGNMENTS.md). The frozen cases below remain unchanged. Historical OpenAI setup and test results do not establish a completed Gemini migration or authorize a provider call.
+
 Phase A prepares the delivered assistance path for a later real-model trial. All automated collaborators here are prewritten or injected. They make zero provider calls and establish no actual AI quality, latency, cost or human-review PASS.
 
 Inputs are frozen from unchanged canonical `shared/fixtures/calculus-lecture.json`. The executable case descriptions are in `web/src/server/ai-evaluation/cases.ts`; expected mathematical checks below are reviewed independently from any future model response. Do not rewrite expectations to fit a failed model response.

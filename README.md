@@ -89,7 +89,7 @@ Committed transcript passages continue uploading while an explanation is being p
 
 Run `npm run test:ai-readiness` for the frozen synthetic cases and the extension-to-service test at normal lecture speed. It uses no provider or browser. [The evaluation record](docs/evaluations/TASK-103/README.md) separates these engineering checks from actual AI evidence. The unchanged MeltingPot relay is checked against the new dispatcher separately; the preserved older running lecture server cannot establish new paired production HTTP evidence.
 
-An inactive trial connection is also prepared for `gpt-4.1-mini-2025-04-14`. `npm run ai:trial` prints its plan offline. Paid execution needs separate approval of the proposed **$1 total** limit, a locally configured server-process key, and the exact reviewed source. Ordinary tests and demo commands make no provider calls. [The trial runbook](docs/evaluations/TASK-103/PHASE-B.md) records the fixed limits, commands, retention disclosure and pending human review.
+The user selected **Gemini** for explanations and practice. Claude is assigned to replace the prepared OpenAI trial under [TASK-103C](docs/tasks/TASK-103C.md), then Gemini takes the next eligible work. The existing code still contains the inactive OpenAI adapter; do not execute that older proposal. `npm run ai:trial` currently prints its historical plan offline until migrated. Ordinary tests and demo commands make no provider calls. The replacement needs verified Gemini settings, independent review, a locally configured server-process key and separate capped-run approval; no spending is authorized.
 
 ## Repository map
 
@@ -104,3 +104,5 @@ docs/       Milestones, workflow, task ownership, decisions, and evidence
 ## Collaboration
 
 All AIs take turns on **`shared/livelecture`** in the same project folder: `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon`. Start with `AGENTS.md` and [the current handoff](docs/HANDOFF.md), then the task board, workflow, milestone plan and relevant task/decision documents. Preserve unfinished work, leave a short handoff, and stop before another AI starts. Do not create a separate branch or worktree per AI. Historical branches remain reference material; `main` remains the reviewed baseline. [ADR 0011](docs/adr/0011-sequential-shared-branch.md) records this user-approved change.
+
+[Current assignments](docs/AI_ASSIGNMENTS.md): Claude makes the Gemini provider correction; Gemini checks it and proceeds through the remaining milestone gates; Codex supplies senior scope and review. These assignments do not permit simultaneous AI work.

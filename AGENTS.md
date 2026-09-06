@@ -18,3 +18,9 @@ Before yielding, update the handoff with what changed, actual checks, unfinished
 Do not self-assign tasks, modify unowned paths, expose credentials, use real classroom data in tests, or present Simulation Mode as live capture.
 
 The AI holding the turn maintains the task board and handoff on behalf of the Coordinator. Switching AIs does not require a new task or redoing completed checks. Independent review can happen on a later AI's turn; no AI approves or merges its own implementation.
+
+## Current assignments
+
+The Product Owner assigned **Claude to replace the inactive OpenAI assistance trial with Gemini**, then **Gemini to continue the eligible milestones**, with **Codex providing senior direction and review**. Read [docs/AI_ASSIGNMENTS.md](docs/AI_ASSIGNMENTS.md) for scope and order. Claude's bounded implementation contract is [TASK-103C](docs/tasks/TASK-103C.md). The Gemini provider decision is recorded in [ADR 0012](docs/adr/0012-gemini-assistance-direction.md).
+
+Do not execute the old OpenAI trial. Choosing Gemini for explanations and practice does not change the separately planned transcription provider, authorize API traffic/spending, or remove the milestone gates. Ask Codex to resolve a material scope or architecture change; ask the user only for their required decisions, spending or session permissions. Keep user-facing updates short and in plain language.
