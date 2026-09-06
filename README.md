@@ -103,4 +103,4 @@ docs/       Milestones, workflow, task ownership, decisions, and evidence
 
 ## Collaboration
 
-Read `AGENTS.md`, `docs/MULTI_AGENT_WORKFLOW.md`, `docs/MILESTONE_PLAN.md`, the assigned task contract, and relevant `docs/adr/` decisions before changes. `docs/TASK_BOARD.md` records ownership and readiness. Use isolated task branches and preserve existing work. Historical model-named branches are reference material only.
+All AIs take turns on **`shared/livelecture`** in the same project folder: `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon`. Start with `AGENTS.md` and [the current handoff](docs/HANDOFF.md), then the task board, workflow, milestone plan and relevant task/decision documents. Preserve unfinished work, leave a short handoff, and stop before another AI starts. Do not create a separate branch or worktree per AI. Historical branches remain reference material; `main` remains the reviewed baseline. [ADR 0011](docs/adr/0011-sequential-shared-branch.md) records this user-approved change.

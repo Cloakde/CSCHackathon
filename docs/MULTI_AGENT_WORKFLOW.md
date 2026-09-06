@@ -6,6 +6,8 @@
 
 **Scope:** Every human or AI contributor to this repository
 
+**Current execution mode (2026-09-06):** One AI at a time, in the primary checkout on `shared/livelecture`. The Product Owner requested sequential handoffs to optimize usage. This mode supersedes older isolated-branch and concurrent-lane requirements, including in historical task contracts. Read [HANDOFF.md](HANDOFF.md) before continuing. [ADR 0011](adr/0011-sequential-shared-branch.md) records the decision.
+
 This document is the operating contract for LiveLecture AI. It is intentionally strict where mistakes would be expensive—shared contracts, credentials, audio capture, grounding, storage, and integration—and lightweight for isolated visual or documentation work.
 
 Non-bootstrap feature implementation must not begin until the repository bootstrap gate in Section 3 is complete.
@@ -15,8 +17,8 @@ Non-bootstrap feature implementation must not begin until the repository bootstr
 ## 1. Operating Principles
 
 1. **The deadline controls scope, not safety.** Features may be cut to meet the deadline. Credential safety, recording consent, honest demo labeling, and protection of classroom data may not.
-2. **One source of truth.** Implemented truth lives on the default branch. Bootstrap must protect it or establish an explicit Coordinator-only push policy until repository protection is available. Task status lives in one agreed tracker.
-3. **Parallel work happens behind stable boundaries.** Changes to shared boundaries happen one at a time.
+2. **One shared work stream.** Current work lives on `shared/livelecture`; the default branch remains the reviewed baseline. Task status lives in one agreed tracker and the current turn is recorded in `docs/HANDOFF.md`.
+3. **AIs work sequentially.** Finish or checkpoint the current turn before another AI starts. Stable boundaries and scoped changes still matter.
 4. **No model approves or merges its own work.**
 5. **Evidence beats confidence.** “Should work” and “all tests passed” without reproducible evidence are not completion claims.
 6. **Simulation is a supported input source, not a hidden substitute for live capture.**
@@ -38,7 +40,7 @@ The human Product Owner:
 
 ### Coordinator and Integrator
 
-One AI model serves as Coordinator.
+The user-selected AI holds the active turn and performs the coordination needed for its assigned work. Coordinator is a role that can pass between models; it is not a requirement to keep one particular model running.
 
 The Coordinator:
 
@@ -51,19 +53,19 @@ The Coordinator:
 - Is the default role permitted to merge task branches.
 - Keeps the default branch green and the current smoke test passing.
 - Enforces work-in-progress limits, timeboxes, and abort rules.
-- Normally does not implement task branches. If the Coordinator authors a task change, a temporary independent integrator becomes the sole merger for that change after independent review.
+- May implement during its turn. A later, different AI performs any required independent review and integration of that implementation. Do not run another AI concurrently just to satisfy review.
 
 ### Implementing Engineer
 
 Each engineer model:
 
 - Works on one assigned task at a time.
-- Uses its own branch and isolated worktree or clone.
+- Continues in the primary checkout on `shared/livelecture` after the preceding AI releases its turn.
 - Changes only the paths authorized in its task contract.
 - Adds proportionate tests and runs the required checks.
 - Reports real, concise, redacted verification evidence.
 - Submits a structured handoff.
-- Requests **IN REVIEW**, never directly Done. When the fallback tracker is active, the Coordinator records the state change.
+- Records **IN REVIEW** when review is required; never marks its own unreviewed work approved or merged. The active AI can maintain the tracker on behalf of the Coordinator.
 
 ### Reviewing Engineer
 
@@ -101,7 +103,7 @@ Before feature tasks start:
 4. Merge it into the default branch.
 5. Run the initial checks.
 6. Record the resulting commit as the canonical baseline.
-7. Create all subsequent task branches from that baseline or a later approved default-branch commit.
+7. Continue from that reviewed baseline. Bootstrap is now complete; current feature work follows the shared-branch rule in Section 9.
 
 Model-named or experimental branches such as **claude**, **gemini**, and **codex** are reference branches, not integration branches. They must not become competing sources of truth.
 
@@ -129,7 +131,8 @@ If the minimum gate itself misses Day 2, checkpoint the buildable work, cut shou
 
 Preferred coordination:
 
-- **Default branch:** implemented truth.
+- **`shared/livelecture`:** current work and sequential handoffs.
+- **Default branch:** reviewed, integrated baseline.
 - **GitHub Issues or Project:** assignment, status, dependencies, blockers, pull requests, and review outcome.
 - **Pull request:** task-specific implementation and verification record.
 - **One ADR per decision:** durable architecture decisions and rationale.
@@ -138,10 +141,10 @@ Preferred coordination:
 
 If every model cannot access the GitHub issue system, use **docs/TASK_BOARD.md** as the temporary authoritative tracker. In that mode:
 
-- The Coordinator is its only writer.
-- Engineers request or announce status changes through handoffs.
-- The Coordinator serializes tracker updates.
-- The tracker must identify the exact task branch and commit.
+- The AI holding the active turn updates it on behalf of the Coordinator.
+- `docs/HANDOFF.md` records the current turn, scoped work, checks, dirty files and next step.
+- Only one AI writes or runs repository work at a time, including reviews.
+- The tracker identifies the shared branch and relevant checkpoints; historical branches remain historical.
 
 **AGENT_COMMUNICATION.md**, if retained, contains stable announcements only. It is not a task lock, status database, or second contract ledger.
 
@@ -345,26 +348,25 @@ Acceptance criteria must describe observable behavior. “Reconnect implemented�
 
 ---
 
-## 9. Branches and Worktrees
+## 9. Shared Branch and Sequential Handoffs
 
-Every task receives one branch and one isolated worktree or clone:
+Use one persistent branch, **`shared/livelecture`**, in the primary checkout:
 
-    task/TASK-103-grounded-ask
-    task/TASK-202-tab-audio
-    fix/TASK-503-reconnect-deduplication
+    C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon
 
 Rules:
 
-- Create the branch from the exact base commit in its task contract.
-- Never work directly on the default branch.
-- Never use another model’s checkout or branch.
-- Never force-push another contributor’s branch.
-- Keep tasks small enough to review and integrate within roughly one working day.
-- Only the Coordinator merges, except that a temporary independent integrator merges a Coordinator-authored change.
-- Prefer squash merges with the task ID in the final message.
-- Independent approval applies to an exact pull-request head commit and is invalidated by any later head commit.
-- When squash-merging, the Coordinator confirms that the merged diff matches the reviewed head, then records both the reviewed head SHA and resulting default-branch SHA.
-- Use a temporary **integration/milestone-name** branch only when dependent changes genuinely require joint testing. Only the Coordinator writes to it.
+- The user selects which AI works next. Do not run parallel AI engineers or reviewers unless the user explicitly changes this preference.
+- Use this same folder and branch across AIs. Do not create a branch/worktree for each task or model, and do not resume from old task checkouts.
+- Read `AGENTS.md`, `docs/HANDOFF.md` and the task board. Check the actual branch, latest commit and dirty files before editing; record the starting commit and scoped files for the turn.
+- The handoff is a coordination record, not a technical lock or an instruction to override the user. If another AI is still running, wait for it to stop and hand off.
+- Preserve dirty and unfinished files. Never reset, clean, discard, auto-stash or overwrite another AI's work to make starting easier. If their purpose is unclear, inspect them and explain the uncertainty before dependent changes.
+- At a safe stopping point, commit only the scoped work and record actual checks, failures, unfinished files and the next step. Leave the shared branch checked out, release the active turn, and stop.
+- Push normal checkpoint commits to `origin/shared/livelecture` when appropriate. Never force-push or rewrite shared history. Before pulling, confirm the local state; use fast-forward-only updates when clean and resolve divergence deliberately.
+- Required reviews happen on a later AI's turn in this same checkout. Approval applies to the exact submitted implementation; later changes need the appropriate review. No AI approves or merges its own implementation.
+- `main` remains the reviewed baseline. Only the assigned independent integrator promotes the reviewed shared head after the required checks. Prefer a normal merge that preserves shared-branch ancestry; do not delete or recreate this persistent branch after promotion.
+- Keep tasks bounded and record individual checkpoints so a reviewer can distinguish completed, reviewed and unfinished work on the shared branch.
+- Preserve old branches and worktrees as reference material. Do not merge the historical model-named branches wholesale.
 
 ---
 
@@ -770,7 +772,7 @@ Human availability windows should be reserved in advance for:
 
 ## 20. Handoff Format
 
-Every implementation handoff contains:
+Maintain the current handoff in `docs/HANDOFF.md` and replace stale turn details instead of creating a new branch or restarting the task. For a small change, a few lines with outcome, checks, unfinished work and next step are enough. Include the applicable details below for substantive implementation:
 
     Task:
     Branch:
@@ -839,7 +841,7 @@ If a task is abandoned:
 
 - Create a checkpoint handoff when recoverable work exists.
 - Release its ownership.
-- Archive or close the branch rather than destroying potentially useful work.
+- Preserve its checkpoint and explain the abandoned scope in the handoff. Do not archive or delete the persistent shared branch.
 
 Failures in the must-ship demo path preempt stretch work.
 
@@ -847,10 +849,10 @@ Failures in the must-ship demo path preempt stretch work.
 
 ## 23. Standing Instructions for Every Engineer Model
 
-1. Work only on the task assigned by the Coordinator.
-2. Start from the exact base commit in the task contract.
-3. Use your own task branch and isolated worktree or clone.
-4. Never modify the default branch, another engineer’s branch, or a Coordinator-owned integration branch.
+1. Work only on the task assigned by the Product Owner or Coordinator for your turn.
+2. Record the actual shared-branch starting commit and reconcile it with the task contract; never reset to a historical base.
+3. Use the primary checkout on `shared/livelecture` and read the current handoff.
+4. Take one turn at a time; do not create concurrent AI workers or use the old task worktrees. Keep default-branch promotion subject to independent review.
 5. Read the task contract, relevant ADRs, and consumed schemas first.
 6. Modify only owned paths. Do not perform drive-by cleanup.
 7. Request a task amendment before changing an unowned path or shared boundary.
@@ -868,21 +870,13 @@ Failures in the must-ship demo path preempt stretch work.
         chore(scope): [TASK-ID] description
 
 15. Submit the Section 20 handoff with exact commits and real, redacted results.
-16. Request **IN REVIEW**, never directly Done. The Coordinator records the change when using the fallback tracker.
+16. Record **IN REVIEW** when needed and release the turn in the handoff. The active AI may update the fallback tracker but cannot approve its own work.
 17. Never approve or merge your own implementation.
 
 ---
 
-## 24. Parallelization Rule
+## 24. One Active AI
 
-Tasks may run concurrently only when all of the following are true:
+The current limit is **one active AI across implementation and review**. No parallel agents are needed for the user's usage-switching workflow. A new AI reads the shared handoff and continues where the previous one stopped; it does not redo completed tasks merely because the model changed.
 
-- Dependencies are satisfied.
-- Consumed contracts are stable.
-- Owned paths do not overlap.
-- Acceptance criteria can be tested independently.
-- The Coordinator has capacity to review and integrate the resulting work.
-
-If any condition is false, sequence the tasks.
-
-The Coordinator is intentionally a serialization point. Starting more parallel work than can be reviewed and integrated produces activity, not progress.
+References elsewhere to parallel lanes describe separable responsibilities or historical work. Schedule those responsibilities sequentially. A future explicit Product Owner decision is required to enable concurrent AI work again.

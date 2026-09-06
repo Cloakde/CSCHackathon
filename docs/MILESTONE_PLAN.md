@@ -6,6 +6,8 @@
 
 The workflow document defines how contributors coordinate. This document defines what gets built, in what order, and what is cut when time runs out. If the documents conflict, the workflow controls.
 
+**Execution mode, updated 2026-09-06:** AIs take turns in the same checkout on `shared/livelecture`. Lane names below describe areas of responsibility and priority, not simultaneous AI assignments. Sequence the work and review according to the current handoff. This changes collaboration only; milestone scope, acceptance, provider-spending and human-verification gates remain in force. See [ADR 0011](adr/0011-sequential-shared-branch.md).
+
 The approved product direction is **the extension during class, MeltingPot afterward**, as recorded in [ADR 0007](adr/0007-meltingpot-rework-direction.md). M0 is complete. M2's local prototype is implemented, with acceptance evidence still pending. M3 is the next build milestone. Milestone numbers and historical task records are retained; working-day ranges remain provisional and do not activate calendar dates.
 
 ---
