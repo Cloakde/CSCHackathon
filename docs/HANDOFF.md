@@ -52,7 +52,9 @@ Verify this record against the repository and user instructions. It does not gra
 ## Previous AI Handoff Records
 
 ### Codex branch consolidation — 2026-09-06
+
 The user requested only `main` and `shared/livelecture`, with all progress preserved. Both local and GitHub branch inventories now contain exactly those two branches.
 
 ### Claude TASK-103C Gemini migration — 2026-09-06
+
 Migrated all four provider-trial hooks to Google's Gemini API (`gemini-2.5-flash-lite` via `generateContent`), per ADR 0012. Ready for offline evaluation review.
