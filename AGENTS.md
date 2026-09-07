@@ -4,7 +4,7 @@
 
 The Product Owner changed the collaboration model on 2026-09-06 to switch between AIs as usage allows. All AIs use **`shared/livelecture`** in **`C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon`**. Do not create a branch/worktree per AI or resume work from the older task worktrees. Do not launch parallel AI workers or reviewers unless the user explicitly changes this preference.
 
-This instruction supersedes older per-model/per-task branch and concurrent-lane requirements, including those in historical task contracts. Existing branches/worktrees remain preserved as reference material. `main` remains the reviewed baseline; review and checks are still required to promote work there.
+This instruction supersedes older per-model/per-task branch and concurrent-lane requirements, including those in historical task contracts. The only branches are **`main` and `shared/livelecture`**, locally and on origin. The user-requested cleanup archived the old branches' complete history before deleting their names; old worktree folders remain detached reference copies. Do not recreate those branches or resume work in those folders. See [the archive and recovery record](docs/BRANCH_ARCHIVE.md). `main` remains the reviewed baseline; review and checks are still required to promote work there.
 
 Before working in this repository:
 

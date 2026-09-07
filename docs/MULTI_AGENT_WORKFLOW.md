@@ -6,7 +6,7 @@
 
 **Scope:** Every human or AI contributor to this repository
 
-**Current execution mode (2026-09-06):** One AI at a time, in the primary checkout on `shared/livelecture`. The Product Owner requested sequential handoffs to optimize usage. This mode supersedes older isolated-branch and concurrent-lane requirements, including in historical task contracts. Read [HANDOFF.md](HANDOFF.md) before continuing. [ADR 0011](adr/0011-sequential-shared-branch.md) records the decision.
+**Current execution mode (2026-09-06):** One AI at a time, in the primary checkout on `shared/livelecture`. Only `main` and `shared/livelecture` remain locally and on origin. The Product Owner requested sequential handoffs and deletion of other branch names after preserving their history. This mode supersedes older isolated-branch and concurrent-lane requirements, including in historical task contracts. Read [HANDOFF.md](HANDOFF.md) before continuing. [ADR 0011](adr/0011-sequential-shared-branch.md) records the decision.
 
 This document is the operating contract for LiveLecture AI. It is intentionally strict where mistakes would be expensive—shared contracts, credentials, audio capture, grounding, storage, and integration—and lightweight for isolated visual or documentation work.
 
@@ -107,7 +107,7 @@ Before feature tasks start:
 6. Record the resulting commit as the canonical baseline.
 7. Continue from that reviewed baseline. Bootstrap is now complete; current feature work follows the shared-branch rule in Section 9.
 
-Model-named or experimental branches such as **claude**, **gemini**, and **codex** are reference branches, not integration branches. They must not become competing sources of truth.
+Model-named or experimental branches such as **claude**, **gemini**, and **codex** belonged to the historical bootstrap process. Their names have been removed after [archiving their history](BRANCH_ARCHIVE.md). Do not recreate them or treat them as current starting points.
 
 The bootstrap gate exits when all of the following exist:
 
@@ -359,7 +359,7 @@ Use one persistent branch, **`shared/livelecture`**, in the primary checkout:
 Rules:
 
 - The user selects which AI works next. Do not run parallel AI engineers or reviewers unless the user explicitly changes this preference.
-- Use this same folder and branch across AIs. Do not create a branch/worktree for each task or model, and do not resume from old task checkouts.
+- Use this same folder and branch across AIs. Keep exactly two branches, `main` and `shared/livelecture`, locally and on origin. Do not create additional branches/worktrees or resume from old task checkouts.
 - Read `AGENTS.md`, `docs/HANDOFF.md` and the task board. Check the actual branch, latest commit and dirty files before editing; record the starting commit and scoped files for the turn.
 - The handoff is a coordination record, not a technical lock or an instruction to override the user. If another AI is still running, wait for it to stop and hand off.
 - Preserve dirty and unfinished files. Never reset, clean, discard, auto-stash or overwrite another AI's work to make starting easier. If their purpose is unclear, inspect them and explain the uncertainty before dependent changes.
@@ -368,7 +368,7 @@ Rules:
 - Required reviews happen on a later AI's turn in this same checkout. Approval applies to the exact submitted implementation; later changes need the appropriate review. No AI approves or merges its own implementation.
 - `main` remains the reviewed baseline. Only the assigned independent integrator promotes the reviewed shared head after the required checks. Prefer a normal merge that preserves shared-branch ancestry; do not delete or recreate this persistent branch after promotion.
 - Keep tasks bounded and record individual checkpoints so a reviewer can distinguish completed, reviewed and unfinished work on the shared branch.
-- Preserve old branches and worktrees as reference material. Do not merge the historical model-named branches wholesale.
+- Old branch names have been removed under the user's explicit cleanup instruction after complete history backup and restore verification. Preserve the [recovery archive](BRANCH_ARCHIVE.md) and detached old worktree folders as reference material. Do not merge historical model branches wholesale or recreate their names as active branches.
 
 ---
 
