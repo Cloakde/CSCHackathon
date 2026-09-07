@@ -95,7 +95,7 @@ async function fixture(count = 3) {
   };
   return { context, modelOutput, helpCandidate, view, event: answer.confusionEvent, drill };
 }
-/** generateContent's responseSchema has no per-call name field, unlike the prior Responses
+/** generateContent's responseJsonSchema has no per-call name field, unlike the prior Responses
  * API's json_schema.name. The caller supplies the expected kind for this call instead. */
 function sentInput(options: RequestInit | undefined, kind: TrialCallKind) {
   const request = JSON.parse(options!.body as string) as {

@@ -34,7 +34,7 @@ export const TRIAL_RESERVE_MICRO_USD = 105_677;
 export const TRIAL_POLICY_HASH = createHash("sha256")
   .update(
     JSON.stringify({
-      version: 1,
+      version: 2,
       planId: TRIAL_PLAN_ID,
       provider: TRIAL_PROVIDER,
       model: TRIAL_MODEL,
@@ -56,8 +56,11 @@ export const TRIAL_POLICY_HASH = createHash("sha256")
       maximumActiveClientRequests: 1,
       store: false,
       thinkingRequested: false,
-      cachedContentUsed: false,
+      explicitCachedContentUsed: false,
+      implicitCacheAccounting: "validate-subset-and-charge-full-uncached-prompt",
+      toolUsePromptTokens: 0,
       responseMimeType: "application/json",
+      schemaField: "responseJsonSchema",
       candidateCount: 1,
       tools: "none",
       streaming: false,

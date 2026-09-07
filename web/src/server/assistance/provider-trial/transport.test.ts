@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { createTrialTransport } from "./transport";
+import { OutputJsonSchemas } from "./schemas";
 import {
   TRIAL_AUTH_HEADER,
   TRIAL_ENDPOINT,
@@ -56,6 +57,41 @@ afterEach(() => {
 });
 
 describe("offline bounded generateContent transport", () => {
+  it.each(Object.keys(OutputJsonSchemas) as (keyof typeof OutputJsonSchemas)[])(
+    "sends %s through the JSON Schema field without dropping strict object constraints",
+    async (kind) => {
+      let request: Record<string, unknown> = {};
+      const state = setup(
+        vi.fn(async (_url, options) => {
+          request = JSON.parse(options!.body as string);
+          return response();
+        }),
+      );
+      await state.call(kind, { lecture: "synthetic" }, signal(), parse);
+      expect(request.generationConfig).toMatchObject({
+        responseMimeType: "application/json",
+        responseJsonSchema: OutputJsonSchemas[kind],
+      });
+      expect(request.generationConfig).not.toHaveProperty("responseSchema");
+      expect(request.generationConfig).not.toHaveProperty("_responseJsonSchema");
+    },
+  );
+
+  it("accepts implicit cache usage and conservatively charges the entire prompt", async () => {
+    const raw = envelope();
+    Object.assign(raw.usageMetadata, { cachedContentTokenCount: 100 });
+    const state = setup(vi.fn(async () => response(raw)));
+    await expect(state.call("help_generate", {}, signal(), parse)).resolves.toBe(
+      "safe synthetic answer",
+    );
+    expect(state.meter.settle).toHaveBeenCalledExactlyOnceWith(1, {
+      inputTokens: 120,
+      outputTokens: 30,
+      reportedModel: TRIAL_MODEL,
+      responseId: "resp_offline",
+    });
+  });
+
   it("reserves before sending a pinned request and reconciles validated usage exactly once", async () => {
     vi.useFakeTimers();
     const state = setup(
@@ -299,6 +335,11 @@ describe("offline bounded generateContent transport", () => {
     "sum",
     "model",
     "thinking",
+    "tool-usage",
+    "cache-over-prompt",
+    "cache-negative",
+    "cache-fraction",
+    "cache-null",
     "id",
   ])("retains the full charge for %s usage evidence", async (mode) => {
     const raw = envelope();
@@ -312,6 +353,16 @@ describe("offline bounded generateContent transport", () => {
     else if (mode === "sum") raw.usageMetadata.totalTokenCount += 1;
     else if (mode === "model") raw.modelVersion = "gemini-2.5-flash";
     else if (mode === "thinking") Object.assign(raw.usageMetadata, { thoughtsTokenCount: 5 });
+    else if (mode === "tool-usage")
+      Object.assign(raw.usageMetadata, { toolUsePromptTokenCount: 5 });
+    else if (mode === "cache-over-prompt")
+      Object.assign(raw.usageMetadata, { cachedContentTokenCount: 121 });
+    else if (mode === "cache-negative")
+      Object.assign(raw.usageMetadata, { cachedContentTokenCount: -1 });
+    else if (mode === "cache-fraction")
+      Object.assign(raw.usageMetadata, { cachedContentTokenCount: 0.5 });
+    else if (mode === "cache-null")
+      Object.assign(raw.usageMetadata, { cachedContentTokenCount: null });
     else raw.responseId = "untrusted provider text";
     const { call, meter } = setup(vi.fn(async () => response(raw)));
     await expect(call("help_generate", {}, signal(), parse)).rejects.toMatchObject({

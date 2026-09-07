@@ -24,11 +24,10 @@ export class TrialProviderError extends Error {
 }
 const failed = (code: FailureCode) => new TrialProviderError(code);
 const safeId = z.string().regex(/^[A-Za-z0-9_-]{1,200}$/);
-// Gemini's generateContent reports usage on usageMetadata (see the Gemini API reference,
-// checked 2026-09-06). thoughtsTokenCount/cachedContentTokenCount must be absent or exactly
-// zero: this trial never enables thinking and never sends cachedContent, and the reservation
-// in policy.ts does not budget for either, so any nonzero value must fail closed rather than
-// be silently trusted or ignored.
+// Implicit caching can occur without requesting cachedContent. Its tokens are a subset
+// of promptTokenCount; charging the full prompt at the uncached rate remains conservative.
+// Thinking and tool use are outside this trial's fixed configuration and must be zero.
+// https://ai.google.dev/api/generate-content#UsageMetadata (checked 2026-09-06).
 const UsageMetadataSchema = z
   .object({
     promptTokenCount: z.number().int().min(0).max(TRIAL_MAX_INPUT_TOKENS),
@@ -39,9 +38,11 @@ const UsageMetadataSchema = z
       .min(0)
       .max(TRIAL_MAX_INPUT_TOKENS + TRIAL_MAX_OUTPUT_TOKENS),
     thoughtsTokenCount: z.number().int().min(0).max(0).optional(),
-    cachedContentTokenCount: z.number().int().min(0).max(0).optional(),
+    toolUsePromptTokenCount: z.number().int().min(0).max(0).optional(),
+    cachedContentTokenCount: z.number().int().min(0).max(TRIAL_MAX_INPUT_TOKENS).optional(),
   })
-  .refine((usage) => usage.totalTokenCount === usage.promptTokenCount + usage.candidatesTokenCount);
+  .refine((usage) => usage.totalTokenCount === usage.promptTokenCount + usage.candidatesTokenCount)
+  .refine((usage) => (usage.cachedContentTokenCount ?? 0) <= usage.promptTokenCount);
 const UsageEnvelope = z.object({
   responseId: safeId,
   modelVersion: z.literal(TRIAL_MODEL),
@@ -157,7 +158,8 @@ export function createTrialTransport({
         contents: [{ role: "user", parts: [{ text: JSON.stringify(input) }] }],
         generationConfig: {
           responseMimeType: "application/json",
-          responseSchema: OutputJsonSchemas[kind],
+          // Raw JSON Schema (including additionalProperties), not Google's Schema message.
+          responseJsonSchema: OutputJsonSchemas[kind],
           maxOutputTokens: TRIAL_MAX_OUTPUT_TOKENS,
           candidateCount: 1,
         },
