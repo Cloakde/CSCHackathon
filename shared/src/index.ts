@@ -2,6 +2,7 @@ export * from "./schemas/api";
 export * from "./schemas/assistance";
 export * from "./schemas/common";
 export * from "./schemas/fixture";
+export * from "./schemas/scribe";
 export * from "./schemas/session";
 export * from "./schemas/study";
 export * from "./schemas/transcript";
