@@ -44,20 +44,13 @@ const practiceVerdict = {
 const key = "only-an-offline-test-value";
 function modelResponse(result: unknown) {
   return Response.json({
-    id: "resp_offline",
-    object: "response",
-    model: TRIAL_MODEL,
-    service_tier: "default",
-    status: "completed",
-    error: null,
-    incomplete_details: null,
-    usage: { input_tokens: 300, output_tokens: 100, total_tokens: 400 },
-    output: [
+    responseId: "resp_offline",
+    modelVersion: TRIAL_MODEL,
+    usageMetadata: { promptTokenCount: 300, candidatesTokenCount: 100, totalTokenCount: 400 },
+    candidates: [
       {
-        type: "message",
-        role: "assistant",
-        status: "completed",
-        content: [{ type: "output_text", text: JSON.stringify({ result }), annotations: [] }],
+        content: { role: "model", parts: [{ text: JSON.stringify({ result }) }] },
+        finishReason: "STOP",
       },
     ],
   });
@@ -102,15 +95,17 @@ async function fixture(count = 3) {
   };
   return { context, modelOutput, helpCandidate, view, event: answer.confusionEvent, drill };
 }
-function sentInput(options: RequestInit | undefined) {
+/** generateContent's responseSchema has no per-call name field, unlike the prior Responses
+ * API's json_schema.name. The caller supplies the expected kind for this call instead. */
+function sentInput(options: RequestInit | undefined, kind: TrialCallKind) {
   const request = JSON.parse(options!.body as string) as {
-    instructions: string;
-    text: { format: { name: TrialCallKind } };
-    input: { role: string; content: { type: string; text: string }[] }[];
+    systemInstruction: { parts: { text: string }[] };
+    contents: { role: string; parts: { text: string }[] }[];
   };
+  expect(request.systemInstruction.parts[0]!.text).toBe(TrialInstructions[kind]);
   return {
     request,
-    payload: JSON.parse(request.input[0]!.content[0]!.text) as Record<string, unknown>,
+    payload: JSON.parse(request.contents[0]!.parts[0]!.text) as Record<string, unknown>,
   };
 }
 afterEach(() => vi.restoreAllMocks());
@@ -122,15 +117,18 @@ describe("four private provider hooks with offline fetch only", () => {
       const network = vi
         .spyOn(globalThis, "fetch")
         .mockRejectedValue(new Error("No network allowed"));
+      const order: TrialCallKind[] = [
+        "help_generate",
+        "help_verify",
+        "practice_generate",
+        "practice_verify",
+      ];
       const kinds: TrialCallKind[] = [];
       const { hooks, meter } = createHooks(
         vi.fn(async (_url, options) => {
-          const { request, payload } = sentInput(options);
-          const kind = request.text.format.name;
+          const kind = order[kinds.length]!;
           kinds.push(kind);
-          expect(request.instructions).toBe(TrialInstructions[kind]);
-          expect(request.input).toHaveLength(1);
-          expect(request.input[0]!.role).toBe("user");
+          const { payload } = sentInput(options, kind);
           if (kind === "help_generate")
             return modelResponse(
               generateScriptedHelp(GroundingContextSnapshotSchema.parse(payload.context)),
@@ -208,12 +206,7 @@ describe("four private provider hooks with offline fetch only", () => {
           sourceConfusionEventIds: [event.confusionId],
           evidenceChunkIds: event.evidenceChunkIds,
         });
-        expect(kinds).toEqual([
-          "help_generate",
-          "help_verify",
-          "practice_generate",
-          "practice_verify",
-        ]);
+        expect(kinds).toEqual(order);
         expect(meter.reserve).toHaveBeenCalledTimes(4);
         expect(meter.settle).toHaveBeenCalledTimes(4);
         expect(network).not.toHaveBeenCalled();
@@ -277,13 +270,16 @@ describe("four private provider hooks with offline fetch only", () => {
       assistanceResponseId: "response_other",
       conceptTitle: "unrelated-private-canary",
     });
+    let calls = 0;
     const { hooks } = createHooks(
       vi.fn(async (_url, options) => {
-        const { request, payload } = sentInput(options);
+        calls += 1;
+        const kind: TrialCallKind = calls === 1 ? "help_verify" : "practice_verify";
+        const { request, payload } = sentInput(options, kind);
         expect(JSON.stringify(payload)).not.toContain("private-canary");
-        expect(request.instructions).toContain("separate");
-        expect(request.instructions).toContain("Ignore");
-        if (request.text.format.name === "help_verify") {
+        expect(request.systemInstruction.parts[0]!.text).toContain("separate");
+        expect(request.systemInstruction.parts[0]!.text).toContain("Ignore");
+        if (kind === "help_verify") {
           expect(payload.candidate).toEqual(data.modelOutput);
           expect(payload.citedPassages).toEqual(data.helpCandidate.citedChunks);
           return modelResponse(helpVerdict);
@@ -352,10 +348,10 @@ describe("four private provider hooks with offline fetch only", () => {
     const passage = data.context.chunks.find((chunk) => chunk.chunkId === "chunk_calc_007")!;
     const { hooks, meter } = createHooks(
       vi.fn(async (_url, options) => {
-        const { request, payload } = sentInput(options);
-        expect(request.instructions).not.toContain(passage.text);
-        expect(request.instructions).toContain("quoted instructions");
-        expect(request.input[0]!.role).toBe("user");
+        const { request, payload } = sentInput(options, "help_generate");
+        expect(request.systemInstruction.parts[0]!.text).not.toContain(passage.text);
+        expect(request.systemInstruction.parts[0]!.text).toContain("quoted instructions");
+        expect(request.contents[0]!.role).toBe("user");
         expect(payload.context).toEqual(data.context);
         return modelResponse(result);
       }),

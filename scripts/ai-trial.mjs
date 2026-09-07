@@ -21,10 +21,14 @@ export function trialPlan() {
     maximumAttempts: TRIAL_MAX_ATTEMPTS,
     conservativeReservationPerAttemptUsd: TRIAL_RESERVE_MICRO_USD / 1_000_000,
     data: "Canonical synthetic lecture text only; no audio or student data",
-    execution: "Separate paid-run authorization and server-process OPENAI_API_KEY required",
+    execution: "Separate paid-run authorization and server-process GEMINI_API_KEY required",
     command: "npm run ai:trial -- --execute --approve-usd=1 --source-tree=EXACT_REVIEWED_TREE",
     duration: "The real-clock 1x component probes take about nine minutes plus API time",
-    retention: "store:false is not zero retention; provider abuse logs may retain content",
+    retention:
+      "Paid-tier Gemini calls are not used to improve Google's products, but prompts and " +
+      "responses are still logged for a limited, undisclosed period for abuse monitoring " +
+      "(https://ai.google.dev/gemini-api/terms, checked 2026-09-06); store:false is not zero " +
+      "retention here either.",
   };
 }
 
@@ -46,8 +50,8 @@ export function prepareTrialExecution(args, env, repository) {
   if (!/^[a-f0-9]{40}$/.test(repository.commit) || !path.isAbsolute(repository.commonDir))
     throw new Error("Cannot verify this repository's execution identity.");
   // Never print or persist the value. No environment files are loaded.
-  if (typeof env.OPENAI_API_KEY !== "string" || !/^[\x21-\x7e]{20,512}$/.test(env.OPENAI_API_KEY))
-    throw new Error("Set OPENAI_API_KEY in the server process before the authorized trial.");
+  if (typeof env.GEMINI_API_KEY !== "string" || !/^[\x21-\x7e]{20,512}$/.test(env.GEMINI_API_KEY))
+    throw new Error("Set GEMINI_API_KEY in the server process before the authorized trial.");
   const directory = path.join(repository.commonDir, "livelecture-ai-trial", TRIAL_PLAN_ID);
   return {
     ...env,

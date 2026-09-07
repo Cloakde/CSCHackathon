@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
+  TRIAL_AUTH_HEADER,
   TRIAL_ENDPOINT,
   TRIAL_MODEL,
   TRIAL_MAX_INPUT_TOKENS,
@@ -23,42 +24,38 @@ export class TrialProviderError extends Error {
 }
 const failed = (code: FailureCode) => new TrialProviderError(code);
 const safeId = z.string().regex(/^[A-Za-z0-9_-]{1,200}$/);
+// Gemini's generateContent reports usage on usageMetadata (see the Gemini API reference,
+// checked 2026-09-06). thoughtsTokenCount/cachedContentTokenCount must be absent or exactly
+// zero: this trial never enables thinking and never sends cachedContent, and the reservation
+// in policy.ts does not budget for either, so any nonzero value must fail closed rather than
+// be silently trusted or ignored.
+const UsageMetadataSchema = z
+  .object({
+    promptTokenCount: z.number().int().min(0).max(TRIAL_MAX_INPUT_TOKENS),
+    candidatesTokenCount: z.number().int().min(0).max(TRIAL_MAX_OUTPUT_TOKENS),
+    totalTokenCount: z
+      .number()
+      .int()
+      .min(0)
+      .max(TRIAL_MAX_INPUT_TOKENS + TRIAL_MAX_OUTPUT_TOKENS),
+    thoughtsTokenCount: z.number().int().min(0).max(0).optional(),
+    cachedContentTokenCount: z.number().int().min(0).max(0).optional(),
+  })
+  .refine((usage) => usage.totalTokenCount === usage.promptTokenCount + usage.candidatesTokenCount);
 const UsageEnvelope = z.object({
-  id: safeId,
-  model: z.literal(TRIAL_MODEL),
-  service_tier: z.literal("default"),
-  usage: z
-    .object({
-      input_tokens: z.number().int().min(0).max(TRIAL_MAX_INPUT_TOKENS),
-      output_tokens: z.number().int().min(0).max(TRIAL_MAX_OUTPUT_TOKENS),
-      total_tokens: z
-        .number()
-        .int()
-        .min(0)
-        .max(TRIAL_MAX_INPUT_TOKENS + TRIAL_MAX_OUTPUT_TOKENS),
-    })
-    .refine((usage) => usage.total_tokens === usage.input_tokens + usage.output_tokens),
+  responseId: safeId,
+  modelVersion: z.literal(TRIAL_MODEL),
+  usageMetadata: UsageMetadataSchema,
 });
 const CompletedEnvelope = UsageEnvelope.extend({
-  object: z.literal("response"),
-  status: z.literal("completed"),
-  error: z.null(),
-  incomplete_details: z.null(),
-  output: z
+  candidates: z
     .array(
       z.object({
-        type: z.literal("message"),
-        role: z.literal("assistant"),
-        status: z.literal("completed"),
-        content: z
-          .array(
-            z.object({
-              type: z.literal("output_text"),
-              text: z.string().min(1),
-              annotations: z.array(z.unknown()).length(0),
-            }),
-          )
-          .length(1),
+        content: z.object({
+          role: z.literal("model"),
+          parts: z.array(z.object({ text: z.string().min(1) })).length(1),
+        }),
+        finishReason: z.literal("STOP"),
       }),
     )
     .length(1),
@@ -156,26 +153,15 @@ export function createTrialTransport({
     let body: string;
     try {
       body = JSON.stringify({
-        model: TRIAL_MODEL,
-        instructions: TrialInstructions[kind],
-        input: [{ role: "user", content: [{ type: "input_text", text: JSON.stringify(input) }] }],
-        text: {
-          format: {
-            type: "json_schema",
-            name: kind,
-            strict: true,
-            schema: OutputJsonSchemas[kind],
-          },
+        systemInstruction: { parts: [{ text: TrialInstructions[kind] }] },
+        contents: [{ role: "user", parts: [{ text: JSON.stringify(input) }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: OutputJsonSchemas[kind],
+          maxOutputTokens: TRIAL_MAX_OUTPUT_TOKENS,
+          candidateCount: 1,
         },
-        max_output_tokens: TRIAL_MAX_OUTPUT_TOKENS,
         store: false,
-        background: false,
-        service_tier: "default",
-        prompt_cache_retention: "in_memory",
-        truncation: "disabled",
-        stream: false,
-        tools: [],
-        tool_choice: "none",
       });
     } catch {
       throw failed("input");
@@ -229,7 +215,7 @@ export function createTrialTransport({
         return fetcher(TRIAL_ENDPOINT, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${apiKey}`,
+            [TRIAL_AUTH_HEADER]: apiKey,
             "Content-Type": "application/json",
             Accept: "application/json",
           },
@@ -253,24 +239,18 @@ export function createTrialTransport({
       if (controller.signal.aborted) throw failed("cancelled");
       if (JSON.stringify(raw).includes(apiKey)) throw failed("response");
       const billed = UsageEnvelope.safeParse(raw);
-      const requestId = response.headers.get("x-request-id");
-      if (
-        !billed.success ||
-        (requestId !== null && (!safeId.safeParse(requestId).success || requestId.includes(apiKey)))
-      )
-        throw failed("response");
+      if (!billed.success) throw failed("response");
       usage = {
-        inputTokens: billed.data.usage.input_tokens,
-        outputTokens: billed.data.usage.output_tokens,
-        reportedModel: billed.data.model,
-        responseId: billed.data.id,
-        ...(requestId === null ? {} : { requestId }),
+        inputTokens: billed.data.usageMetadata.promptTokenCount,
+        outputTokens: billed.data.usageMetadata.candidatesTokenCount,
+        reportedModel: billed.data.modelVersion,
+        responseId: billed.data.responseId,
       };
       const envelope = CompletedEnvelope.safeParse(raw);
       if (!envelope.success) throw failed("response");
       let result: T;
       try {
-        const decoded = JSON.parse(envelope.data.output[0]!.content[0]!.text);
+        const decoded = JSON.parse(envelope.data.candidates[0]!.content.parts[0]!.text);
         rejectCredentialEcho(decoded);
         result = parse(decoded);
         rejectCredentialEcho(result);
