@@ -8,3 +8,4 @@ export * from "./schemas/transcript";
 export * from "./grounding";
 export * from "./simulation";
 export * from "./store";
+export * from "./lecture-tools";

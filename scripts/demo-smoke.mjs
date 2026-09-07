@@ -106,9 +106,42 @@ try {
     .map((event) => ({ ...event.chunk, sessionId: session.sessionId }));
   assert.equal(chunks.length, 10);
   await call(`${path}/chunks`, "POST", { chunks: chunks.slice(0, 3) });
+  const answer = await call(`${path}/lecture-tools`, "POST", {
+    kind: "ask",
+    question: "What are inner and outer functions?",
+    throughSequence: 2,
+  });
+  assert.equal(answer.mode, "prewritten");
+  assert.equal(answer.status, "ready");
+  assert.deepEqual(
+    answer.passages,
+    chunks.slice(1, 3).map((chunk) => ({
+      text: chunk.text,
+      citation: { chunkId: chunk.chunkId, startMs: chunk.startMs, endMs: chunk.endMs },
+    })),
+  );
+  const unsupported = await call(`${path}/lecture-tools`, "POST", {
+    kind: "ask",
+    question: "Why is an inequality flipped?",
+    throughSequence: 2,
+  });
+  assert.equal(unsupported.status, "unsupported_question");
+  assert.deepEqual(unsupported.passages, []);
   const first = await call(`${path}/im-lost`, "POST", { lookbackMs: 900_000 });
   assert.equal(first.confusionEvent.conceptId, "concept_inner_outer");
   await call(`${path}/chunks`, "POST", { chunks });
+  const recap = await call(`${path}/lecture-tools`, "POST", {
+    kind: "catch_up",
+    throughSequence: 9,
+  });
+  assert.equal(recap.anchorMs, 480_000);
+  assert.deepEqual(
+    recap.passages,
+    chunks.slice(7).map((chunk) => ({
+      text: chunk.text,
+      citation: { chunkId: chunk.chunkId, startMs: chunk.startMs, endMs: chunk.endMs },
+    })),
+  );
   const second = await call(`${path}/im-lost`, "POST", { lookbackMs: 900_000 });
   assert.equal(second.confusionEvent.conceptId, "concept_inner_derivative");
   const endedAt = new Date(Date.parse(session.startedAt) + chunks.at(-1).endMs).toISOString();
@@ -135,7 +168,7 @@ try {
   assert.deepEqual(await call(path, "DELETE"), { deleted: true });
   assert.deepEqual(await call(path, "DELETE"), { deleted: false });
   console.log(
-    "Production HTTP demo passed: both concepts, separate route modules, practice, deletion, and access guards. No browser/provider used.",
+    "Production HTTP demo passed: Ask, recent excerpts, both concepts, separate route modules, practice, deletion, and access guards. No browser/provider used.",
   );
 } catch (error) {
   console.error(output);

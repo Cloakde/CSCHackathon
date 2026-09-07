@@ -1,5 +1,7 @@
 import {
   formatOffset,
+  validateLectureToolResponse,
+  type LectureToolPrompt,
   ImLostResponseSchema,
   isReplayableTranscriptSource,
   SimulationTranscriptSource,
@@ -13,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { createDemoClient, type DemoClient } from "./demo-api";
 import { demoHandoffUrl, type CompanionDestination } from "./demo-handoff";
 import { createDemoUploader, type DemoUploader } from "./demo-uploader";
+import { LectureTools } from "./LectureTools";
 
 interface AppProps {
   source?: TranscriptSource;
@@ -290,6 +293,26 @@ export function App({
     }
   }
 
+  async function requestLectureTool(prompt: LectureToolPrompt, signal: AbortSignal) {
+    const existing = sessionRef.current;
+    const uploader = uploaderRef.current;
+    const generation = generationRef.current;
+    const current = () =>
+      !signal.aborted &&
+      generation === generationRef.current &&
+      sessionRef.current === existing &&
+      !completedRef.current &&
+      busyRef.current !== "end";
+    if (!existing || !uploader || !current()) throw new Error("The lecture is unavailable.");
+    await uploader.flush();
+    if (!current()) throw new Error("The lecture is unavailable.");
+    const acknowledged = uploader.getAcknowledged();
+    const input = { ...prompt, throughSequence: acknowledged.at(-1)?.sequence ?? -1 };
+    const incoming = await client.lectureTools(existing.sessionId, input, signal);
+    if (!current()) throw new Error("The lecture is unavailable.");
+    return validateLectureToolResponse(existing.sessionId, input, acknowledged, incoming);
+  }
+
   function jumpToCitation(chunkId: string) {
     const row = rowsRef.current.get(chunkId);
     if (!row) {
@@ -553,6 +576,14 @@ export function App({
             </p>
           )}
         </section>
+      ) : null}
+      {session && !handoff && busy !== "reset" && busy !== "end" ? (
+        <LectureTools
+          key={session.sessionId}
+          request={requestLectureTool}
+          jump={jumpToCitation}
+          blocked={Boolean(uploadError) || !uploaderRef.current}
+        />
       ) : null}
       <section className="transcript-panel" aria-labelledby="transcript-heading">
         <div className="panel-heading">

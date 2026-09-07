@@ -1,4 +1,9 @@
 import { ApiContracts, ApiErrorSchema, SessionRouteParamsSchema } from "@livelecture/shared";
+import {
+  LectureToolRequestSchema,
+  LectureToolEnvelopeSchema,
+  type LectureToolRequest,
+} from "@livelecture/shared";
 
 export const DEMO_ORIGIN = "http://127.0.0.1:3000";
 export const DEMO_REQUEST_TIMEOUT_MS = 12_000;
@@ -88,6 +93,15 @@ export function createDemoClient(request: DemoFetch = (url, options) => fetch(ur
   }
 
   return {
+    async lectureTools(sessionId: string, input: LectureToolRequest, signal?: AbortSignal) {
+      const body = LectureToolRequestSchema.parse(input);
+      const parsed = LectureToolEnvelopeSchema.safeParse(
+        await send(`${route(sessionId)}/lecture-tools`, "POST", body, signal),
+      );
+      if (!parsed.success || parsed.data.data.sessionId !== sessionId)
+        throw new Error("The lecture response could not be checked. Please try again.");
+      return parsed.data.data;
+    },
     async start(
       body: { sourceMode: "simulation"; title?: string; subject?: string },
       signal?: AbortSignal,

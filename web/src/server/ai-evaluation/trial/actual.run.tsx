@@ -24,7 +24,7 @@ if (process.env.CI || process.env.LIVELECTURE_AI_TRIAL_EXECUTE !== "approved-one
   throw new Error("This file requires the explicitly authorized trial launcher.");
 
 it("records the authorized synthetic trial without declaring human or browser acceptance", async () => {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   const directory = process.env.LIVELECTURE_AI_TRIAL_DIRECTORY;
   const sourceTree = process.env.LIVELECTURE_AI_TRIAL_TREE;
   const sourceCommit = process.env.LIVELECTURE_AI_TRIAL_COMMIT;

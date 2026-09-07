@@ -11,7 +11,7 @@ const repository = {
   commonDir: process.cwd(),
 };
 const args = ["--execute", "--approve-usd=1", `--source-tree=${tree}`];
-const env = { OPENAI_API_KEY: "offline-placeholder-for-guard-tests" };
+const env = { GEMINI_API_KEY: "offline-placeholder-for-guard-tests" };
 
 test("default trial plan is offline and records the fixed bounded proposal", () => {
   assert.equal(trialPlan().mode, "offline_plan");
@@ -31,10 +31,10 @@ test("execution requires an exact cap and clean reviewed tree", () => {
 });
 
 test("missing credentials never appear in a preflight error", () => {
-  assert.throws(() => prepareTrialExecution(args, {}, repository), /OPENAI_API_KEY/);
+  assert.throws(() => prepareTrialExecution(args, {}, repository), /GEMINI_API_KEY/);
   const value = "private-invalid\ncredential";
   assert.throws(
-    () => prepareTrialExecution(args, { OPENAI_API_KEY: value }, repository),
+    () => prepareTrialExecution(args, { GEMINI_API_KEY: value }, repository),
     (error) => !String(error).includes(value),
   );
 });
