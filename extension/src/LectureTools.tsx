@@ -127,7 +127,10 @@ export function LectureTools({
             {response.request.kind === "ask" ? response.request.question : "Recent lecture recap"}
           </h3>
           <p role="status">{response.message}</p>
-          <p>Through {formatOffset(response.anchorMs)} · prewritten sample mode</p>
+          <p>
+            Through {formatOffset(response.anchorMs)} ·{" "}
+            {response.mode === "gemini" ? "Gemini assistance" : "prewritten sample mode"}
+          </p>
           {response.passages.map(({ text, citation }) => (
             <div key={citation.chunkId}>
               <blockquote>{text}</blockquote>

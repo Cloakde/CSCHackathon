@@ -4,9 +4,9 @@
 
 The AI holding the active turn edits this file on behalf of the Coordinator. [HANDOFF.md](HANDOFF.md) records the current turn and next step.
 
-## Current execution — 2026-09-06
+## Current execution — 2026-09-07
 
-The user selected Codex to continue, then said Execute on fresh-install checks, core recovery fixes, Ask and Catch Me Up. [TASK-305](tasks/TASK-305.md) is the current bounded offline task, starting at `367aab2`. It permits sample-question passage lookup and a recent-excerpt recap ahead of the earlier M4 hold. Neither is general AI Q&A or a generated summary. Prior corrections `f573a23` and `58946d2` remain IN REVIEW; their [evidence](evaluations/TASK-304/README.md) is preserved. This entry and the current handoff supersede historical next-assignment statements below. API testing stays DEFERRED; no M3/M4 acceptance or main promotion.
+The user assigned Gemini Lead to implement the server-side Gemini connection for the actual application (Help explanations, confusion-linked practice, Ask the Lecture, Catch Me Up), while keeping real API calls disabled. [TASK-306](tasks/TASK-306.md) implementation is complete and IN REVIEW, starting from `4a4f52f`. All tests use injected fake transports; normal app launches and tests remain 100% offline ($0 spend). Prior work TASK-304 and TASK-305 also remain IN REVIEW.
 
 ## Current Shared-Branch Policy
 
@@ -38,6 +38,7 @@ The shared-branch workflow checkpoint `48172a2b82e9615b4fc1b39217b37868ae006d09`
 | TASK-303 Connected journey acceptance        |    1 | IN REVIEW   | Codex Coordinator         | Automated component/production checks PASS; human Chrome/learner and actual AI/judge evidence PENDING        | Implemented checks and launchers are integrated with TASK-301/302; whole-milestone acceptance remains open                                                 |
 | TASK-304 Offline connected-journey hardening |    1 | IN REVIEW   | Codex correction          | Independent review after user-requested fixes                                                                | `docs/evaluations/TASK-304/README.md`; offline evidence/guides prepared, unapproved additions deferred; no milestone acceptance                            |
 | TASK-305 Offline lecture questions and recap |    1 | IN REVIEW   | Codex                     | User Execute; independent review still required                                                              | `docs/tasks/TASK-305.md`; 336 repository tests plus 1 guarded MeltingPot test; no provider or copy changes                                                 |
+| TASK-306 Offline Gemini app connection       |    1 | IN REVIEW   | Gemini Lead               | Offline implementation complete; zero live calls/spend; independent review required                          | docs/tasks/TASK-306.md; server Gemini app assistance, lecture tools, tests                                                                                 |
 
 ## Current Milestone Position
 

@@ -45,7 +45,7 @@ export type LectureToolPrompt = { kind: "ask"; question: string } | { kind: "cat
 export const LectureToolResponseSchema = z
   .object({
     sessionId: StableIdSchema,
-    mode: z.literal("prewritten"),
+    mode: z.enum(["prewritten", "gemini"]),
     request: LectureToolRequestSchema,
     anchorMs: z.number().int().nonnegative(),
     status: z.enum(["ready", "insufficient_evidence", "unsupported_question"]),
@@ -158,8 +158,36 @@ export function validateLectureToolResponse(
   raw: unknown,
 ): LectureToolResponse {
   const incoming = LectureToolResponseSchema.parse(raw);
-  const expected = buildLectureToolResponse(sessionId, request, chunks);
-  if (JSON.stringify(incoming) !== JSON.stringify(expected))
-    throw new Error("This response did not match the requested lecture passages.");
+  if (incoming.sessionId !== sessionId)
+    throw new Error("This response belongs to another session.");
+  if (JSON.stringify(incoming.request) !== JSON.stringify(request))
+    throw new Error("This response does not match the requested prompt.");
+  if (incoming.mode === "prewritten") {
+    const expected = buildLectureToolResponse(sessionId, request, chunks);
+    if (JSON.stringify(incoming) !== JSON.stringify(expected))
+      throw new Error("This response did not match the requested lecture passages.");
+    return incoming;
+  }
+  const allowedChunks = chunks.slice(0, request.throughSequence + 1);
+  const anchorMs = allowedChunks.at(-1)?.endMs ?? 0;
+  if (incoming.anchorMs !== anchorMs)
+    throw new Error("This response does not match the requested anchor offset.");
+  const chunkMap = new Map(allowedChunks.map((chunk) => [chunk.chunkId, chunk]));
+  const seenIds = new Set<string>();
+  for (const passage of incoming.passages) {
+    if (seenIds.has(passage.citation.chunkId))
+      throw new Error("Duplicate cited chunk in lecture tool response.");
+    seenIds.add(passage.citation.chunkId);
+    const chunk = chunkMap.get(passage.citation.chunkId);
+    if (!chunk) throw new Error("Cited chunk was not committed in the requested snapshot.");
+    if (
+      passage.citation.startMs !== chunk.startMs ||
+      passage.citation.endMs !== chunk.endMs ||
+      passage.text !== chunk.text
+    )
+      throw new Error("Cited passage text or offsets do not match canonical transcript.");
+  }
+  if (incoming.status === "insufficient_evidence" && incoming.passages.length > 0)
+    throw new Error("Insufficient evidence response cannot cite passages.");
   return incoming;
 }

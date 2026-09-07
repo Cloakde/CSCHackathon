@@ -7,7 +7,13 @@ import {
   StaleGroundingContextError,
   type ModelImLostOutput,
 } from "@livelecture/shared";
-import { createDemoDispatcher, DEMO_ORIGIN, type DemoDispatcherOptions } from "./demo-api";
+import {
+  createDemoDispatcher,
+  DEMO_ORIGIN,
+  type DemoDispatcherOptions,
+  handleDemoRequest,
+} from "./demo-api";
+import { createGeminiAppAssistance } from "./assistance/gemini-app-assistance";
 import { generateScriptedHelp } from "./scripted-help";
 import { generateScriptedPractice } from "./scripted-practice";
 import { verifyScriptedHelp } from "./scripted-verifier";
@@ -1060,5 +1066,268 @@ describe("local HTTP boundary", () => {
     expect(denied.status).toBe(429);
     expect(denied.headers.get("retry-after")).toBe("60");
     expect(ApiErrorSchema.parse(await denied.json()).error.retryable).toBe(true);
+  });
+
+  describe("gemini application assistance request routing and lifecycles", () => {
+    function fakeGeminiResponse(payload: unknown, model = "gemini-2.5-flash-lite") {
+      return new Response(
+        JSON.stringify({
+          responseId: "resp_test_12345",
+          modelVersion: model,
+          usageMetadata: {
+            promptTokenCount: 150,
+            candidatesTokenCount: 80,
+            totalTokenCount: 230,
+          },
+          candidates: [
+            {
+              content: {
+                role: "model",
+                parts: [{ text: JSON.stringify({ result: payload }) }],
+              },
+              finishReason: "STOP",
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    it("keeps provider disabled by default even when GEMINI_API_KEY is configured", async () => {
+      vi.stubEnv("LIVELECTURE_DEMO_ENABLED", "true");
+      vi.stubEnv("GEMINI_API_KEY", "test-hidden-key");
+      delete process.env.LIVELECTURE_ASSISTANCE_PROVIDER;
+
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockRejectedValue(new Error("Zero provider calls allowed"));
+
+      const startReq = request("/api/sessions", "POST", { sourceMode: "simulation" });
+      const startRes = await handleDemoRequest(startReq);
+      const startData = (await startRes.json()).data;
+      const sid = startData.session.sessionId;
+
+      const uploadReq = request(`/api/sessions/${sid}/chunks`, "POST", {
+        chunks: getCommittedChunksFromFixture()
+          .slice(0, 5)
+          .map((c) => ({ ...c, sessionId: sid })),
+      });
+      await handleDemoRequest(uploadReq);
+
+      // Call lecture tools with kind: "ask"
+      const toolReq = request(`/api/sessions/${sid}/lecture-tools`, "POST", {
+        kind: "ask",
+        throughSequence: 4,
+        question: "What is the chain rule?",
+      });
+      const toolRes = await handleDemoRequest(toolReq);
+      expect(toolRes.status).toBe(200);
+      const toolJson = await toolRes.json();
+      expect(toolJson.ok).toBe(true);
+      expect(toolJson.data.mode).toBe("prewritten");
+
+      // Zero fetch calls were made
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("routes help, practice, ask, and catch_up to Gemini when enabled", async () => {
+      const canonicalChunks = getCommittedChunksFromFixture().slice(0, 5);
+      const chunk0 = canonicalChunks[0]!;
+      const chunk1 = canonicalChunks[1]!;
+
+      const fakeFetch = vi.fn<typeof fetch>(async (info, init) => {
+        const bodyStr = String(init?.body ?? "{}");
+        const urlStr = String(info);
+
+        expect(urlStr).toContain("gemini-2.5-flash-lite:generateContent");
+        const requestJson = JSON.parse(bodyStr);
+        const inputData = JSON.parse(requestJson.contents[0].parts[0].text);
+
+        if (bodyStr.includes("separate evidence reviewer")) {
+          return fakeGeminiResponse({
+            verdict: "supported",
+            supportedClaims: [
+              "what_just_happened",
+              "main_idea",
+              "simple_explanation",
+              "important_prerequisite",
+              "concept",
+            ],
+          });
+        }
+
+        if (bodyStr.includes("important prerequisite")) {
+          return fakeGeminiResponse({
+            groundingStatus: "grounded",
+            context: inputData.context.reference,
+            diagnosis: {
+              whatJustHappened:
+                "The professor introduced the outer and inner functions for derivatives.",
+              mainIdea: "Break composite functions into layers.",
+              simpleExplanation:
+                "Differentiate the outer layer first, then multiply by inner derivative.",
+              importantPrerequisite: "Power rule and single variable differentiation.",
+            },
+            conceptId: "concept_inner_outer",
+            conceptTitle: "Inner and outer functions",
+            citationChunkIds: [chunk0.chunkId],
+            followUpActions: ["ask_follow_up"],
+          });
+        }
+
+        if (bodyStr.includes("separate practice reviewer")) {
+          return fakeGeminiResponse({
+            verdict: "supported",
+            supportedChecks: [
+              "question_supported",
+              "answer_correct",
+              "explanation_supported",
+              "confusion_aligned",
+            ],
+          });
+        }
+
+        if (bodyStr.includes("benchmarkQuestion")) {
+          return fakeGeminiResponse({
+            drillId: inputData.identities.drillId,
+            sessionId: inputData.identities.sessionId,
+            sourceConfusionEventIds: [inputData.confusion.confusionId],
+            conceptId: inputData.confusion.conceptId,
+            conceptTitle: inputData.confusion.conceptTitle,
+            shortExplanation: "Identify outer function and inner function.",
+            practiceItems: [
+              {
+                prompt: "Identify inner and outer functions for (2x + 1)^3",
+                expectedAnswer: "inner 2x+1, outer u^3",
+                explanation: "The composite structure has 2x+1 inside the cube.",
+              },
+            ],
+            evidenceChunkIds: inputData.confusion.evidenceChunkIds,
+          });
+        }
+
+        if (bodyStr.includes("student's question")) {
+          return fakeGeminiResponse({
+            status: "ready",
+            message: "The inner derivative is multiplied according to the chain rule.",
+            citationChunkIds: [chunk0.chunkId],
+          });
+        }
+
+        if (bodyStr.includes("Catch Me Up recap")) {
+          return fakeGeminiResponse({
+            status: "ready",
+            message: "Recap: we established the chain rule formula.",
+            citationChunkIds: [chunk1.chunkId],
+          });
+        }
+
+        return new Response("Not Found", { status: 404 });
+      });
+
+      const geminiHooks = createGeminiAppAssistance({
+        apiKey: "test-fake-key",
+        fetcher: fakeFetch,
+      });
+
+      const api = setup(geminiHooks);
+      const session = await api.start();
+      const sid = session.sessionId;
+
+      await api.call(`/api/sessions/${sid}/chunks`, "POST", {
+        chunks: canonicalChunks.map((c) => ({ ...c, sessionId: sid })),
+      });
+
+      // 1. Im Lost
+      const helpResult = await api.help(sid);
+      expect(helpResult.groundingStatus).toBe("grounded");
+      expect(helpResult.confusionEvent.conceptId).toBe("concept_inner_outer");
+
+      // 2. Ask the Lecture
+      const askRes = await api.call(`/api/sessions/${sid}/lecture-tools`, "POST", {
+        kind: "ask",
+        throughSequence: 2,
+        question: "Explain inner derivative",
+      });
+      expect(askRes.status).toBe(200);
+      const askJson = await askRes.json();
+      expect(askJson.data.mode).toBe("gemini");
+      expect(askJson.data.passages).toHaveLength(1);
+      expect(askJson.data.passages[0].citation.chunkId).toBe(chunk0.chunkId);
+
+      // 3. Catch Me Up
+      const catchUpRes = await api.call(`/api/sessions/${sid}/lecture-tools`, "POST", {
+        kind: "catch_up",
+        throughSequence: 3,
+      });
+      expect(catchUpRes.status).toBe(200);
+      const catchUpJson = await catchUpRes.json();
+      expect(catchUpJson.data.mode).toBe("gemini");
+      expect(catchUpJson.data.passages).toHaveLength(1);
+      expect(catchUpJson.data.passages[0].citation.chunkId).toBe(chunk1.chunkId);
+
+      // 4. End session and Weak Area Drill
+      const endedAt = new Date(
+        Date.parse(session.startedAt) + canonicalChunks.at(-1)!.endMs,
+      ).toISOString();
+      const endRes = await api.call(`/api/sessions/${sid}/end`, "POST", { endedAt });
+      expect(endRes.status).toBe(200);
+
+      const drillRes = await api.call(`/api/sessions/${sid}/weak-area-drills`, "POST", {
+        confusionEventIds: [helpResult.confusionEvent.confusionId],
+      });
+      expect(drillRes.status).toBe(200);
+      const drillJson = await drillRes.json();
+      expect(drillJson.data.practiceItems[0].prompt).toContain("inner and outer functions");
+    });
+
+    it("aborts in-flight Gemini requests when session is deleted", async () => {
+      let aborted = false;
+      let enteredResolve: () => void;
+      const entered = new Promise<void>((resolve) => {
+        enteredResolve = resolve;
+      });
+
+      const fakeFetch = vi.fn<typeof fetch>((info, init) => {
+        enteredResolve();
+        return new Promise((_, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            aborted = true;
+            reject(new DOMException("The operation was aborted", "AbortError"));
+          });
+        });
+      });
+
+      const geminiHooks = createGeminiAppAssistance({
+        apiKey: "test-fake-key",
+        fetcher: fakeFetch,
+      });
+
+      const api = setup(geminiHooks);
+      const session = await api.start();
+      const sid = session.sessionId;
+
+      await api.call(`/api/sessions/${sid}/chunks`, "POST", {
+        chunks: getCommittedChunksFromFixture()
+          .slice(0, 3)
+          .map((c) => ({ ...c, sessionId: sid })),
+      });
+
+      const toolPromise = api.call(`/api/sessions/${sid}/lecture-tools`, "POST", {
+        kind: "catch_up",
+        throughSequence: 2,
+      });
+
+      // Wait until the request has entered Gemini fetch before deleting the session
+      await entered;
+      await api.call(`/api/sessions/${sid}`, "DELETE");
+
+      const toolRes = await toolPromise;
+      expect(toolRes.status).toBe(404);
+      expect(aborted).toBe(true);
+    });
   });
 });

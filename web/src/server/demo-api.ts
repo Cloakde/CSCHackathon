@@ -21,13 +21,20 @@ import {
   type ErrorCode,
   type GroundingContextSnapshot,
   type GroundingSupportCandidate,
+  type LectureToolRequest,
+  type LectureToolResponse,
   type ModelImLostOutput,
+  type TranscriptChunk,
   type WeakAreaDrillResponse,
 } from "@livelecture/shared";
 import { generateScriptedHelp } from "./scripted-help";
 import { generateScriptedPractice } from "./scripted-practice";
 import { verifyScriptedHelp } from "./scripted-verifier";
 import { verifyScriptedPractice } from "./scripted-practice-verifier";
+import {
+  createGeminiAppAssistance,
+  LECTURE_TOOL_DEADLINE_MS,
+} from "./assistance/gemini-app-assistance";
 import {
   AssistanceAbortedError,
   createAssistanceOperation,
@@ -76,6 +83,12 @@ export interface DemoDispatcherOptions {
     candidate: PracticeVerificationCandidate,
     signal: AbortSignal,
   ) => unknown | Promise<unknown>;
+  handleLectureTool?: (
+    sessionId: string,
+    input: LectureToolRequest,
+    chunks: readonly TranscriptChunk[],
+    signal: AbortSignal,
+  ) => LectureToolResponse | Promise<LectureToolResponse>;
 }
 
 interface SessionEntry {
@@ -86,7 +99,7 @@ interface SessionEntry {
   helps: number;
   rate: { start: number; count: number };
   drills: Map<string, WeakAreaDrillResponse>;
-  operations: Partial<Record<"help" | "practice", AssistanceOperation>>;
+  operations: Partial<Record<"help" | "practice" | "lecture-tools", AssistanceOperation>>;
 }
 
 class DemoError extends Error {
@@ -212,6 +225,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
       if (entry.expiresAt <= now()) {
         entry.operations.help?.abort("expired");
         entry.operations.practice?.abort("expired");
+        entry.operations["lecture-tools"]?.abort("expired");
         sessions.delete(sessionId);
         void entry.store.deleteSession(sessionId);
         entry.drills.clear();
@@ -222,6 +236,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
     for (const [sessionId, entry] of sessions) {
       entry.operations.help?.abort("deleted");
       entry.operations.practice?.abort("deleted");
+      entry.operations["lecture-tools"]?.abort("deleted");
       void entry.store.deleteSession(sessionId);
       entry.drills.clear();
     }
@@ -238,7 +253,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
   async function withOperation<T>(
     sessionId: string,
     entry: SessionEntry,
-    kind: "help" | "practice",
+    kind: "help" | "practice" | "lecture-tools",
     request: Request,
     work: (operation: AssistanceOperation) => Promise<T>,
   ): Promise<T> {
@@ -248,9 +263,15 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         "PROVIDER_UNAVAILABLE",
         "An assistance request is already running. Try again when it finishes.",
       );
+    const deadlineMs =
+      kind === "help"
+        ? HELP_DEADLINE_MS
+        : kind === "practice"
+          ? PRACTICE_DEADLINE_MS
+          : LECTURE_TOOL_DEADLINE_MS;
     const operation = createAssistanceOperation({
       requestSignal: request.signal,
-      deadlineMs: kind === "help" ? HELP_DEADLINE_MS : PRACTICE_DEADLINE_MS,
+      deadlineMs,
       expiresAt: entry.expiresAt,
       now,
     });
@@ -377,6 +398,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         const entry = sessions.get(sessionId);
         entry?.operations.help?.abort("deleted");
         entry?.operations.practice?.abort("deleted");
+        entry?.operations["lecture-tools"]?.abort("deleted");
         sessions.delete(sessionId);
         entry?.drills.clear();
         const deleted = entry ? await entry.store.deleteSession(sessionId) : false;
@@ -394,9 +416,21 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
           const input = parse(LectureToolRequestSchema, body);
           if (input.throughSequence >= view.committedChunks.length) throw invalid();
           if (request.signal.aborted) throw new AssistanceAbortedError("cancelled");
+          const toolResponse = options.handleLectureTool
+            ? await withOperation(sessionId, entry, "lecture-tools", request, (operation) =>
+                operation.run(() =>
+                  options.handleLectureTool!(
+                    sessionId,
+                    input,
+                    view.committedChunks,
+                    operation.signal,
+                  ),
+                ),
+              )
+            : buildLectureToolResponse(sessionId, input, view.committedChunks);
           result = LectureToolEnvelopeSchema.parse({
             ok: true,
-            data: buildLectureToolResponse(sessionId, input, view.committedChunks),
+            data: toolResponse,
           });
         } else if (action === "chunks") {
           const input = parse(ApiContracts.appendCommittedChunks.input, {
@@ -510,6 +544,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
           if (input.body.endedAt !== expectedEnd) throw invalid();
           const session = await entry.store.completeSession(sessionId, input.body.endedAt);
           entry.operations.help?.abort("ended");
+          entry.operations["lecture-tools"]?.abort("ended");
           result = ApiContracts.endSession.response.parse({
             ok: true,
             data: { session, handoff: { sessionId, companionRoute: `/sessions/${sessionId}` } },
@@ -658,6 +693,8 @@ export function handleDemoRequest(request: Request): Promise<Response> {
   const config = JSON.stringify([
     process.env.LIVELECTURE_DEMO_ENABLED,
     process.env.LIVELECTURE_EXTENSION_ID,
+    process.env.LIVELECTURE_ASSISTANCE_PROVIDER,
+    process.env.GEMINI_API_KEY ? "key_configured" : "no_key",
   ]);
   let runtime = runtimeGlobal.__livelectureScriptedDemoV1;
   if (!runtime || runtime.config !== config) {
@@ -665,9 +702,17 @@ export function handleDemoRequest(request: Request): Promise<Response> {
       clearInterval(runtime.timer);
       runtime.dispatch.dispose();
     }
+    const geminiEnabled =
+      process.env.LIVELECTURE_ASSISTANCE_PROVIDER === "gemini" &&
+      typeof process.env.GEMINI_API_KEY === "string" &&
+      process.env.GEMINI_API_KEY.length > 0;
+    const geminiHooks = geminiEnabled
+      ? createGeminiAppAssistance({ apiKey: process.env.GEMINI_API_KEY! })
+      : undefined;
     const dispatch = createDemoDispatcher({
       enabled: process.env.LIVELECTURE_DEMO_ENABLED === "true",
       extensionId: process.env.LIVELECTURE_EXTENSION_ID,
+      ...(geminiHooks ? geminiHooks : {}),
     });
     const timer = setInterval(dispatch.sweep, 60_000);
     timer.unref();

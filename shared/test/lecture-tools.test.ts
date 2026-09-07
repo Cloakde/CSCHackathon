@@ -161,4 +161,75 @@ describe("offline lecture evidence", () => {
       validateLectureToolResponse(sid, { ...recap, throughSequence: 2 }, chunks, response),
     ).toThrow();
   });
+
+  it("validates grounded gemini-mode lecture tool responses against the requested snapshot", () => {
+    const askRequest: LectureToolRequest = {
+      kind: "ask",
+      question: "How does the chain rule work?",
+      throughSequence: 3,
+    };
+    const validGemini = {
+      sessionId: sid,
+      mode: "gemini" as const,
+      request: askRequest,
+      anchorMs: 200_000,
+      status: "ready" as const,
+      message:
+        "The chain rule differentiates the outer function and multiplies by the inner derivative.",
+      passages: [
+        {
+          text: chunks[3]!.text,
+          citation: { chunkId: "chunk_calc_004", startMs: 145_000, endMs: 200_000 },
+        },
+      ],
+    };
+    expect(validateLectureToolResponse(sid, askRequest, chunks, validGemini)).toEqual(validGemini);
+
+    // Rejects if cited chunk is outside the requested snapshot window
+    const futureCited = {
+      ...validGemini,
+      passages: [
+        {
+          text: chunks[8]!.text,
+          citation: { chunkId: "chunk_calc_009", startMs: 390_000, endMs: 435_000 },
+        },
+      ],
+    };
+    expect(() => validateLectureToolResponse(sid, askRequest, chunks, futureCited)).toThrow(
+      /was not committed in the requested snapshot/,
+    );
+
+    // Rejects altered passage text
+    const alteredText = {
+      ...validGemini,
+      passages: [
+        {
+          text: "Fabricated explanation not spoken by the professor.",
+          citation: { chunkId: "chunk_calc_004", startMs: 145_000, endMs: 200_000 },
+        },
+      ],
+    };
+    expect(() => validateLectureToolResponse(sid, askRequest, chunks, alteredText)).toThrow(
+      /passage text or offsets do not match canonical transcript/,
+    );
+
+    // Rejects duplicate citations
+    const duplicateCitations = {
+      ...validGemini,
+      passages: [validGemini.passages[0]!, validGemini.passages[0]!],
+    };
+    expect(() => validateLectureToolResponse(sid, askRequest, chunks, duplicateCitations)).toThrow(
+      /Duplicate cited chunk/,
+    );
+
+    // Rejects insufficient_evidence that nonetheless includes passages
+    const invalidInsufficient = {
+      ...validGemini,
+      status: "insufficient_evidence" as const,
+      message: "Could not find evidence in the lecture.",
+    };
+    expect(() => validateLectureToolResponse(sid, askRequest, chunks, invalidInsufficient)).toThrow(
+      /Insufficient evidence response cannot cite passages/,
+    );
+  });
 });

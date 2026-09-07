@@ -1,6 +1,41 @@
 # LiveLecture AI — Current handoff
 
-## TASK-305 — current turn, 2026-09-06
+## TASK-306 — current turn, 2026-09-07
+
+- **Active AI:** none — Gemini Lead implementation complete; ready for independent review by Codex / Coordinator. Current bounded contract: [TASK-306](tasks/TASK-306.md).
+- **Folder/branch:** `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon`, `shared/livelecture`; one AI at a time, only this branch and `main`.
+- **Starting source:** clean local/remote `4a4f52f6295851d58be1dcce5f878606a3002bcd`.
+- **Scoped files:**
+  - `docs/tasks/TASK-306.md`
+  - `docs/TASK_BOARD.md`
+  - `docs/HANDOFF.md`
+  - `shared/src/lecture-tools.ts`
+  - `shared/test/lecture-tools.test.ts`
+  - `web/src/server/assistance/gemini-app-assistance.ts`
+  - `web/src/server/assistance/gemini-app-assistance.test.ts`
+  - `web/src/server/demo-api.ts`
+  - `web/src/server/demo-api.test.ts`
+  - `extension/src/LectureTools.tsx`
+- **Changes:**
+  - Created `gemini-app-assistance.ts` implementing server-side Google Gemini (`gemini-2.5-flash-lite`) assistance for:
+    1. "I'm Lost" Help explanation generation with independent verification (`help_verify`)
+    2. Targeted practice generation linked to saved confusion moments with independent verification (`practice_verify`)
+    3. "Ask the Lecture" contextual Q&A strictly grounded in active committed lecture chunks
+    4. "Catch Me Up" recent lecture recap strictly grounded in active committed lecture chunks
+  - Updated `web/src/server/demo-api.ts` to support optional `handleLectureTool` injection, wire up `createGeminiAppAssistance` when `LIVELECTURE_ASSISTANCE_PROVIDER === "gemini"`, and wrap execution in operation lifecycle to handle abort/cancellation cleanly.
+  - Verified disabled-by-default behavior: presence of `GEMINI_API_KEY` does NOT trigger network calls unless `LIVELECTURE_ASSISTANCE_PROVIDER="gemini"` is explicitly configured.
+  - Updated `shared/src/lecture-tools.ts` to include `"gemini"` in the tool response mode enum and schema validation.
+  - Updated `extension/src/LectureTools.tsx` to display truthful mode labels ("Gemini Assistance" vs "Prewritten sample").
+- **Status:** IN REVIEW; all quality gates passed cleanly.
+  - `gemini-app-assistance.test.ts`: 10/10 tests passing.
+  - `demo-api.test.ts`: 57/57 tests passing.
+  - Full web test suite: 231/231 tests passing across 16 files.
+  - Workspace `npm run check`: PASS (Prettier, ESLint 0 errors / 0 warnings, secret scan 0 secrets, typecheck 3/3 packages, all tests, production builds, packaged-extension verification, production HTTP demo).
+  - Guarded MeltingPot test: PASS (1/1 test passing; rework copy unchanged).
+- **Provider boundary:** $0 spent; zero live provider requests. Tests use injected fake network transports. Normal app launches and tests remain 100% offline and prewritten by default.
+- **Next action:** Codex conducts independent review of TASK-306 changes on `shared/livelecture`. Model-live testing remains deferred by user ($0 spend).
+
+## TASK-305 — historical, 2026-09-06
 
 - **Active AI:** none — Codex implementation and evidence complete; the user chooses the next turn. Current bounded contract: [TASK-305](tasks/TASK-305.md).
 - **Folder/branch:** `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon`, `shared/livelecture`; one AI at a time, only this branch and `main`.
