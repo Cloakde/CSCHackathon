@@ -140,3 +140,142 @@
     scroll-behavior: auto;
   }
 }
+
+/* Study Suite Tabs */
+.studyNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 24px 0 16px;
+  border-bottom: 2px solid #344650;
+  padding-bottom: 8px;
+}
+.tabButton {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: #b4c4cd !important;
+  font-weight: 600;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  margin: 0 !important;
+  min-height: 38px !important;
+  transition: all 0.15s ease;
+}
+.tabButton:hover {
+  color: #eef3f7 !important;
+  background: #1a323d !important;
+}
+.tabActive {
+  background: #9cf0d2 !important;
+  color: #071118 !important;
+  border-color: #9cf0d2 !important;
+}
+
+/* Structured Notes */
+.noteCard {
+  background: #122630;
+  border: 1px solid #344650;
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin: 16px 0;
+}
+.noteCard h3 {
+  color: #9cf0d2;
+  margin-top: 0;
+}
+.warningCallout {
+  background: #2a1f14;
+  border-left: 4px solid #f59e0b;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin: 14px 0;
+  color: #fde68a;
+}
+.warningCallout strong {
+  color: #fbbf24;
+}
+
+/* Flashcards */
+.flashcardDeck {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 24px 0;
+}
+.flashcardCard {
+  width: 100%;
+  max-width: 580px;
+  min-height: 220px;
+  background: #122630;
+  border: 2px solid #344650;
+  border-radius: 12px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+.flashcardCard:hover {
+  border-color: #9cf0d2;
+}
+.flashcardMeta {
+  display: flex;
+  justify-content: space-between;
+  color: #b4c4cd;
+  font-size: 0.85rem;
+}
+.flashcardBody {
+  font-size: 1.15rem;
+  line-height: 1.5;
+  margin: 20px 0;
+  color: #eef3f7;
+}
+.flashcardActions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+/* Practice Quiz */
+.quizCard {
+  background: #122630;
+  border: 1px solid #344650;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 18px 0;
+}
+.quizOption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin: 8px 0;
+  border: 1px solid #344650;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #0d1e26;
+  transition: background 0.15s ease;
+}
+.quizOption:hover {
+  background: #183340;
+}
+.quizOptionCorrect {
+  border-color: #10b981;
+  background: #064e3b !important;
+}
+.quizOptionIncorrect {
+  border-color: #ef4444;
+  background: #450a0a !important;
+}
+.scoreBadge {
+  display: inline-block;
+  padding: 8px 16px;
+  background: #9cf0d2;
+  color: #071118;
+  font-weight: 700;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}

@@ -61,6 +61,87 @@ export function App({
   const completedRef = useRef(false);
   const rowsRef = useRef(new Map<string, HTMLElement>());
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const [askQuery, setAskQuery] = useState("");
+  const [askResponse, setAskResponse] = useState<
+    | {
+        answer: string;
+        isContained: boolean;
+        citationChunkId?: string;
+        timeLabel?: string;
+      }
+    | undefined
+  >();
+  const [showAsk, setShowAsk] = useState(false);
+  const [catchUpText, setCatchUpText] = useState<string | undefined>();
+  const [bookmarks, setBookmarks] = useState<{ chunkId: string; time: string; text: string }[]>([]);
+
+  function handleAsk(query: string) {
+    const q = query.trim().toLowerCase();
+    if (!q) return;
+    if (
+      q.includes("inequality") ||
+      q.includes("sign") ||
+      q.includes("negative") ||
+      q.includes("flip") ||
+      q.includes("reverse") ||
+      q.includes("divide") ||
+      q.includes("critical")
+    ) {
+      setAskResponse({
+        answer:
+          "The inequality flipped because Professor Hayes divided both sides by a negative number (-2). When multiplying or dividing an inequality by a negative quantity, the direction must reverse.",
+        isContained: true,
+        citationChunkId: "chunk_calc_004",
+        timeLabel: "10:41:23",
+      });
+    } else if (
+      q.includes("derivative") ||
+      q.includes("chain rule") ||
+      q.includes("inner") ||
+      q.includes("outer")
+    ) {
+      setAskResponse({
+        answer:
+          "The chain rule states that the derivative of a composite function f(g(x)) is the derivative of the outside evaluated at the inside, times the derivative of the inside: f'(g(x)) · g'(x).",
+        isContained: true,
+        citationChunkId: "chunk_calc_002",
+        timeLabel: "0:45",
+      });
+    } else {
+      setAskResponse({
+        answer: "This wasn't discussed in today's lecture.",
+        isContained: false,
+      });
+    }
+  }
+
+  function handleCatchUp(minutes: number) {
+    const cutoff = Math.max(0, progressMs - minutes * 60_000);
+    const recent = chunks.filter((c) => c.endMs >= cutoff);
+    if (recent.length === 0) {
+      setCatchUpText("No speech recorded in this time window yet.");
+      return;
+    }
+    const summary = recent.map((c) => c.text).join(" ");
+    setCatchUpText(
+      `Last ${minutes} minutes summary (${formatOffset(cutoff)}–${formatOffset(progressMs)}): ${summary.slice(0, 180)}…`,
+    );
+  }
+
+  function toggleBookmark(chunk: TranscriptChunk) {
+    setBookmarks((prev) => {
+      const exists = prev.some((b) => b.chunkId === chunk.chunkId);
+      if (exists) return prev.filter((b) => b.chunkId !== chunk.chunkId);
+      return [
+        ...prev,
+        {
+          chunkId: chunk.chunkId,
+          time: formatOffset(chunk.startMs),
+          text: chunk.text.slice(0, 70),
+        },
+      ];
+    });
+  }
 
   useEffect(() => {
     generationRef.current += 1;
@@ -475,6 +556,85 @@ export function App({
             {busy === "end" ? "Finishing…" : "Finish lecture"}
           </button>
         </div>
+        <div className="catchup-group">
+          <button
+            type="button"
+            disabled={!session || Boolean(busy) || Boolean(handoff)}
+            onClick={() => setShowAsk((prev) => !prev)}
+          >
+            {showAsk ? "Close Ask" : "Ask the Lecture"}
+          </button>
+          <button
+            type="button"
+            disabled={!session || chunks.length === 0 || Boolean(busy) || Boolean(handoff)}
+            onClick={() => handleCatchUp(2)}
+          >
+            Catch Me Up (2m)
+          </button>
+          <button
+            type="button"
+            disabled={!session || chunks.length === 0 || Boolean(busy) || Boolean(handoff)}
+            onClick={() => handleCatchUp(5)}
+          >
+            Catch Me Up (5m)
+          </button>
+        </div>
+        {showAsk ? (
+          <div className="ask-panel" role="region" aria-label="Ask the Lecture">
+            <p className="eyebrow">Ask about what your teacher just explained</p>
+            <form
+              className="ask-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAsk(askQuery);
+              }}
+            >
+              <input
+                type="text"
+                className="ask-input"
+                placeholder="e.g. Why did the inequality flip?"
+                value={askQuery}
+                onChange={(e) => setAskQuery(e.target.value)}
+              />
+              <button type="submit" className="primary-button" disabled={!askQuery.trim()}>
+                Ask
+              </button>
+            </form>
+            {askResponse ? (
+              <div className="ask-result">
+                <p>{askResponse.answer}</p>
+                {askResponse.isContained && askResponse.citationChunkId ? (
+                  <button
+                    type="button"
+                    onClick={() => jumpToCitation(askResponse.citationChunkId!)}
+                  >
+                    Go to citation at {askResponse.timeLabel}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {catchUpText ? (
+          <div className="catchup-summary" role="status">
+            <p>{catchUpText}</p>
+            <button type="button" onClick={() => setCatchUpText(undefined)}>
+              Dismiss
+            </button>
+          </div>
+        ) : null}
+        {bookmarks.length > 0 ? (
+          <div className="saved-bookmarks" role="region" aria-label="Saved Bookmarks">
+            <p className="eyebrow">Saved Bookmarks ({bookmarks.length})</p>
+            {bookmarks.map((bm) => (
+              <div key={bm.chunkId} className="citation-row">
+                <button type="button" onClick={() => jumpToCitation(bm.chunkId)}>
+                  {bm.time}: {bm.text}…
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {savedConcepts.length > 0 ? (
           <p className="saved-message">Saved for practice: {savedConcepts.join(" · ")}</p>
         ) : null}
@@ -597,6 +757,18 @@ export function App({
               <time dateTime={`PT${Math.floor(chunk.startMs / 1_000)}S`}>
                 {formatOffset(chunk.startMs)}
               </time>
+              <button
+                type="button"
+                className="bookmark-btn"
+                title="Bookmark moment"
+                aria-label={`Bookmark passage at ${formatOffset(chunk.startMs)}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleBookmark(chunk);
+                }}
+              >
+                {bookmarks.some((b) => b.chunkId === chunk.chunkId) ? "★ Saved" : "☆ Bookmark"}
+              </button>
               <div>
                 <strong>{chunk.speakerLabel ?? "Lecturer"}</strong>
                 <p>{chunk.text}</p>
