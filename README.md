@@ -10,6 +10,8 @@ The local learning demo connects a sample transcript, “I’m Lost” explanati
 
 No audio is captured or stored. Synthetic sessions live only in bounded local server memory; they expire, can be deleted, and disappear when the server restarts. This demo is not a public service or an authenticated multi-user app.
 
+The reviewed defects have been corrected or deferred from the active build; the unfinished Ask/study/audio additions remain recoverable in Git history. See [the correction evidence](docs/evaluations/TASK-304/README.md) and [the later manual setup guide](docs/evaluations/TASK-304/MANUAL_CHECK.md). Corrections await independent review; API testing remains deferred.
+
 ## Install and check
 
 Use Node.js 24 and npm 11.9.0:
@@ -89,7 +91,7 @@ Committed transcript passages continue uploading while an explanation is being p
 
 Run `npm run test:ai-readiness` for the frozen synthetic cases and the extension-to-service test at normal lecture speed. It uses no provider or browser. [The evaluation record](docs/evaluations/TASK-103/README.md) separates these engineering checks from actual AI evidence. The unchanged MeltingPot relay is checked against the new dispatcher separately; the preserved older running lecture server cannot establish new paired production HTTP evidence.
 
-The user selected **Gemini** for explanations and practice. Claude implemented the migration under [TASK-103C](docs/tasks/TASK-103C.md): the trial's four hooks now target `gemini-2.5-flash-lite` via `generateContent`, with pricing, reservation and retention facts verified against current official Google documentation (see [ADR 0012](docs/adr/0012-gemini-assistance-direction.md) and [the Phase B runbook](docs/evaluations/TASK-103/PHASE-B.md)). The trial remains fully inactive: `npm run ai:trial` still only prints the offline plan, and ordinary tests and demo commands make no provider calls. The implementation is IN REVIEW; independent review (Gemini or Codex, never Claude self-approving), a locally configured server-process `GEMINI_API_KEY`, and separate capped-run approval are all still required before any real call. No spending is authorized.
+The user selected **Gemini** for explanations and practice. Claude implemented the migration under [TASK-103C](docs/tasks/TASK-103C.md): the trial's four hooks now target `gemini-2.5-flash-lite` via `generateContent`, with pricing, reservation and retention facts verified against current official Google documentation (see [ADR 0012](docs/adr/0012-gemini-assistance-direction.md) and [the Phase B runbook](docs/evaluations/TASK-103/PHASE-B.md)). The trial remains fully inactive: `npm run ai:trial` still only prints the offline plan, and ordinary tests and demo commands make no provider calls. Codex reviewed the original migration and corrected its request-schema and usage-validation defects; [the review](docs/GEMINI_OFFLINE_REVIEW.md) records before/after evidence. The corrected implementation is IN REVIEW for another AI. No API testing, credential setup or spending is authorized now; those requirements wait until the user deliberately resumes provider testing.
 
 ## Repository map
 

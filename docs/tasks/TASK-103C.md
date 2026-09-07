@@ -1,10 +1,10 @@
 # TASK-103C — Replace the inactive assistance trial with Gemini
 
 - **Tier:** 1
-- **State:** IN REVIEW — offline implementation complete, zero provider calls made
+- **State:** IN REVIEW — Codex corrections await independent review; Claude's original source received CHANGES REQUESTED. Zero provider calls made.
 - **Implementer:** Claude, 2026-09-06
 - **Senior lead:** Codex
-- **Independent review:** Gemini on the next turn, or Codex; never Claude approving its own implementation
+- **Independent review:** Codex reviewed Claude's original source; Gemini may review the combined correction on its next user-started turn. No author approves their own changes.
 - **Branch/folder:** `shared/livelecture` in `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon`
 
 **Verified starting point for this assignment:** clean local/remote `48172a2b82e9615b4fc1b39217b37868ae006d09`, containing main `8cfa83b88c0f6186d3475266b005069da4fbe820`. Start from the current shared head containing this contract, record that exact hash, and inspect any intervening changes. Do not reset to either historical hash. This contract follows the user's direct provider choice and implementation assignment; no paid run is authorized.
@@ -51,11 +51,17 @@ Inspect the final diff, commit scoped work on the shared branch, and leave **IN 
 
 Return to Codex for any material change to grounding, deadlines, cost bounds, public contracts, scope or architecture. If credentials, spend approval or human evidence are absent, complete all independent offline work and leave that precise pending step; do not start unrelated future features to bypass it.
 
-## Implementation record (Claude, 2026-09-06)
+## Codex correction, 2026-09-06
+
+The user requested fixes after review. [GEMINI_OFFLINE_REVIEW.md](../GEMINI_OFFLINE_REVIEW.md) records the original-source findings, current documentation, before/after regressions and limits. Current requests use `responseJsonSchema`; valid implicit-cache usage is charged at the full prompt rate, and unexpected tool-use usage retains the full reservation. Model, endpoint, caps, runtime validators and app defaults remain unchanged. A changed policy hash invalidates earlier ledgers without creating a new allowance. Corrections remain IN REVIEW, and actual API testing remains DEFERRED BY USER.
+
+## Historical implementation record (Claude, 2026-09-06)
+
+Preserved as submitted; the schema-compatibility claim and cache assumption below are superseded by the correction and independent review above. The historical ADR heading was renamed accordingly.
 
 **Source:** implementation candidate `e0da4dfe7eccfef22ddcbaebd8928657af57ef19`, based on shared head `c163e6b` (which itself contains main `48172a2b82e9615b4fc1b39217b37868ae006d09`). No ledger directory existed on disk under either the old or new plan ID before this change, confirmed by inspection — no spent allowance is discarded by the new plan ID.
 
-**Model/configuration:** `gemini-2.5-flash-lite` via `generateContent` (`v1beta`), header auth (`x-goog-api-key`), `responseMimeType: "application/json"` + `responseSchema`, `store: false`, thinking left at its documented off-by-default state, no `cachedContent`, no tools. Full facts and dated citations are in [ADR 0012](../adr/0012-gemini-assistance-direction.md#verified-configuration-claude-checked-2026-09-06).
+**Model/configuration:** `gemini-2.5-flash-lite` via `generateContent` (`v1beta`), header auth (`x-goog-api-key`), `responseMimeType: "application/json"` + `responseSchema`, `store: false`, thinking left at its documented off-by-default state, no `cachedContent`, no tools. Full facts and dated citations are in [ADR 0012](../adr/0012-gemini-assistance-direction.md#historical-configuration-report-claude-checked-2026-09-06).
 
 **Reservation:** 105,677 microdollars/attempt (down from the OpenAI proposal's 422,308, since this model is materially cheaper), cap unchanged at $1 total / 32 attempts.
 

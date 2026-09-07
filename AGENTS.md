@@ -21,6 +21,8 @@ The AI holding the turn maintains the task board and handoff on behalf of the Co
 
 ## Current assignments
 
+**Latest turn (2026-09-06):** the user assigned Codex to fix the reviewed submission. Follow the current handoff and TASK-304 evidence for the correction, then use a later independent reviewer for Codex-authored changes. Do not repeat Gemini's historical twelve-feature list or restore its deferred additions wholesale. The original twelve-step offline queue and all provider/desktop/M4 gates still apply.
+
 The Product Owner assigned **Claude to replace the inactive OpenAI assistance trial with Gemini**, then **Gemini to continue the eligible milestones**, with **Codex providing senior direction and review**. Read [docs/AI_ASSIGNMENTS.md](docs/AI_ASSIGNMENTS.md) for scope and order. Claude's bounded implementation contract is [TASK-103C](docs/tasks/TASK-103C.md). The Gemini provider decision is recorded in [ADR 0012](docs/adr/0012-gemini-assistance-direction.md).
 
 **Current user direction (2026-09-06): no API testing yet.** Gemini's next assignment is the 12-step [offline queue in TASK-304](docs/tasks/TASK-304.md): review Claude, correct scoped defects, strengthen the existing simulated journey and prepare later checks. Provider testing is deliberately deferred; do not ask for keys/spend or run free-tier/connectivity/token-count tests to continue. Complete independent offline steps, then hand off to Codex. M4 features and human/provider acceptance remain gated.

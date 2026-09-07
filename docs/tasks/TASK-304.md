@@ -1,9 +1,9 @@
 # TASK-304 — Gemini's offline review and connected-journey hardening queue
 
-- **State:** IN REVIEW — CHANGES REQUESTED on Gemini submission `9c438e3`; assigned-queue completion is not established. See [Codex review](../evaluations/TASK-304/CODEX_REVIEW.md).
+- **State:** IN REVIEW — user-requested Codex correction and offline deliverables await independent review. Gemini submission `9c438e3` received CHANGES REQUESTED; its historical findings remain in [Codex review](../evaluations/TASK-304/CODEX_REVIEW.md). Current results are in [the evidence matrix](../evaluations/TASK-304/README.md).
 - **Tier:** 1 for changes to cancellation, grounding, privacy or deletion; existing behavior and contract protections remain mandatory.
-- **Assigned engineer:** Gemini, working sequentially on `shared/livelecture` in the primary CSCHackathon checkout.
-- **Senior lead and independent reviewer of Gemini-authored fixes:** Codex on a later turn. Gemini can independently review Claude's unchanged implementation, but cannot approve its own corrections.
+- **Assigned engineer:** originally Gemini; the user assigned Codex to correct the submission on 2026-09-06, sequentially on the same shared branch and primary checkout. All eight submitted application/test/style paths are owned for the bounded restoration; TASK-103C ownership covers the provider correction. Evidence and coordination updates remain in scope.
+- **Senior lead:** Codex. Codex independently reviewed Claude/Gemini's original source and authored the subsequent correction, which now needs another AI's review. The next user-started Gemini turn may review the correction; no author approves their own changes.
 - **Planning checkpoint:** `fe6f1a9bedcd73832c30e0eb1d335929b750edd7`. Start from the current shared head containing this plan, inspect intervening changes and record the actual hash. Never reset to the planning checkpoint.
 - **Milestone relationship:** TASK-103C review followed by bounded M3 resilience work and offline preparation for later checks. This does not mark M3 complete or unlock M4 feature implementation.
 - **Timebox:** Complete reviewable steps across the user's Gemini sessions. Checkpoint at each substantive step; do not invent calendar dates or promise to finish human/provider gates in this queue.

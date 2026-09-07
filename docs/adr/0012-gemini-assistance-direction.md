@@ -12,7 +12,15 @@ The previous $1/32-attempt proposal was never spending permission. Keep the prop
 
 This direction covers text assistance and practice. Live audio/transcription remains a separate conditional decision; no Gemini transcription replacement, ElevenLabs removal, capture change, deployment, app activation or broader redesign is authorized here.
 
-## Verified configuration (Claude, checked 2026-09-06)
+## Current offline correction (Codex, 2026-09-06; IN REVIEW)
+
+Independent review of Claude's `e0da4df` found three defects: raw JSON Schema sent through `responseSchema`, implicit cache hits rejected, and unexpected tool-use usage accepted for settlement. The correction uses `responseJsonSchema`, validates cached tokens as a subset of the prompt while charging the full uncached prompt, and rejects nonzero tool-use tokens. Runtime output/identity checks, model, endpoint, no-thinking default, `store:false`, deadlines and spending caps stay unchanged. See [the review and regressions](../GEMINI_OFFLINE_REVIEW.md).
+
+The policy hash changes; the existing plan ID and ledger directory do not. A prior ledger with a different policy must stop with `POLICY_MISMATCH`; never delete or rename it to obtain a fresh allowance. Corrections need independent review; no provider compatibility or spending approval is implied.
+
+## Historical configuration report (Claude, checked 2026-09-06)
+
+Preserved as submitted. Its `responseSchema` compatibility and zero-cache claims below are superseded by the correction above; other settings were independently checked against public documentation. They remain unverified against an actual provider response.
 
 Selected **`gemini-2.5-flash-lite`** via the direct Gemini API's stable `generateContent` method (not the newer Interactions API — see rejected alternative below). Facts below are quoted or closely paraphrased from Google's own documentation, checked 2026-09-06; re-verify before the first authorized live call, since preview/model-status pages change without a dated snapshot the way this task's prior OpenAI choice had.
 

@@ -4,6 +4,8 @@ The user assigned Claude the Gemini-provider correction, then Gemini the followi
 
 ## Roles and reporting
 
+**Current override, 2026-09-06:** after Codex requested changes on Gemini's submission, the user asked Codex to fix the findings and complete the missed offline deliverables. The next user-started Gemini turn should independently review Codex's correction and evidence. No self-approval, new features, provider test or automatic resumption of the old feature list. `HANDOFF.md` controls the exact source and next action.
+
 - **Codex:** sets scope, resolves architecture/product tradeoffs and reviews material changes. Bring a concrete finding and proposed change, not an open-ended redesign.
 - **Claude:** implements [TASK-103C](tasks/TASK-103C.md) only, then hands off for independent review.
 - **Gemini:** begins by independently checking Claude's migration, then takes the next eligible task in the sequence below. A reviewer who edits an implementation becomes an author of that fix and needs another reviewer for it.
