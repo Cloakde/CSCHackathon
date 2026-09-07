@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import {
   ApiContracts,
+  ASSISTANCE_STATUS_HEADER,
+  type AssistanceStatus,
   LectureToolRequestSchema,
   LectureToolEnvelopeSchema,
   buildLectureToolResponse,
@@ -28,6 +30,14 @@ import {
   type WeakAreaDrillResponse,
 } from "@livelecture/shared";
 import { generateScriptedHelp } from "./scripted-help";
+import {
+  applicationAuthorization,
+  createApplicationMeter,
+  readApplicationRepository,
+  type ApplicationRepository,
+  type ApplicationEnvironment,
+} from "./assistance/app-authorization";
+import { TrialProviderError } from "./assistance/provider-trial/transport";
 import { generateScriptedPractice } from "./scripted-practice";
 import { verifyScriptedHelp } from "./scripted-verifier";
 import { verifyScriptedPractice } from "./scripted-practice-verifier";
@@ -61,6 +71,7 @@ export const DEMO_LIMITS = {
 } as const;
 
 export interface DemoDispatcherOptions {
+  assistanceProvider?: "prewritten" | "gemini" | "blocked";
   enabled?: boolean;
   extensionId?: string;
   now?: () => number;
@@ -92,6 +103,7 @@ export interface DemoDispatcherOptions {
 }
 
 interface SessionEntry {
+  assistanceStatus: AssistanceStatus;
   // A store per session lets deletion release its tombstones and all private records.
   // Fresh random IDs prevent reuse across store incarnations.
   store: InMemorySessionStore;
@@ -293,7 +305,16 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
     if (bucket.count > maximum) throw limited();
   }
   const dispatch = async (request: Request): Promise<Response> => {
+    const initialStatus =
+      options.assistanceProvider === "gemini"
+        ? "gemini_pending"
+        : options.assistanceProvider === "blocked"
+          ? "gemini_blocked"
+          : "prewritten";
+    let assistanceEntry: SessionEntry | undefined;
     const headers = new Headers({
+      [ASSISTANCE_STATUS_HEADER]: initialStatus,
+      "Access-Control-Expose-Headers": ASSISTANCE_STATUS_HEADER,
       "Cache-Control": "no-store",
       Vary: "Origin",
       "X-Content-Type-Options": "nosniff",
@@ -372,6 +393,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         if (sessions.has(freshId)) throw invalid();
         const store = new InMemorySessionStore();
         const entry: SessionEntry = {
+          assistanceStatus: initialStatus,
           store,
           expiresAt: now() + limits.sessionLifetimeMs,
           helps: 0,
@@ -406,6 +428,16 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
       } else {
         const entry = sessions.get(sessionId);
         if (!entry) throw unavailable();
+        headers.set(ASSISTANCE_STATUS_HEADER, entry.assistanceStatus);
+        if (["im-lost", "weak-area-drills", "lecture-tools"].includes(action ?? "")) {
+          assistanceEntry = entry;
+          if (options.assistanceProvider === "blocked")
+            throw new DemoError(
+              503,
+              "PROVIDER_UNAVAILABLE",
+              "Gemini requires an authorized, capped application run.",
+            );
+        }
         rateCheck(entry.rate, limits.sessionRequestsPerMinute);
         const view = await entry.store.getSession(sessionId);
         if (!view) throw unavailable();
@@ -641,29 +673,49 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         sweep();
         if (!sessions.has(sessionId)) throw unavailable();
       }
+      if (assistanceEntry && options.assistanceProvider === "gemini") {
+        const data = (result as { data: { status?: string; groundingStatus?: string } }).data;
+        assistanceEntry.assistanceStatus =
+          data.status === "insufficient_evidence" ||
+          data.status === "unsupported_question" ||
+          data.groundingStatus === "insufficient_evidence"
+            ? "gemini_failed"
+            : "gemini_ready";
+        headers.set(ASSISTANCE_STATUS_HEADER, assistanceEntry.assistanceStatus);
+      }
       return Response.json(result, { status: 200, headers });
     } catch (error) {
+      if (assistanceEntry && options.assistanceProvider === "gemini") {
+        assistanceEntry.assistanceStatus = "gemini_failed";
+        headers.set(ASSISTANCE_STATUS_HEADER, "gemini_failed");
+      }
       const interruption = error instanceof AssistanceAbortedError ? error.cause : undefined;
       const safe =
         error instanceof DemoError
           ? error
-          : interruption === "deleted" || interruption === "expired"
-            ? unavailable()
-            : interruption === "ended"
-              ? inactive()
-              : interruption === "deadline"
-                ? new DemoError(
-                    504,
-                    "PROVIDER_UNAVAILABLE",
-                    "The assistance request took too long. Try again.",
-                  )
-                : interruption === "cancelled"
-                  ? new DemoError(499, "INVALID_REQUEST", "The assistance request was cancelled.")
-                  : new DemoError(
-                      500,
-                      "INTERNAL_ERROR",
-                      "The local demo could not complete this request.",
-                    );
+          : error instanceof TrialProviderError
+            ? new DemoError(
+                503,
+                "PROVIDER_UNAVAILABLE",
+                "Gemini assistance could not be completed safely.",
+              )
+            : interruption === "deleted" || interruption === "expired"
+              ? unavailable()
+              : interruption === "ended"
+                ? inactive()
+                : interruption === "deadline"
+                  ? new DemoError(
+                      504,
+                      "PROVIDER_UNAVAILABLE",
+                      "The assistance request took too long. Try again.",
+                    )
+                  : interruption === "cancelled"
+                    ? new DemoError(499, "INVALID_REQUEST", "The assistance request was cancelled.")
+                    : new DemoError(
+                        500,
+                        "INTERNAL_ERROR",
+                        "The local demo could not complete this request.",
+                      );
       if (safe.status === 429) headers.set("Retry-After", "60");
       return Response.json(
         ApiErrorSchema.parse({
@@ -681,43 +733,91 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
   return Object.assign(dispatch, { sweep, dispose });
 }
 
-// Next bundles routes independently; keep the actual service on globalThis.
-type Runtime = {
-  dispatch: ReturnType<typeof createDemoDispatcher>;
-  timer: ReturnType<typeof setInterval>;
-  config: string;
-};
-const runtimeGlobal = globalThis as typeof globalThis & { __livelectureScriptedDemoV1?: Runtime };
-
-export function handleDemoRequest(request: Request): Promise<Response> {
-  const config = JSON.stringify([
-    process.env.LIVELECTURE_DEMO_ENABLED,
-    process.env.LIVELECTURE_EXTENSION_ID,
-    process.env.LIVELECTURE_ASSISTANCE_PROVIDER,
-    process.env.GEMINI_API_KEY ? "key_configured" : "no_key",
-  ]);
-  let runtime = runtimeGlobal.__livelectureScriptedDemoV1;
-  if (!runtime || runtime.config !== config) {
-    if (runtime) {
-      clearInterval(runtime.timer);
-      runtime.dispatch.dispose();
+// The default and injected offline handlers use the same authorization, routing and lifecycle.
+export function createDemoRequestHandler(
+  dependencies: {
+    environment?: () => ApplicationEnvironment;
+    repository?: () => ApplicationRepository;
+    fetcher?: typeof fetch;
+  } = {},
+) {
+  const environment = dependencies.environment ?? (() => process.env);
+  const repository = dependencies.repository ?? readApplicationRepository;
+  let runtime:
+    | {
+        config: string;
+        dispatch: ReturnType<typeof createDemoDispatcher>;
+        timer: ReturnType<typeof setInterval>;
+        closeMeter?: () => void;
+      }
+    | undefined;
+  const dispose = () => {
+    if (!runtime) return;
+    clearInterval(runtime.timer);
+    runtime.dispatch.dispose();
+    runtime.closeMeter?.();
+    runtime = undefined;
+  };
+  const handle = (request: Request): Promise<Response> => {
+    const env = environment();
+    const config = JSON.stringify([
+      env.LIVELECTURE_DEMO_ENABLED,
+      env.LIVELECTURE_EXTENSION_ID,
+      env.LIVELECTURE_ASSISTANCE_PROVIDER,
+      env.LIVELECTURE_APP_EXECUTE,
+      env.LIVELECTURE_APP_TREE,
+      env.LIVELECTURE_APP_POLICY,
+      env.CI,
+    ]);
+    if (!runtime || runtime.config !== config) {
+      dispose();
+      let hooks: Partial<DemoDispatcherOptions> = {};
+      let closeMeter: (() => void) | undefined;
+      if (
+        env.LIVELECTURE_ASSISTANCE_PROVIDER &&
+        env.LIVELECTURE_ASSISTANCE_PROVIDER !== "prewritten"
+      ) {
+        hooks = { assistanceProvider: "blocked" };
+        // Do not inspect credentials, Git or ledger state until an explicit run is selected.
+        if (
+          env.LIVELECTURE_ASSISTANCE_PROVIDER === "gemini" &&
+          env.LIVELECTURE_APP_EXECUTE === "approved-one-dollar-v1" &&
+          !env.CI
+        ) {
+          try {
+            applicationAuthorization(env, repository());
+            const meter = createApplicationMeter(environment, repository);
+            closeMeter = () => meter.close();
+            hooks = createGeminiAppAssistance({
+              apiKey: env.GEMINI_API_KEY ?? "",
+              meter,
+              fetcher: dependencies.fetcher,
+            });
+          } catch {
+            closeMeter?.();
+            closeMeter = undefined;
+          }
+        }
+      }
+      const dispatch = createDemoDispatcher({
+        enabled: env.LIVELECTURE_DEMO_ENABLED === "true",
+        extensionId: env.LIVELECTURE_EXTENSION_ID,
+        ...hooks,
+      });
+      const timer = setInterval(dispatch.sweep, 60_000);
+      timer.unref();
+      runtime = { config, dispatch, timer, closeMeter };
     }
-    const geminiEnabled =
-      process.env.LIVELECTURE_ASSISTANCE_PROVIDER === "gemini" &&
-      typeof process.env.GEMINI_API_KEY === "string" &&
-      process.env.GEMINI_API_KEY.length > 0;
-    const geminiHooks = geminiEnabled
-      ? createGeminiAppAssistance({ apiKey: process.env.GEMINI_API_KEY! })
-      : undefined;
-    const dispatch = createDemoDispatcher({
-      enabled: process.env.LIVELECTURE_DEMO_ENABLED === "true",
-      extensionId: process.env.LIVELECTURE_EXTENSION_ID,
-      ...(geminiHooks ? geminiHooks : {}),
-    });
-    const timer = setInterval(dispatch.sweep, 60_000);
-    timer.unref();
-    runtime = { dispatch, timer, config };
-    runtimeGlobal.__livelectureScriptedDemoV1 = runtime;
-  }
-  return runtime.dispatch(request);
+    return runtime.dispatch(request);
+  };
+  return Object.assign(handle, { dispose });
+}
+
+// Next bundles routes independently; keep the actual service on globalThis.
+const runtimeGlobal = globalThis as typeof globalThis & {
+  __livelectureApplicationV2?: ReturnType<typeof createDemoRequestHandler>;
+};
+export function handleDemoRequest(request: Request): Promise<Response> {
+  runtimeGlobal.__livelectureApplicationV2 ??= createDemoRequestHandler();
+  return runtimeGlobal.__livelectureApplicationV2(request);
 }

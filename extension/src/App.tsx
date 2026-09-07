@@ -1,5 +1,7 @@
 import {
   formatOffset,
+  ASSISTANCE_STATUS_LABELS,
+  type AssistanceStatus,
   validateLectureToolResponse,
   type LectureToolPrompt,
   ImLostResponseSchema,
@@ -13,7 +15,7 @@ import {
 } from "@livelecture/shared";
 import { useEffect, useRef, useState } from "react";
 import { createDemoClient, type DemoClient } from "./demo-api";
-import { demoHandoffUrl, type CompanionDestination } from "./demo-handoff";
+import { demoHandoffUrl, MELTINGPOT_ORIGIN, type CompanionDestination } from "./demo-handoff";
 import { createDemoUploader, type DemoUploader } from "./demo-uploader";
 import { LectureTools } from "./LectureTools";
 
@@ -48,6 +50,7 @@ export function App({
   const [partial, setPartial] = useState<PartialTranscriptChunk>();
   const [session, setSession] = useState<ActiveLectureSession>();
   const [help, setHelp] = useState<ImLostResponse>();
+  const [assistanceStatus, setAssistanceStatus] = useState<AssistanceStatus>("unknown");
   const [savedConcepts, setSavedConcepts] = useState<string[]>([]);
   const [handoff, setHandoff] = useState<string>();
   const [highlighted, setHighlighted] = useState<string>();
@@ -78,6 +81,7 @@ export function App({
     setPartial(undefined);
     setSession(undefined);
     setHelp(undefined);
+    setAssistanceStatus("unknown");
     setSavedConcepts([]);
     setHandoff(undefined);
     setHighlighted(undefined);
@@ -160,6 +164,8 @@ export function App({
     setError(undefined);
     setRetry(undefined);
     const current = () => generation === generationRef.current && !controller.signal.aborted;
+    if (operation === "help") setHelp(undefined);
+    let succeeded = false;
     try {
       if (operation === "start") {
         const created = await client.start(
@@ -274,11 +280,17 @@ export function App({
           ).toISOString();
           const result = await client.end(existing.sessionId, endedAt, controller.signal);
           if (!current()) return;
-          const destination = demoHandoffUrl(companionDestination, existing.sessionId, result);
+          const destination = demoHandoffUrl(
+            companionDestination,
+            existing.sessionId,
+            result,
+            client.assistanceStatus(),
+          );
           completedRef.current = true;
           setHandoff(destination);
         }
       }
+      succeeded = true;
     } catch (failure) {
       if (current()) {
         if (failure !== uploaderRef.current?.getFailure()) {
@@ -289,7 +301,17 @@ export function App({
         }
       }
     } finally {
-      if (current()) setOperation(undefined);
+      if (current()) {
+        setOperation(undefined);
+        const reported = client.assistanceStatus();
+        setAssistanceStatus(
+          operation === "reset"
+            ? "unknown"
+            : !succeeded && reported === "gemini_ready"
+              ? "gemini_failed"
+              : reported,
+        );
+      }
     }
   }
 
@@ -308,9 +330,19 @@ export function App({
     if (!current()) throw new Error("The lecture is unavailable.");
     const acknowledged = uploader.getAcknowledged();
     const input = { ...prompt, throughSequence: acknowledged.at(-1)?.sequence ?? -1 };
-    const incoming = await client.lectureTools(existing.sessionId, input, signal);
-    if (!current()) throw new Error("The lecture is unavailable.");
-    return validateLectureToolResponse(existing.sessionId, input, acknowledged, incoming);
+    let checked = false;
+    try {
+      const incoming = await client.lectureTools(existing.sessionId, input, signal);
+      if (!current()) throw new Error("The lecture is unavailable.");
+      const answer = validateLectureToolResponse(existing.sessionId, input, acknowledged, incoming);
+      checked = true;
+      return answer;
+    } finally {
+      if (current()) {
+        const reported = client.assistanceStatus();
+        setAssistanceStatus(!checked && reported === "gemini_ready" ? "gemini_failed" : reported);
+      }
+    }
   }
 
   function jumpToCitation(chunkId: string) {
@@ -338,6 +370,7 @@ export function App({
         : "Ready";
   const title = snapshot.session.title ?? "Sample lecture";
   const liveUnavailable = snapshot.mode !== "simulation";
+  const meltingpotHandoff = handoff?.startsWith(`${MELTINGPOT_ORIGIN}/`) ?? false;
 
   return (
     <main className="app-shell">
@@ -354,9 +387,7 @@ export function App({
         <strong>SIMULATION</strong>
         <span>Synthetic lecture text — no audio is being captured.</span>
       </section>
-      <p className="demo-disclosure">
-        <strong>PREWRITTEN DEMO HELP</strong> — no AI provider used.
-      </p>
+      <p className="demo-disclosure">{ASSISTANCE_STATUS_LABELS[assistanceStatus]}</p>
       <section className="journey-guide" aria-label="How to try the demo">
         <p>Follow a lecture. Get unstuck. Practice what was hard.</p>
         <ol>
@@ -524,12 +555,14 @@ export function App({
                   : undefined
               }
             >
-              {companionDestination === "meltingpot" ? "Open in MeltingPot" : "Open my practice"}
+              {meltingpotHandoff ? "Open in MeltingPot" : "Open my practice"}
             </a>
             <p className="small-note">
-              {companionDestination === "meltingpot"
+              {meltingpotHandoff
                 ? "Opens MeltingPot in a new tab. If it is unavailable, start the MeltingPot rework app and use this link again. Keep both local demo servers running."
-                : "Opens the companion app in a new tab. Keep the local demo server running."}
+                : companionDestination === "meltingpot"
+                  ? "Gemini practice opens in LiveLecture. MeltingPot currently supports prewritten practice only."
+                  : "Opens the companion app in a new tab. Keep the local demo server running."}
             </p>
           </div>
         ) : null}
@@ -580,6 +613,7 @@ export function App({
       {session && !handoff && busy !== "reset" && busy !== "end" ? (
         <LectureTools
           key={session.sessionId}
+          assistanceStatus={assistanceStatus}
           request={requestLectureTool}
           jump={jumpToCitation}
           blocked={Boolean(uploadError) || !uploaderRef.current}

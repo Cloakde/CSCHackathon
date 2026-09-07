@@ -272,7 +272,7 @@ describe("local learning demo", () => {
     const h = harness();
     const navigate = vi.fn();
     render(<App source={h.source} client={h.client} navigate={navigate} />);
-    expect(screen.getByText("PREWRITTEN DEMO HELP")).toBeVisible();
+    expect(screen.getByText("Assistance mode has not been confirmed.")).toBeVisible();
     expect(screen.getByLabelText("SIMULATION source disclosure")).toHaveTextContent(
       "no audio is being captured",
     );

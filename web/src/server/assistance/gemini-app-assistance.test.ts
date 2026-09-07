@@ -40,10 +40,36 @@ function fakeGeminiResponse(payload: unknown, model = "gemini-2.5-flash-lite") {
   );
 }
 
+function withToolVerification(fetcher: typeof fetch): typeof fetch {
+  return (url, init) =>
+    String(init?.body).includes("separate lecture-answer reviewer")
+      ? Promise.resolve(
+          fakeGeminiResponse({
+            verdict: "supported",
+            checks: [
+              "answer_supported",
+              "question_answered",
+              "citations_support_claims",
+              "scope_respected",
+            ],
+          }),
+        )
+      : fetcher(url, init);
+}
 describe("gemini-app-assistance", () => {
   it("rejects invalid API key configuration", () => {
-    expect(() => createGeminiAppAssistance({ apiKey: "short" })).toThrow(GeminiAppError);
-    expect(() => createGeminiAppAssistance({ apiKey: "" })).toThrow(GeminiAppError);
+    expect(() =>
+      createGeminiAppAssistance({
+        meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
+        apiKey: "short",
+      }),
+    ).toThrow(GeminiAppError);
+    expect(() =>
+      createGeminiAppAssistance({
+        meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
+        apiKey: "",
+      }),
+    ).toThrow(GeminiAppError);
   });
 
   it("generates grounded I'm Lost help and verifies citations", async () => {
@@ -79,8 +105,9 @@ describe("gemini-app-assistance", () => {
     });
 
     const assistant = createGeminiAppAssistance({
+      meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
       apiKey: "fake-gemini-key-12345",
-      fetcher: mockFetcher,
+      fetcher: withToolVerification(mockFetcher),
     });
 
     const context: GroundingContextSnapshot = {
@@ -118,8 +145,9 @@ describe("gemini-app-assistance", () => {
     );
 
     const assistant = createGeminiAppAssistance({
+      meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
       apiKey: "fake-gemini-key-12345",
-      fetcher: mockFetcher,
+      fetcher: withToolVerification(mockFetcher),
     });
 
     const context: GroundingContextSnapshot = {
@@ -161,8 +189,9 @@ describe("gemini-app-assistance", () => {
     );
 
     const assistant = createGeminiAppAssistance({
+      meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
       apiKey: "fake-gemini-key-12345",
-      fetcher: mockFetcher,
+      fetcher: withToolVerification(mockFetcher),
     });
 
     const context: GroundingContextSnapshot = {
@@ -196,8 +225,9 @@ describe("gemini-app-assistance", () => {
     );
 
     const assistant = createGeminiAppAssistance({
+      meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
       apiKey: "fake-gemini-key-12345",
-      fetcher: mockFetcher,
+      fetcher: withToolVerification(mockFetcher),
     });
 
     const candidate = {
@@ -273,8 +303,9 @@ describe("gemini-app-assistance", () => {
       );
 
     const assistant = createGeminiAppAssistance({
+      meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
       apiKey: "fake-gemini-key-12345",
-      fetcher: mockFetcher,
+      fetcher: withToolVerification(mockFetcher),
     });
 
     const event: ConfusionEvent = {
@@ -329,8 +360,9 @@ describe("gemini-app-assistance", () => {
     );
 
     const assistant = createGeminiAppAssistance({
+      meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
       apiKey: "fake-gemini-key-12345",
-      fetcher: mockFetcher,
+      fetcher: withToolVerification(mockFetcher),
     });
 
     const response = await assistant.handleLectureTool(
@@ -358,8 +390,9 @@ describe("gemini-app-assistance", () => {
     );
 
     const assistant = createGeminiAppAssistance({
+      meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
       apiKey: "fake-gemini-key-12345",
-      fetcher: mockFetcher,
+      fetcher: withToolVerification(mockFetcher),
     });
 
     const response = await assistant.handleLectureTool(
@@ -387,8 +420,9 @@ describe("gemini-app-assistance", () => {
     );
 
     const assistant = createGeminiAppAssistance({
+      meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
       apiKey: "fake-gemini-key-12345",
-      fetcher: mockFetcher,
+      fetcher: withToolVerification(mockFetcher),
     });
 
     await expect(
@@ -398,7 +432,7 @@ describe("gemini-app-assistance", () => {
         canonicalChunks,
         new AbortController().signal,
       ),
-    ).rejects.toThrow(/credential echo/);
+    ).rejects.toThrow(GeminiAppError);
   });
 
   it("respects abort signals during calls", async () => {
@@ -407,8 +441,9 @@ describe("gemini-app-assistance", () => {
     );
 
     const assistant = createGeminiAppAssistance({
+      meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
       apiKey: "fake-gemini-key-12345",
-      fetcher: mockFetcher,
+      fetcher: withToolVerification(mockFetcher),
     });
 
     const controller = new AbortController();
@@ -420,6 +455,6 @@ describe("gemini-app-assistance", () => {
     );
 
     controller.abort();
-    await expect(promise).rejects.toThrow(/cancelled/);
+    await expect(promise).rejects.toMatchObject({ cause: "cancelled" });
   });
 });

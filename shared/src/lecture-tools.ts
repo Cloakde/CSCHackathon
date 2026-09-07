@@ -6,6 +6,9 @@ import { getCommittedChunksFromFixture } from "./simulation";
 
 const canonical = getCommittedChunksFromFixture();
 export const RECAP_WINDOW_MS = 120_000;
+export const LECTURE_TOOL_MESSAGE_LIMIT = 2_000;
+export const GEMINI_TOOL_FALLBACK =
+  "This answer could not be verified against the lecture. Try another question or review the cited lecture passages directly.";
 
 /** A published sample catalog, not a keyword/semantic question classifier. */
 export const SAMPLE_LECTURE_QUESTIONS = [
@@ -49,7 +52,7 @@ export const LectureToolResponseSchema = z
     request: LectureToolRequestSchema,
     anchorMs: z.number().int().nonnegative(),
     status: z.enum(["ready", "insufficient_evidence", "unsupported_question"]),
-    message: z.string().max(300),
+    message: z.string().min(1).max(LECTURE_TOOL_MESSAGE_LIMIT),
     passages: z
       .array(
         z
@@ -76,12 +79,12 @@ function normalized(question: string) {
     .trim();
 }
 
-/** Only an exact canonical prefix can support this offline demo. Partial/future text is excluded. */
-export function buildLectureToolResponse(
+/** Validate the canonical synthetic source before choosing evidence for either provider mode. */
+export function lectureToolSnapshot(
   sessionId: string,
   input: LectureToolRequest,
   chunks: readonly TranscriptChunk[],
-): LectureToolResponse {
+) {
   StableIdSchema.parse(sessionId);
   const request = LectureToolRequestSchema.parse(input);
   if (chunks.length > canonical.length || request.throughSequence >= chunks.length)
@@ -104,6 +107,24 @@ export function buildLectureToolResponse(
     })
     .slice(0, request.throughSequence + 1);
   const anchorMs = checked.at(-1)?.endMs ?? 0;
+  return {
+    request,
+    anchorMs,
+    checked,
+    evidence:
+      request.kind === "catch_up"
+        ? checked.filter((chunk) => chunk.endMs > Math.max(0, anchorMs - RECAP_WINDOW_MS))
+        : checked,
+  };
+}
+
+/** Only an exact canonical prefix can support this offline demo. Partial/future text is excluded. */
+export function buildLectureToolResponse(
+  sessionId: string,
+  input: LectureToolRequest,
+  chunks: readonly TranscriptChunk[],
+): LectureToolResponse {
+  const { request, anchorMs, checked, evidence } = lectureToolSnapshot(sessionId, input, chunks);
   let selected: TranscriptChunk[] = [];
   let status: LectureToolResponse["status"] = "ready";
   let message = "Exact passages from the sample lecture, with source timestamps.";
@@ -127,7 +148,7 @@ export function buildLectureToolResponse(
       }
     }
   } else {
-    selected = checked.filter((chunk) => chunk.endMs > Math.max(0, anchorMs - RECAP_WINDOW_MS));
+    selected = evidence;
     message =
       "Recent lecture excerpts overlapping the last two minutes. These are quoted passages, not an AI summary.";
     if (!selected.length) {
@@ -158,18 +179,18 @@ export function validateLectureToolResponse(
   raw: unknown,
 ): LectureToolResponse {
   const incoming = LectureToolResponseSchema.parse(raw);
+  const requested = LectureToolRequestSchema.parse(request);
   if (incoming.sessionId !== sessionId)
     throw new Error("This response belongs to another session.");
-  if (JSON.stringify(incoming.request) !== JSON.stringify(request))
+  if (JSON.stringify(incoming.request) !== JSON.stringify(requested))
     throw new Error("This response does not match the requested prompt.");
   if (incoming.mode === "prewritten") {
-    const expected = buildLectureToolResponse(sessionId, request, chunks);
+    const expected = buildLectureToolResponse(sessionId, requested, chunks);
     if (JSON.stringify(incoming) !== JSON.stringify(expected))
       throw new Error("This response did not match the requested lecture passages.");
     return incoming;
   }
-  const allowedChunks = chunks.slice(0, request.throughSequence + 1);
-  const anchorMs = allowedChunks.at(-1)?.endMs ?? 0;
+  const { evidence: allowedChunks, anchorMs } = lectureToolSnapshot(sessionId, requested, chunks);
   if (incoming.anchorMs !== anchorMs)
     throw new Error("This response does not match the requested anchor offset.");
   const chunkMap = new Map(allowedChunks.map((chunk) => [chunk.chunkId, chunk]));
@@ -187,7 +208,12 @@ export function validateLectureToolResponse(
     )
       throw new Error("Cited passage text or offsets do not match canonical transcript.");
   }
-  if (incoming.status === "insufficient_evidence" && incoming.passages.length > 0)
-    throw new Error("Insufficient evidence response cannot cite passages.");
+  if (incoming.status === "ready" && incoming.passages.length === 0)
+    throw new Error("A generated answer needs supporting passages.");
+  if (
+    incoming.status !== "ready" &&
+    (incoming.passages.length > 0 || incoming.message !== GEMINI_TOOL_FALLBACK)
+  )
+    throw new Error("Unverified generated content must be discarded.");
   return incoming;
 }

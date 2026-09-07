@@ -4,6 +4,7 @@ import {
   getCommittedChunksFromFixture,
   SAMPLE_LECTURE_QUESTIONS,
   validateLectureToolResponse,
+  GEMINI_TOOL_FALLBACK,
   type LectureToolRequest,
 } from "../src";
 
@@ -12,6 +13,56 @@ const chunks = getCommittedChunksFromFixture().map((chunk) => ({ ...chunk, sessi
 const recap: LectureToolRequest = { kind: "catch_up", throughSequence: 9 };
 
 describe("offline lecture evidence", () => {
+  it("requires current-window citations and safe non-answer text for Gemini", () => {
+    const response = {
+      ...buildLectureToolResponse(sid, recap, chunks),
+      mode: "gemini",
+      message: "A recap checked by the server.",
+    };
+    expect(
+      validateLectureToolResponse(sid, recap, chunks, response).passages.map(
+        (p) => p.citation.chunkId,
+      ),
+    ).toEqual(["chunk_calc_008", "chunk_calc_009", "chunk_calc_010"]);
+    const old = chunks[0]!;
+    expect(() =>
+      validateLectureToolResponse(sid, recap, chunks, {
+        ...response,
+        passages: [
+          {
+            text: old.text,
+            citation: { chunkId: old.chunkId, startMs: old.startMs, endMs: old.endMs },
+          },
+        ],
+      }),
+    ).toThrow();
+    expect(() =>
+      validateLectureToolResponse(sid, recap, chunks, { ...response, passages: [] }),
+    ).toThrow();
+    for (const status of ["insufficient_evidence", "unsupported_question"]) {
+      expect(() =>
+        validateLectureToolResponse(sid, recap, chunks, { ...response, status, passages: [] }),
+      ).toThrow();
+      expect(
+        validateLectureToolResponse(sid, recap, chunks, {
+          ...response,
+          status,
+          passages: [],
+          message: GEMINI_TOOL_FALLBACK,
+        }).message,
+      ).toBe(GEMINI_TOOL_FALLBACK);
+    }
+    const samePrompt = { throughSequence: 9, kind: "catch_up" as const };
+    expect(validateLectureToolResponse(sid, samePrompt, chunks, response).anchorMs).toBe(480_000);
+    expect(() =>
+      validateLectureToolResponse(
+        sid,
+        recap,
+        chunks.map((c) => ({ ...c, sessionId: "other_session" })),
+        response,
+      ),
+    ).toThrow();
+  });
   it.each(SAMPLE_LECTURE_QUESTIONS)(
     "answers $question only after all its passages arrive",
     (sample) => {
@@ -229,7 +280,7 @@ describe("offline lecture evidence", () => {
       message: "Could not find evidence in the lecture.",
     };
     expect(() => validateLectureToolResponse(sid, askRequest, chunks, invalidInsufficient)).toThrow(
-      /Insufficient evidence response cannot cite passages/,
+      /Unverified generated content must be discarded/,
     );
   });
 });

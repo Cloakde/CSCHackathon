@@ -1146,6 +1146,17 @@ describe("local HTTP boundary", () => {
         const requestJson = JSON.parse(bodyStr);
         const inputData = JSON.parse(requestJson.contents[0].parts[0].text);
 
+        if (bodyStr.includes("separate lecture-answer reviewer")) {
+          return fakeGeminiResponse({
+            verdict: "supported",
+            checks: [
+              "answer_supported",
+              "question_answered",
+              "citations_support_claims",
+              "scope_respected",
+            ],
+          });
+        }
         if (bodyStr.includes("separate evidence reviewer")) {
           return fakeGeminiResponse({
             verdict: "supported",
@@ -1229,6 +1240,7 @@ describe("local HTTP boundary", () => {
       });
 
       const geminiHooks = createGeminiAppAssistance({
+        meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
         apiKey: "test-fake-key",
         fetcher: fakeFetch,
       });
@@ -1302,6 +1314,7 @@ describe("local HTTP boundary", () => {
       });
 
       const geminiHooks = createGeminiAppAssistance({
+        meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
         apiKey: "test-fake-key",
         fetcher: fakeFetch,
       });

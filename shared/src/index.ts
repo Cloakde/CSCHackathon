@@ -9,3 +9,4 @@ export * from "./grounding";
 export * from "./simulation";
 export * from "./store";
 export * from "./lecture-tools";
+export * from "./assistance-status";

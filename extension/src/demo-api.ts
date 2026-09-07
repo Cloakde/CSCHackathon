@@ -1,4 +1,10 @@
-import { ApiContracts, ApiErrorSchema, SessionRouteParamsSchema } from "@livelecture/shared";
+import {
+  ApiContracts,
+  ApiErrorSchema,
+  SessionRouteParamsSchema,
+  readAssistanceStatus,
+  type AssistanceStatus,
+} from "@livelecture/shared";
 import {
   LectureToolRequestSchema,
   LectureToolEnvelopeSchema,
@@ -19,6 +25,7 @@ const friendlyErrors: Record<string, string> = {
 
 /** Every request stays on the fixed local demo service. No provider credentials are used. */
 export function createDemoClient(request: DemoFetch = (url, options) => fetch(url, options)) {
+  let assistanceStatus: AssistanceStatus = "unknown";
   async function send(path: string, method: string, body: unknown, signal?: AbortSignal) {
     const controller = new AbortController();
     const cancel = () => controller.abort();
@@ -52,6 +59,8 @@ export function createDemoClient(request: DemoFetch = (url, options) => fetch(ur
         deadline,
       ]);
     } catch (error) {
+      if (!signal?.aborted)
+        assistanceStatus = assistanceStatus.startsWith("gemini") ? "gemini_failed" : "unknown";
       if (signal?.aborted) throw error;
       throw new Error(
         timedOut
@@ -64,6 +73,7 @@ export function createDemoClient(request: DemoFetch = (url, options) => fetch(ur
       signal?.removeEventListener("abort", cancel);
     }
     const { response, payload } = result;
+    if (!path.endsWith("/chunks")) assistanceStatus = readAssistanceStatus(response.headers);
     const failure = ApiErrorSchema.safeParse(payload);
     if (failure.success)
       throw new Error(
@@ -93,6 +103,7 @@ export function createDemoClient(request: DemoFetch = (url, options) => fetch(ur
   }
 
   return {
+    assistanceStatus: () => assistanceStatus,
     async lectureTools(sessionId: string, input: LectureToolRequest, signal?: AbortSignal) {
       const body = LectureToolRequestSchema.parse(input);
       const parsed = LectureToolEnvelopeSchema.safeParse(

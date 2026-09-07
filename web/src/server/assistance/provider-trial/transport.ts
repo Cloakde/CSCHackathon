@@ -131,7 +131,8 @@ export interface ProviderTransportOptions {
   fetcher?: typeof fetch;
 }
 
-export function createTrialTransport({
+/** Shared bounded Gemini transport; application prompts do not alter frozen trial prompts. */
+export function createMeteredGeminiTransport({
   apiKey,
   meter,
   scenarioId,
@@ -141,6 +142,8 @@ export function createTrialTransport({
     typeof apiKey !== "string" ||
     !/^[A-Za-z0-9_-]{8,512}$/.test(apiKey) ||
     !safeId.safeParse(scenarioId).success ||
+    typeof meter?.reserve !== "function" ||
+    typeof meter?.settle !== "function" ||
     typeof fetcher !== "function"
   )
     throw failed("configuration");
@@ -149,17 +152,18 @@ export function createTrialTransport({
     input: unknown,
     signal: AbortSignal,
     parse: (output: unknown) => T,
+    specification: { instructions: string; schema: Record<string, unknown> },
   ): Promise<T> {
     if (signal.aborted) throw failed("cancelled");
     let body: string;
     try {
       body = JSON.stringify({
-        systemInstruction: { parts: [{ text: TrialInstructions[kind] }] },
+        systemInstruction: { parts: [{ text: specification.instructions }] },
         contents: [{ role: "user", parts: [{ text: JSON.stringify(input) }] }],
         generationConfig: {
           responseMimeType: "application/json",
           // Raw JSON Schema (including additionalProperties), not Google's Schema message.
-          responseJsonSchema: OutputJsonSchemas[kind],
+          responseJsonSchema: specification.schema,
           maxOutputTokens: TRIAL_MAX_OUTPUT_TOKENS,
           candidateCount: 1,
         },
@@ -271,4 +275,18 @@ export function createTrialTransport({
       if (response && !response.bodyUsed) void response.body?.cancel().catch(() => undefined);
     }
   };
+}
+
+export function createTrialTransport(options: ProviderTransportOptions) {
+  const transport = createMeteredGeminiTransport(options);
+  return <T>(
+    kind: TrialCallKind,
+    input: unknown,
+    signal: AbortSignal,
+    parse: (output: unknown) => T,
+  ) =>
+    transport(kind, input, signal, parse, {
+      instructions: TrialInstructions[kind],
+      schema: OutputJsonSchemas[kind],
+    });
 }

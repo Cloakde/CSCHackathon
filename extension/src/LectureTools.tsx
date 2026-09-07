@@ -4,16 +4,19 @@ import {
   SAMPLE_LECTURE_QUESTIONS,
   type LectureToolPrompt,
   type LectureToolResponse,
+  type AssistanceStatus,
 } from "@livelecture/shared";
 
 export function LectureTools({
   request,
   jump,
   blocked,
+  assistanceStatus = "unknown",
 }: {
   request: (prompt: LectureToolPrompt, signal: AbortSignal) => Promise<LectureToolResponse>;
   jump: (chunkId: string) => void;
   blocked: boolean;
+  assistanceStatus?: AssistanceStatus;
 }) {
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState<LectureToolResponse>();
@@ -54,7 +57,9 @@ export function LectureTools({
     <section className="lecture-tools" aria-labelledby="lecture-tools-heading">
       <h2 id="lecture-tools-heading">Ask the Lecture</h2>
       <p id="sample-questions-help">
-        Sample questions only · answers quote the lecture. Gemini is not connected.
+        {assistanceStatus === "prewritten"
+          ? "Sample questions only · answers quote the lecture. Gemini is not connected."
+          : "Ask about the lecture passages received so far. Answers must be supported by the lecture."}
       </p>
       {blocked && (
         <p role="status">
@@ -81,11 +86,11 @@ export function LectureTools({
           }}
         />
         <button type="submit" disabled={blocked || busy || !question.trim()}>
-          Ask sample question
+          {assistanceStatus === "prewritten" ? "Ask sample question" : "Ask the lecture"}
         </button>
       </form>
       <details>
-        <summary>Try a supported sample question</summary>
+        <summary>Try a sample question</summary>
         <div className="sample-questions">
           {SAMPLE_LECTURE_QUESTIONS.map((sample) => (
             <button
@@ -109,7 +114,7 @@ export function LectureTools({
       >
         Catch Me Up
       </button>
-      <p className="muted">Catch Me Up shows recent lecture excerpts with timestamps.</p>
+      <p className="muted">Catch Me Up covers the last two minutes, with lecture timestamps.</p>
       {busy && <p role="status">Loading lecture passages…</p>}
       {error && (
         <p role="alert">
@@ -120,7 +125,11 @@ export function LectureTools({
         <section
           className="lecture-tool-result"
           aria-label={
-            response.request.kind === "ask" ? "Sample question answer" : "Recent lecture recap"
+            response.request.kind === "ask"
+              ? response.mode === "prewritten"
+                ? "Sample question answer"
+                : "Lecture answer"
+              : "Recent lecture recap"
           }
         >
           <h3>
@@ -129,7 +138,11 @@ export function LectureTools({
           <p role="status">{response.message}</p>
           <p>
             Through {formatOffset(response.anchorMs)} ·{" "}
-            {response.mode === "gemini" ? "Gemini assistance" : "prewritten sample mode"}
+            {response.mode === "gemini"
+              ? response.status === "ready"
+                ? "Gemini assistance · answer checked against the lecture"
+                : "No verified Gemini answer"
+              : "prewritten sample mode"}
           </p>
           {response.passages.map(({ text, citation }) => (
             <div key={citation.chunkId}>
