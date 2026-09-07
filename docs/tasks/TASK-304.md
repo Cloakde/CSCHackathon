@@ -1,6 +1,6 @@
 # TASK-304 — Gemini's offline review and connected-journey hardening queue
 
-- **State:** READY for Gemini when the user hands it the turn; implementation has not started.
+- **State:** IN REVIEW — CHANGES REQUESTED on Gemini submission `9c438e3`; assigned-queue completion is not established. See [Codex review](../evaluations/TASK-304/CODEX_REVIEW.md).
 - **Tier:** 1 for changes to cancellation, grounding, privacy or deletion; existing behavior and contract protections remain mandatory.
 - **Assigned engineer:** Gemini, working sequentially on `shared/livelecture` in the primary CSCHackathon checkout.
 - **Senior lead and independent reviewer of Gemini-authored fixes:** Codex on a later turn. Gemini can independently review Claude's unchanged implementation, but cannot approve its own corrections.
