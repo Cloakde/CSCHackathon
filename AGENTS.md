@@ -21,6 +21,8 @@ The AI holding the turn maintains the task board and handoff on behalf of the Co
 
 ## Current assignments
 
+**Current correction (2026-09-07):** The user requested “Fix everything” after Codex's independent review of Gemini's TASK-306 at `d659ebb`. Codex owns that bounded correction: durable app spending/run guards, verified Ask/recap output, exact recap evidence, consistent answer limits, truthful assistance status and tests. This supersedes the older TASK-305 work-order paragraphs below. See [TASK-306](docs/tasks/TASK-306.md) and the latest handoff. No API use, copy edits, desktop control, broader milestones or main merge are authorized. A different AI must review Codex's resulting changes before promotion or the planned audio integration.
+
 **Latest execution:** the user selected Codex to continue and said Execute on the fresh-install/recovery/Ask/Catch Me Up sequence. [TASK-305](docs/tasks/TASK-305.md) now controls bounded offline implementation and supersedes the older hold on these two simulation features. Actual AI, human acceptance, other M4 features and release gates are unchanged; one AI, one shared branch, no laptop/provider access.
 
 **Prior correction (2026-09-06):** the user assigned Codex to fix the reviewed submission. TASK-304 records that correction; use a later independent reviewer for Codex-authored changes. Do not repeat Gemini's historical twelve-feature list or restore its deferred additions wholesale. TASK-305 is the only amendment to the earlier feature hold; all provider/desktop and other acceptance gates still apply.

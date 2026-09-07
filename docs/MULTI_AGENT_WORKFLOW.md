@@ -10,7 +10,7 @@
 
 This document is the operating contract for LiveLecture AI. It is intentionally strict where mistakes would be expensive—shared contracts, credentials, audio capture, grounding, storage, and integration—and lightweight for isolated visual or documentation work.
 
-**Current assigned task (2026-09-06):** The user chose Codex to continue and said Execute on fresh-install checks, recovery fixes, Ask and Catch Me Up. [TASK-305](tasks/TASK-305.md) defines owned files and permits only the published offline sample questions and recent-excerpt recap before the earlier M4/calendar gates. TASK-304's correction remains available for later independent review. No parallel AIs, self-approval, main promotion, provider/human acceptance or broader feature authorization follows from this amendment. Do not seek credentials/spend or automatically resume the trial.
+**Current assigned task (2026-09-07):** The user assigned Codex to fix the independently reviewed [TASK-306](tasks/TASK-306.md) Gemini application connection. This permits the bounded offline correction and regression checks in the latest handoff, superseding the earlier TASK-305 work order. It grants no parallel AIs, self-approval, main promotion, API traffic, provider/human acceptance or broader feature work. Do not seek credentials/spend or automatically resume the trial.
 
 Non-bootstrap feature implementation must not begin until the repository bootstrap gate in Section 3 is complete.
 

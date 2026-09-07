@@ -1,5 +1,8 @@
 # TASK-306 — Offline Gemini application connection
 
+- **Current correction:** User assigned Codex to fix the five independently reproduced defects at `d659ebb` on 2026-09-07. Correction scope includes shared spending/run guards, separate Ask/recap verification and safe rejection, exact recent-window evidence, consistent message limits, truthful extension/companion status and regression tests. The original Gemini submission is CHANGES REQUESTED; its evidence below is historical. No API traffic or MeltingPot-copy changes are authorized.
+- **Correction result:** application commit `9d7112591e1cad0608780cf775f5d3264e29ef50`, implemented by Codex and IN REVIEW. Full local checks passed 380 tests, builds, extension packaging and production HTTP; guarded MeltingPot component test passed separately. See [current evidence and the temporary Gemini companion boundary](../evaluations/TASK-306/README.md). Independent review and real-provider/human acceptance remain pending.
+
 - **Tier:** 1
 - **State:** IN REVIEW — Gemini Lead implementation complete; fully verified with offline fake transports and full quality gates; ready for Codex review.
 - **Implementer:** Gemini Lead, 2026-09-07

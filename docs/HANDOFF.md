@@ -1,6 +1,18 @@
 # LiveLecture AI — Current handoff
 
-## TASK-306 — current turn, 2026-09-07
+## TASK-306 correction — complete, IN REVIEW, 2026-09-07
+
+- **Active AI:** none — Codex finished the user-requested correction and released the turn. The original Gemini submission at `d659ebb` was CHANGES REQUESTED; this correction needs another AI's independent review.
+- **Starting source:** clean `shared/livelecture`, `d659ebbaa4a4e1dbf9bfe79f11ef692ffda63d8d`.
+- **Owned scope:** Gemini app adapter and transport/accounting integration; app runtime activation and offline tests; shared lecture-tool validation and assistance status; extension/companion clients, labels and tests; bounded launcher/preflight support if required; TASK-306 review/evidence, task board and handoff.
+- **Application correction:** `9d7112591e1cad0608780cf775f5d3264e29ef50`. The following checkpoint changes coordination/evidence documents only. Review the exact final shared head; do not approve earlier Codex changes implicitly.
+- **Corrections:** shared durable spending/run guards; separate Ask/recap verification with rejected content discarded; exact recap evidence; a consistent 2,000-character limit; truthful client/provider status; default launches strip inherited activation. [Evidence and future run procedure](evaluations/TASK-306/README.md).
+- **Checks:** full `npm run check` PASS: formatting, lint, secret scan, type checks, 380 tests (9 root + 64 shared + 258 web + 49 extension), production builds, packaged extension and production HTTP demo. The separate guarded MeltingPot component journey passed 1 test. Final checkpoint CI is available in [PR #5 checks](https://github.com/Cloakde/CSCHackathon/pull/5/checks); match its head SHA before approving.
+- **MeltingPot:** unchanged and clean at `9244a641e0639982d4eece09b2274a05ee355096`. Prewritten sessions still open its private review. Gemini sessions open the corrected LiveLecture companion with an explicit label because the read-only copy still declares all assistance prewritten. A separate copy update is required before Gemini-to-MeltingPot acceptance; the long-term product direction is unchanged.
+- **Next:** the user releases the next AI for independent review of this correction before Claude's planned capture/ElevenLabs integration. The source-only preparation copy predates Gemini's work; adapt its scoped changes to current interfaces, never copy it over this checkout. No AI is started automatically.
+- **Boundaries:** one AI, same shared branch; no real API calls, credential inspection, desktop/browser control, MeltingPot edits, deployment or main merge. Frozen evaluation answers and trial allowance identity remain unchanged. Codex corrections require a later independent review.
+
+## TASK-306 — original Gemini submission, historical, 2026-09-07
 
 - **Active AI:** none — Gemini Lead implementation complete; ready for independent review by Codex / Coordinator. Current bounded contract: [TASK-306](tasks/TASK-306.md).
 - **Folder/branch:** `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon`, `shared/livelecture`; one AI at a time, only this branch and `main`.

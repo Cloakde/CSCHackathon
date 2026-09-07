@@ -4,6 +4,8 @@ The user assigned Claude the Gemini-provider correction, then Gemini the followi
 
 ## Roles and reporting
 
+**Latest override, 2026-09-07:** The user assigned Codex to fix the five independently reviewed defects in Gemini's TASK-306 submission. The current handoff and [correction evidence](evaluations/TASK-306/README.md) control. After Codex releases this turn, the next user-started AI reviews the exact correction commit before Claude's planned audio/ElevenLabs work. No automatic AI start, API test, spending, copy edit or main merge is authorized. Claude's preparation copy is an older source snapshot: adapt scoped changes to the current shared checkout after release, never copy the preparation project wholesale. Older task queues below remain historical.
+
 **Current override, 2026-09-06:** the user selected Codex to continue, then said Execute on fresh-install checks, core recovery fixes, Ask and Catch Me Up. [TASK-305](tasks/TASK-305.md) permits only those two bounded simulation features ahead of the earlier M4 hold. Codex owns this turn; do not start Claude/Gemini automatically. A later user-started independent reviewer checks both TASK-304 corrections and TASK-305, without self-approval, provider testing or resuming the old feature list. `HANDOFF.md` controls the exact source and next action. The queue below is historical context, not a new Gemini assignment.
 
 - **Codex:** sets scope, resolves architecture/product tradeoffs and reviews material changes. Bring a concrete finding and proposed change, not an open-ended redesign.
