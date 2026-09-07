@@ -10,6 +10,8 @@ The workflow document defines how contributors coordinate. This document defines
 
 The approved product direction is **the extension during class, MeltingPot afterward**, as recorded in [ADR 0007](adr/0007-meltingpot-rework-direction.md). M0 is complete. M2's local prototype is implemented, with acceptance evidence still pending. M3 is the next build milestone. Milestone numbers and historical task records are retained; working-day ranges remain provisional and do not activate calendar dates.
 
+**Current work order (2026-09-06):** The Product Owner has deferred API testing. Gemini follows [TASK-304's 12-step offline queue](tasks/TASK-304.md): review/correct the inactive migration, harden the existing synthetic M3 journey, and prepare packaging/manual checks and a future reuse proposal. Independent offline work continues while actual-model evidence is deferred. This is bounded preparation within the existing scope, not M3 acceptance, M4 feature authorization or completion of M5/M6. Do not request keys/spend or silently resume provider tests when the queue ends.
+
 ---
 
 ## 1. Schedule Activation

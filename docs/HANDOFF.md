@@ -4,11 +4,21 @@ Verify this record against the repository and user instructions. It does not gra
 
 - **Folder:** `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon`
 - **Branch:** `shared/livelecture`
-- **Active AI:** none — Gemini or Codex is next, to independently review Claude's TASK-103C migration.
-- **Last AI/task:** Codex, 2026-09-06; user-requested branch consolidation and coordination instructions.
+- **Active AI:** none — Gemini is next when the user hands it the turn; follow TASK-304 without API testing.
+- **Last AI/task:** Codex, 2026-09-06; branch consolidation, followed by offline work planning for Gemini.
 - **Last implementation AI/task:** Claude, 2026-09-06; implement TASK-103C (replace the inactive OpenAI trial with Gemini). Independent review is still pending.
-- **Starting shared head for this turn:** `06cee3bce2c07ddaeb43907bdf5fc953b46827a8`. Read the current checkpoint with `git log -1 --oneline`; never reset to a historical hash.
-- **Scoped files:** `AGENTS.md`, `README.md`, this handoff, `docs/TASK_BOARD.md`, `docs/MULTI_AGENT_WORKFLOW.md`, `docs/adr/0011-sequential-shared-branch.md`, and `docs/BRANCH_ARCHIVE.md`. Git branch/worktree metadata and an external recovery backup are also authorized by the user's cleanup request; application code is outside this turn's scope.
+- **Starting shared head for this turn:** `fe6f1a9bedcd73832c30e0eb1d335929b750edd7`. Read the current checkpoint with `git log -1 --oneline`; never reset to a historical hash.
+- **Scoped files:** `AGENTS.md`, `docs/AI_ASSIGNMENTS.md`, this handoff, `docs/TASK_BOARD.md`, `docs/MULTI_AGENT_WORKFLOW.md`, `docs/MILESTONE_PLAN.md`, and the new `docs/tasks/TASK-304.md`. Application code is outside Codex's planning turn.
+
+## Current direction — extended Gemini queue, no API testing
+
+The user asked for a substantial sequence for Gemini and explicitly said API testing is not happening yet. Codex assigned the 12-step [TASK-304 offline queue](tasks/TASK-304.md), summarized in [AI_ASSIGNMENTS.md](AI_ASSIGNMENTS.md). Begin with independent TASK-103C review and any bounded corrections, then strengthen the existing simulated extension-to-private-practice journey, check recovery/privacy/usability, prepare the extension package and manual guide, and finish with a read-only reuse/next-task proposal. The queue defines permitted files and observable results for each step.
+
+Actual-model testing is deliberately **DEFERRED BY USER**. Do not request a key or spending permission, use a free-tier/connectivity/token-count workaround, or automatically run the trial when the offline queue ends. Do not activate Gemini in the app. M3 human/provider/judge acceptance and M4 feature implementation remain gated. Continue independent offline steps when a particular item needs Codex's scope decision or later human evidence. If existing behavior already satisfies a step, reference its evidence and move on; do not invent edits or tests.
+
+This Codex turn changes coordination documents only. No Gemini queue step has been executed or marked passed by this plan; Claude's migration still awaits independent review. Historical implementation and backup records below remain intact.
+
+Plan checks passed: repository formatting, local secret scan and `git diff --check`. Application tests were not rerun for this documentation-only assignment. The task board marks TASK-304 READY, with exact implementation evidence to be recorded by Gemini as it completes each step.
 
 ## Codex branch consolidation — 2026-09-06
 
@@ -54,9 +64,9 @@ Two items are recorded in [TASK-103C's implementation record](tasks/TASK-103C.md
 
 Claude reported no dirty files at the implementation handoff. Check the current checkout before continuing; that statement is not a substitute for a fresh status check.
 
-## Next task (Gemini or Codex)
+## Next task — Gemini on the user's next handoff
 
-Independently review commit `e0da4dfe7eccfef22ddcbaebd8928657af57ef19` against [TASK-103C](tasks/TASK-103C.md)'s contract: reproduce the checks above, inspect credential handling (`GEMINI_API_KEY` only in the server process, never logged/echoed), the reservation math, and the two flagged items. Record `APPROVED` or concrete `CHANGES REQUESTED`; no self-approval. Per [AI_ASSIGNMENTS.md](AI_ASSIGNMENTS.md), Gemini's following steps after approval are: actual-model evidence (still needs separate explicit $1/32-attempt approval and a local `GEMINI_API_KEY` — neither is granted by this turn), then the remaining M3 learner/privacy/judge checks, and only then eligible M4 work.
+Follow [TASK-304](tasks/TASK-304.md) from step 1 through step 12, making small reviewable checkpoints on `shared/livelecture`. First independently review Claude's exact implementation and reproduce the required offline checks, including those previously skipped where safe. Review the disputed documentation assumptions rather than automatically relaxing checks. Gemini-authored corrections require Codex's later review. Continue the independent synthetic M3 hardening/preparation steps while that review or external evidence is pending. End by handing completed offline work and remaining findings to Codex; do not start actual API testing or M4 features.
 
 ## When switching AIs
 
