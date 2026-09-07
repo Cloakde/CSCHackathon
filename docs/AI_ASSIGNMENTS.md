@@ -4,7 +4,7 @@ The user assigned Claude the Gemini-provider correction, then Gemini the followi
 
 ## Roles and reporting
 
-**Current override, 2026-09-06:** after Codex requested changes on Gemini's submission, the user asked Codex to fix the findings and complete the missed offline deliverables. The next user-started Gemini turn should independently review Codex's correction and evidence. No self-approval, new features, provider test or automatic resumption of the old feature list. `HANDOFF.md` controls the exact source and next action.
+**Current override, 2026-09-06:** the user selected Codex to continue, then said Execute on fresh-install checks, core recovery fixes, Ask and Catch Me Up. [TASK-305](tasks/TASK-305.md) permits only those two bounded simulation features ahead of the earlier M4 hold. Codex owns this turn; do not start Claude/Gemini automatically. A later user-started independent reviewer checks both TASK-304 corrections and TASK-305, without self-approval, provider testing or resuming the old feature list. `HANDOFF.md` controls the exact source and next action. The queue below is historical context, not a new Gemini assignment.
 
 - **Codex:** sets scope, resolves architecture/product tradeoffs and reviews material changes. Bring a concrete finding and proposed change, not an open-ended redesign.
 - **Claude:** implements [TASK-103C](tasks/TASK-103C.md) only, then hands off for independent review.
@@ -45,7 +45,7 @@ Check existing coverage before adding work. If a step already meets its requirem
 
 Codex first reviews Gemini-authored fixes. Actual provider testing waits until the user explicitly resumes it, followed by the existing separate configuration, review and capped-run requirements; reaching the end of this queue is not permission to run it. Human content/learner checks, Chrome behavior and the selected judge route also remain open.
 
-M3 acceptance still gates M4 feature implementation. Once those gates are met, prioritize grounded Ask, then Catch Me Up/Explain This, bookmarks and structured notes under separately bounded tasks and reuse review. M5 release-candidate checks and M6 submission/rehearsal retain their existing gates. Offline package/guide preparation does not mark either milestone complete.
+TASK-305 allows a published sample-question catalog and a recap of recent lecture excerpts while M3 acceptance is pending. General AI Ask, generated summaries, Explain This, bookmarks, structured notes and broader reuse still require their own scope and acceptance gates. M5 release-candidate checks and M6 submission/rehearsal retain their existing gates. Offline package/guide preparation does not mark either milestone complete.
 
 TASK-103C prepares an inactive trial only. Activating Gemini inside the user-facing extension/companion needs its own reviewed integration task after actual-model evidence; do not claim the app already uses Gemini. Keep the current milestone numbers, review independence and limits on publication unchanged.
 

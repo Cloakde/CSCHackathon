@@ -6,11 +6,13 @@ LiveLecture AI connects a moment of confusion during a lecture to focused practi
 
 The local learning demo connects a sample transcript, “I’m Lost” explanations, clickable lecture evidence, saved confusion moments, and matching post-class practice. It covers two distinct calculus concepts: identifying inner/outer functions and including the inner derivative.
 
+**Ask the Lecture** now answers four published sample questions by quoting the supporting passages already received. Open the suggested questions or type one of them; unsupported questions are clearly declined. **Catch Me Up** shows complete passages overlapping the latest two minutes, with clickable timestamps. These are recent excerpts, not a generated summary. Both tools appear in the extension's lecture screen and its browser rehearsal; they do not create confusion/practice records or store question history.
+
 **The transcript is simulated and the help/practice are prewritten. No AI provider is called.** This proves the learning flow, not real AI quality or live transcription. Actual AI evaluation, an unpacked-Chrome check, an uncoached learner demonstration, and the final judge route remain pending.
 
 No audio is captured or stored. Synthetic sessions live only in bounded local server memory; they expire, can be deleted, and disappear when the server restarts. This demo is not a public service or an authenticated multi-user app.
 
-The reviewed defects have been corrected or deferred from the active build; the unfinished Ask/study/audio additions remain recoverable in Git history. See [the correction evidence](docs/evaluations/TASK-304/README.md) and [the later manual setup guide](docs/evaluations/TASK-304/MANUAL_CHECK.md). Corrections await independent review; API testing remains deferred.
+The reviewed defects have been corrected or deferred from the active build; the old Ask/study/audio additions remain recoverable in Git history. The new bounded Ask and recap implementation is tracked in [TASK-305](docs/tasks/TASK-305.md), with [current check results](docs/evaluations/TASK-305/README.md). See also [the earlier correction evidence](docs/evaluations/TASK-304/README.md) and [the later manual setup guide](docs/evaluations/TASK-304/MANUAL_CHECK.md). Corrections and new tools await independent review; API testing remains deferred.
 
 ## Install and check
 

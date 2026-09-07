@@ -8,9 +8,9 @@ The workflow document defines how contributors coordinate. This document defines
 
 **Execution mode, updated 2026-09-06:** AIs take turns in the same checkout on `shared/livelecture`. Lane names below describe areas of responsibility and priority, not simultaneous AI assignments. Sequence the work and review according to the current handoff. This changes collaboration only; milestone scope, acceptance, provider-spending and human-verification gates remain in force. See [ADR 0011](adr/0011-sequential-shared-branch.md).
 
-The approved product direction is **the extension during class, MeltingPot afterward**, as recorded in [ADR 0007](adr/0007-meltingpot-rework-direction.md). M0 is complete. M2's local prototype is implemented, with acceptance evidence still pending. M3 is the next build milestone. Milestone numbers and historical task records are retained; working-day ranges remain provisional and do not activate calendar dates.
+The approved product direction is **the extension during class, MeltingPot afterward**, as recorded in [ADR 0007](adr/0007-meltingpot-rework-direction.md). M0 is complete. M2's local prototype and M3's synthetic MeltingPot connection are implemented, with human, actual AI and judge-access acceptance evidence still pending. Milestone numbers and historical task records are retained; working-day ranges remain provisional and do not activate calendar dates.
 
-**Current work order (2026-09-06):** The Product Owner has deferred API testing. Gemini follows [TASK-304's 12-step offline queue](tasks/TASK-304.md): review/correct the inactive migration, harden the existing synthetic M3 journey, and prepare packaging/manual checks and a future reuse proposal. Independent offline work continues while actual-model evidence is deferred. This is bounded preparation within the existing scope, not M3 acceptance, M4 feature authorization or completion of M5/M6. Do not request keys/spend or silently resume provider tests when the queue ends.
+**Current work order (2026-09-06):** The user chose Codex to continue and authorized [TASK-305](tasks/TASK-305.md): fresh-install verification, demonstrated recovery fixes, then bounded offline Ask and Catch Me Up. This narrowly amends the earlier feature hold and calendar activation for that task only. Ask quotes passages for four published sample questions; Catch Me Up quotes recent excerpts. Neither is actual-model evidence or completion of general Q&A. The earlier TASK-304 corrections still need independent review. API testing, human acceptance, broader M4 work and M5/M6 gates remain pending. Do not request keys/spend or silently resume provider tests.
 
 ---
 
@@ -365,6 +365,8 @@ If M3 is not complete by the end of Day 13:
 ---
 
 ## 9. M4 — Prioritized Additions and Reuse, Days 14–15
+
+**Narrow user amendment:** TASK-305 permits offline sample Ask and recent-excerpt Catch Me Up now. It does not accept M3/M4 or activate the remaining list. Judge access, real AI quality, human checks and broader reuse remain unresolved.
 
 Add only the highest-value work after the connected M3 callback, learner demonstration, privacy checks, and approved submission scope are ready. Unresolved actual AI quality or judge-access blockers take priority. Broader MeltingPot redesign and unrelated screens wait until this gate. Inspect existing notes, flashcard, and practice components before building equivalents; reuse does not waive grounding, privacy, or acceptance checks, and existing features do not automatically enter scope.
 

@@ -4,9 +4,9 @@
 
 The AI holding the active turn edits this file on behalf of the Coordinator. [HANDOFF.md](HANDOFF.md) records the current turn and next step.
 
-## Current correction status — 2026-09-06
+## Current execution — 2026-09-06
 
-The user asked Codex to fix the reviewed submission. Corrections `f573a23` and `58946d2` restore the approved simulation journey and fix the inactive Gemini adapter. The missing offline review, evidence, manual guide and reuse proposal are now prepared in [TASK-304 evidence](evaluations/TASK-304/README.md). These corrections remain IN REVIEW for a later independent AI; this supersedes the next-review/assignment statements in the historical planning records below. API testing stays DEFERRED; no M3 acceptance, M4 activation or main promotion.
+The user selected Codex to continue, then said Execute on fresh-install checks, core recovery fixes, Ask and Catch Me Up. [TASK-305](tasks/TASK-305.md) is the current bounded offline task, starting at `367aab2`. It permits sample-question passage lookup and a recent-excerpt recap ahead of the earlier M4 hold. Neither is general AI Q&A or a generated summary. Prior corrections `f573a23` and `58946d2` remain IN REVIEW; their [evidence](evaluations/TASK-304/README.md) is preserved. This entry and the current handoff supersede historical next-assignment statements below. API testing stays DEFERRED; no M3/M4 acceptance or main promotion.
 
 ## Current Shared-Branch Policy
 
@@ -16,7 +16,7 @@ Normal checkpoint pushes to the shared branch are allowed; no force-push or hist
 
 The shared-branch workflow checkpoint `48172a2b82e9615b4fc1b39217b37868ae006d09` remains IN REVIEW for promotion to main. Claude's Gemini migration is implemented at `e0da4dfe7eccfef22ddcbaebd8928657af57ef19`, with its handoff at `06cee3bce2c07ddaeb43907bdf5fc953b46827a8`; independent review remains the next task. Codex's subsequent branch consolidation changes Git metadata and coordination instructions only. It preserves those implementation commits and does not approve the migration, promote work to main, or accept another milestone.
 
-**Next assignment:** The user has explicitly deferred API testing and requested an extended Gemini queue. [TASK-304](tasks/TASK-304.md) defines 12 sequential steps: TASK-103C review and scoped corrections, existing M3 journey hardening, package/guide preparation and a read-only future reuse proposal. Its independent offline steps do not wait for provider permission. Actual-model testing is **DEFERRED BY USER**, not the next automatic action; no key/spend request or live/free-tier probe is appropriate during this queue. M3 acceptance and M4 feature gates remain unchanged.
+**Next assignment:** Codex follows TASK-305 on the user's current turn. Later independent review covers the correction and new tools at the exact shared head; do not start another AI automatically. Actual-model testing is **DEFERRED BY USER**; no key/spend request or live/free-tier probe is appropriate. Other milestone gates remain unchanged.
 
 | Task                                         | Tier | State       | Owner                     | Dependency                                                                                                   | Owned scope                                                                                                                                                |
 | -------------------------------------------- | ---: | ----------- | ------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -37,13 +37,14 @@ The shared-branch workflow checkpoint `48172a2b82e9615b4fc1b39217b37868ae006d09`
 | TASK-302 Extension-to-MeltingPot handoff     |    1 | MERGED      | m3_extension              | Independent extension approval `e9954ca6e67411a0b99b09261fed3f4724199ab3`; final integration condition below | Validated Finish link in five owned extension files                                                                                                        |
 | TASK-303 Connected journey acceptance        |    1 | IN REVIEW   | Codex Coordinator         | Automated component/production checks PASS; human Chrome/learner and actual AI/judge evidence PENDING        | Implemented checks and launchers are integrated with TASK-301/302; whole-milestone acceptance remains open                                                 |
 | TASK-304 Offline connected-journey hardening |    1 | IN REVIEW   | Codex correction          | Independent review after user-requested fixes                                                                | `docs/evaluations/TASK-304/README.md`; offline evidence/guides prepared, unapproved additions deferred; no milestone acceptance                            |
+| TASK-305 Offline lecture questions and recap |    1 | IN REVIEW   | Codex                     | User Execute; independent review still required                                                              | `docs/tasks/TASK-305.md`; 336 repository tests plus 1 guarded MeltingPot test; no provider or copy changes                                                 |
 
 ## Current Milestone Position
 
 - **M0:** complete; no bootstrap restart.
 - **M2:** prototype implementation merged. Preserve its functional checks and keep the human, actual AI, and judge-access evidence below pending until each receives its own proof.
 - **M3:** **MeltingPot connection and resilience**, synthetic engineering implemented and automatically verified under TASK-301–303. The integration transaction below governs promotion; whole-milestone PASS remains pending. The Product Owner authorized execution and `m3_review` approved the handoff/access contract at `5427e097ec73234e886f63049189cf136fcc7378`. Pending M2 and repeated M3 human/AI/judge evidence is not waived.
-- **M4:** deferred until the connected M3 journey and learner/privacy checks pass. Broader MeltingPot redesign and unrelated screens are outside the first journey. Reuse suitable study components instead of rebuilding equivalents.
+- **M4:** TASK-305 permits only offline sample Ask and recent excerpts now. General AI Q&A, other additions and whole-milestone acceptance remain gated on the connected M3 journey and learner/privacy checks. Broader MeltingPot redesign and unrelated screens are outside this task.
 - **M1/M5/M6:** actual AI proof, conditional live work, and release rehearsals retain their existing gates. No new calendar dates or spending permissions are set.
 
 The approved destination is the isolated sibling `MeltingPot-rework` copy at preparation commit `89a15ffa95aa227648a3aac81382eed558ebfa81`, sourced from `Rayrayyh/Melting-Pot` at `843ebeea1a9cf041355abc0dca167a5c2a1b281b`. Its 257 local tests and build are preparation evidence, not proof of the connection. Neither original MeltingPot repository, original checkout, nor live service is in scope. [ADR 0007](adr/0007-meltingpot-rework-direction.md) records this boundary. The existing M2 companion remains a working prototype until the replacement passes; an M2-only final submission requires an explicit scope decision.

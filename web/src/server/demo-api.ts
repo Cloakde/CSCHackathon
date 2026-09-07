@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
   ApiContracts,
+  LectureToolRequestSchema,
+  LectureToolEnvelopeSchema,
+  buildLectureToolResponse,
   ApiErrorSchema,
   CompletedSessionViewSchema,
   InMemorySessionStore,
@@ -291,7 +294,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
       if (origin) headers.set("Access-Control-Allow-Origin", origin);
       if (url.search || url.hash) throw invalid();
       const match =
-        /^\/api\/sessions(?:\/([^/]+)(?:\/(chunks|im-lost|end|weak-area-drills))?)?$/.exec(
+        /^\/api\/sessions(?:\/([^/]+)(?:\/(chunks|im-lost|end|weak-area-drills|lecture-tools))?)?$/.exec(
           url.pathname,
         );
       if (!match) throw invalid();
@@ -386,6 +389,15 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         if (!view) throw unavailable();
         if (request.method === "GET") {
           result = ApiContracts.getSession.response.parse({ ok: true, data: view });
+        } else if (action === "lecture-tools") {
+          if (view.session.status !== "active") throw inactive();
+          const input = parse(LectureToolRequestSchema, body);
+          if (input.throughSequence >= view.committedChunks.length) throw invalid();
+          if (request.signal.aborted) throw new AssistanceAbortedError("cancelled");
+          result = LectureToolEnvelopeSchema.parse({
+            ok: true,
+            data: buildLectureToolResponse(sessionId, input, view.committedChunks),
+          });
         } else if (action === "chunks") {
           const input = parse(ApiContracts.appendCommittedChunks.input, {
             params: { sessionId },

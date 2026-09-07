@@ -1,10 +1,27 @@
 # LiveLecture AI — Current handoff
 
+## TASK-305 — current turn, 2026-09-06
+
+- **Active AI:** Codex; executing the user's fresh-install/recovery/Ask/Catch Me Up instruction. Current bounded contract: [TASK-305](tasks/TASK-305.md).
+- **Folder/branch:** `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon`, `shared/livelecture`; one AI at a time, only this branch and `main`.
+- **Starting source:** clean local/remote `367aab29d7dd3f1a6866799f8934a60473a2f032`.
+- **Changes:** extension sample-question passage lookup and recent-excerpt Catch Me Up; canonical source/citation checks on server and client, upload acknowledgement, cancellation and bounded requests. No provider, shared vendor-schema or MeltingPot-copy changes. The existing Help → confusion → private practice flow and Finish destination remain in place.
+- **Status:** IN REVIEW; full local checks passed 336 tests, builds, package verification and production HTTP including the new route. The separate guarded MeltingPot component journey passed 1 test; the copy stayed clean and both ports are free. Final PR CI is next. No milestone acceptance or self-approval.
+- **Fresh install:** draft [PR #5](https://github.com/Cloakde/CSCHackathon/pull/5) ran existing CI at starting `367aab2`; [run 34076675764](https://github.com/Cloakde/CSCHackathon/actions/runs/34076675764) passed locked installation, repository checks and the history secret scan. New source still needs its final CI.
+- **Evidence:** [TASK-305 results and remaining checks](evaluations/TASK-305/README.md). Historical TASK-304 corrections remain IN REVIEW and are not undone or approved here.
+- **Main / copy:** main `8cfa83b88c0f6186d3475266b005069da4fbe820`; isolated read-only rework `9244a641e0639982d4eece09b2274a05ee355096`. Original MeltingPot repositories/services remain outside scope.
+- **Next:** push the checked work, verify final PR CI and hand off for later independent review. Do not start another AI automatically or merge Codex-authored changes into main.
+- **Limits:** no API/credential testing, live audio, laptop/browser control, copy edits/services, deployment or broader M4 additions. General AI Q&A, generated summaries, real Chrome/learner checks, paired production HTTP and judge access remain pending. TASK-305 is the only amendment to the earlier feature hold.
+
+The earlier correction handoff and Gemini claims below are retained as history; the TASK-305 block above controls the current turn.
+
+## Previous correction handoff — historical
+
 Verify this record against the repository and user instructions. It does not grant spending, desktop or service permission.
 
 - **Folder:** `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon` — all AIs use this primary checkout.
 - **Branch:** `shared/livelecture`; only this branch and `main` locally and on origin.
-- **Active AI:** none — Codex correction complete; await the user's next AI handoff.
+- **Active AI:** Codex — the user said Execute on the fresh-install, recovery, Ask and Catch Me Up sequence. Starting clean shared head: `367aab29d7dd3f1a6866799f8934a60473a2f032`. See TASK-305 for bounded ownership and the offline-only amendment. Draft PR #5 runs existing clean-install CI; no main merge.
 - **Current task:** user-requested correction of the reviewed Gemini submission and completion of TASK-304's missed offline deliverables, 2026-09-06.
 - **Starting source:** clean local/remote `bde96420cbb6c634be691da61a5129d5a0b16b81`.
 - **Application correction commits:** `f573a23d73a43e1ed221b56cbd5ee6a0baa675a8` (restore approved demo and defer broken extras), `58946d2ce7c3524eebd5d30f9de7b89dd4b2cc5e` (inactive Gemini request/usage fixes).

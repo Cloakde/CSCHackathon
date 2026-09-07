@@ -10,7 +10,7 @@
 
 This document is the operating contract for LiveLecture AI. It is intentionally strict where mistakes would be expensive—shared contracts, credentials, audio capture, grounding, storage, and integration—and lightweight for isolated visual or documentation work.
 
-**Current assigned queue (2026-09-06):** The user has deferred API testing and asked for extended Gemini work. [TASK-304](tasks/TASK-304.md) assigns sequential offline review, bounded fixes to the existing M3 journey and preparation for later checks. It amends older file ownership only as explicitly listed there. Provider/human evidence and M4/release gates stay pending; their absence does not block independent steps in this offline queue. Do not seek credentials/spend or automatically resume the trial at the end.
+**Current assigned task (2026-09-06):** The user chose Codex to continue and said Execute on fresh-install checks, recovery fixes, Ask and Catch Me Up. [TASK-305](tasks/TASK-305.md) defines owned files and permits only the published offline sample questions and recent-excerpt recap before the earlier M4/calendar gates. TASK-304's correction remains available for later independent review. No parallel AIs, self-approval, main promotion, provider/human acceptance or broader feature authorization follows from this amendment. Do not seek credentials/spend or automatically resume the trial.
 
 Non-bootstrap feature implementation must not begin until the repository bootstrap gate in Section 3 is complete.
 
