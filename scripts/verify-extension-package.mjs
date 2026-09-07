@@ -27,12 +27,13 @@ const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 assert(manifest.manifest_version === 3, "manifest_version must be 3");
 assert(manifest.minimum_chrome_version === "116", "minimum_chrome_version must remain 116");
 assert(
-  JSON.stringify(manifest.permissions) === JSON.stringify(["sidePanel"]),
-  "sidePanel must be the only extension permission",
+  JSON.stringify([...manifest.permissions].sort()) ===
+    JSON.stringify(["activeTab", "offscreen", "sidePanel", "storage", "tabCapture"].sort()),
+  "capture requires exactly activeTab, offscreen, sidePanel, storage, and tabCapture",
 );
 assert(
-  JSON.stringify(manifest.host_permissions) === JSON.stringify(["http://127.0.0.1/*"]),
-  "only the loopback demo host may be accessed",
+  manifest.host_permissions === undefined || manifest.host_permissions.length === 0,
+  "no host permission may be declared for TASK-101 capture",
 );
 assert(
   manifest.content_security_policy?.extension_pages ===
@@ -51,44 +52,81 @@ assert(manifest.background?.type === "module", "background worker must be an ES 
 
 const workerPath = resolvePackagedPath(manifest.background?.service_worker);
 const panelPath = resolvePackagedPath(manifest.side_panel?.default_path);
-await Promise.all([access(workerPath), access(panelPath)]);
+const offscreenPath = resolvePackagedPath("offscreen.html");
+await Promise.all([access(workerPath), access(panelPath), access(offscreenPath)]);
 
-const panelHtml = await readFile(panelPath, "utf8");
-const remoteReferencePattern = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
-const scriptTags = [...panelHtml.matchAll(/<script\b[^>]*>/gi)].map((match) => match[0]);
-const moduleScriptPaths = [];
-for (const scriptTag of scriptTags) {
-  const source = scriptTag.match(/\bsrc=["']([^"']+)["']/i)?.[1];
-  if (!source) continue;
-  assert(!remoteReferencePattern.test(source), `remote script is forbidden: ${source}`);
-  await access(resolvePackagedPath(source));
-  if (/\btype=["']module["']/i.test(scriptTag)) moduleScriptPaths.push(source);
+async function assertLocalDocument(documentPath) {
+  const html = await readFile(documentPath, "utf8");
+  const remoteReferencePattern = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+  const scriptTags = [...html.matchAll(/<script\b[^>]*>/gi)].map((match) => match[0]);
+  const moduleScriptPaths = [];
+  for (const scriptTag of scriptTags) {
+    const source = scriptTag.match(/\bsrc=["']([^"']+)["']/i)?.[1];
+    if (!source) continue;
+    assert(!remoteReferencePattern.test(source), `remote script is forbidden: ${source}`);
+    await access(resolvePackagedPath(source));
+    if (/\btype=["']module["']/i.test(scriptTag)) moduleScriptPaths.push(source);
+  }
+  assert(
+    moduleScriptPaths.length > 0,
+    `${path.basename(documentPath)} must load a local module script`,
+  );
+
+  const stylesheetTags = [...html.matchAll(/<link\b[^>]*>/gi)]
+    .map((match) => match[0])
+    .filter((linkTag) => /\brel=["']stylesheet["']/i.test(linkTag));
+  for (const stylesheetTag of stylesheetTags) {
+    const href = stylesheetTag.match(/\bhref=["']([^"']+)["']/i)?.[1];
+    assert(Boolean(href), "stylesheet link is missing href");
+    assert(!remoteReferencePattern.test(href), `remote stylesheet is forbidden: ${href}`);
+    await access(resolvePackagedPath(href));
+  }
 }
-assert(moduleScriptPaths.length > 0, "side panel must load at least one local module script");
 
-const stylesheetTags = [...panelHtml.matchAll(/<link\b[^>]*>/gi)]
-  .map((match) => match[0])
-  .filter((linkTag) => /\brel=["']stylesheet["']/i.test(linkTag));
-for (const stylesheetTag of stylesheetTags) {
-  const href = stylesheetTag.match(/\bhref=["']([^"']+)["']/i)?.[1];
-  assert(Boolean(href), "stylesheet link is missing href");
-  assert(!remoteReferencePattern.test(href), `remote stylesheet is forbidden: ${href}`);
-  await access(resolvePackagedPath(href));
-}
+await assertLocalDocument(panelPath);
+await assertLocalDocument(offscreenPath);
 
-const startupCalls = [];
+// Prove the packaged worker clears any inherited automatic-open preference and
+// registers the explicit action listener the capture handshake depends on,
+// rather than only asserting this against source that might not be what shipped.
+const setPanelBehaviorCalls = [];
+let actionListenerCount = 0;
 globalThis.chrome = {
+  action: { onClicked: { addListener: () => (actionListenerCount += 1) } },
   sidePanel: {
     async setPanelBehavior(options) {
-      startupCalls.push(options);
+      setPanelBehaviorCalls.push(options);
     },
   },
+  storage: { session: { get: async () => ({}), set: async () => undefined } },
+  tabs: { onRemoved: { addListener: () => undefined } },
+  tabCapture: {
+    getMediaStreamId: async () => {
+      throw new Error("not exercised by package verification");
+    },
+    getCapturedTabs: async () => [],
+    onStatusChanged: { addListener: () => undefined },
+  },
+  runtime: {
+    onMessage: { addListener: () => undefined },
+    sendMessage: async () => undefined,
+    getContexts: async () => [],
+    getURL: (relativePath) => `chrome-extension://package-verification/${relativePath}`,
+  },
+  offscreen: { createDocument: async () => undefined, closeDocument: async () => undefined },
 };
 await import(`${pathToFileURL(workerPath).href}?package-verification=${Date.now()}`);
-assert(startupCalls.length === 1, "packaged background worker must configure the side panel once");
 assert(
-  startupCalls[0]?.openPanelOnActionClick === true,
-  "packaged background worker must open the side panel from the toolbar action",
+  setPanelBehaviorCalls.length === 1,
+  "packaged background worker must configure the side panel once",
+);
+assert(
+  setPanelBehaviorCalls[0]?.openPanelOnActionClick === false,
+  "packaged background worker must clear the automatic-open preference so the explicit capture flow controls invocation",
+);
+assert(
+  actionListenerCount === 1,
+  "packaged background worker must register exactly one explicit action.onClicked listener",
 );
 
 console.log("Packaged extension verification passed.");

@@ -4,8 +4,7 @@
   "description": "A learning companion grounded in the lecture currently being taught.",
   "version": "0.1.0",
   "minimum_chrome_version": "116",
-  "permissions": ["sidePanel"],
-  "host_permissions": ["http://127.0.0.1/*"],
+  "permissions": ["activeTab", "offscreen", "sidePanel", "storage", "tabCapture"],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://127.0.0.1:3000"
   },

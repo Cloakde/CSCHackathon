@@ -14,6 +14,12 @@ import {
   type TranscriptSource,
 } from "@livelecture/shared";
 import { useEffect, useRef, useState } from "react";
+import {
+  createCaptureClient,
+  type CaptureClient,
+  type CaptureClientRuntime,
+} from "./capture-client";
+import { IDLE_STATUS, type CaptureStatusSnapshot } from "./capture-protocol";
 import { createDemoClient, type DemoClient } from "./demo-api";
 import { demoHandoffUrl, MELTINGPOT_ORIGIN, type CompanionDestination } from "./demo-handoff";
 import { createDemoUploader, type DemoUploader } from "./demo-uploader";
@@ -22,9 +28,40 @@ import { LectureTools } from "./LectureTools";
 interface AppProps {
   source?: TranscriptSource;
   client?: DemoClient;
+  captureClient?: CaptureClient;
   navigate?: (url: string) => void;
   companionDestination?: CompanionDestination;
 }
+
+/** No `chrome.runtime` in a non-extension render (tests, the demo web page). */
+function createFallbackCaptureClient(): CaptureClient {
+  return {
+    getStatus: async () => IDLE_STATUS,
+    subscribe: () => () => undefined,
+    consent: async () => IDLE_STATUS,
+    stop: async () => IDLE_STATUS,
+  };
+}
+
+const captureReasonCopy: Record<string, string> = {
+  consent_expired: "That disclosure expired before you responded.",
+  arm_expired: "The window to start capture closed. Click the extension icon to try again.",
+  tab_mismatch: "A different tab was active. Click the extension icon on the lecture tab.",
+  tab_closed: "The captured tab was closed.",
+  tab_restricted: "Chrome does not allow capturing this kind of page.",
+  permission_denied: "Chrome capture permission was not granted.",
+  capture_failed: "Capture stopped unexpectedly.",
+  offscreen_failed: "The capture helper could not start.",
+  stream_id_failed: "Chrome could not prepare this tab for capture.",
+  getusermedia_failed: "Chrome could not start listening to this tab's audio.",
+  unexpected: "Something went wrong with capture.",
+};
+
+// This module is also imported directly by the companion web app's browser
+// rehearsal pages (see web/src/app/demo/**), whose tsconfig does not load
+// @types/chrome. A locally scoped ambient declaration keeps this file's own
+// typecheck independent of whichever consumer's global types are loaded.
+declare const chrome: { runtime?: CaptureClientRuntime } | undefined;
 
 type Operation = "start" | "help" | "end" | "reset";
 const speedOptions = [1, 12, 60, 240];
@@ -34,6 +71,7 @@ const helpLookbackMs = 900_000;
 export function App({
   source: providedSource,
   client: providedClient,
+  captureClient: providedCaptureClient,
   navigate,
   companionDestination = "prototype",
 }: AppProps) {
@@ -43,8 +81,16 @@ export function App({
     return source;
   });
   const [fallbackClient] = useState(() => createDemoClient());
+  const [fallbackCaptureClient] = useState(() =>
+    typeof chrome !== "undefined" && chrome.runtime
+      ? createCaptureClient(chrome.runtime)
+      : createFallbackCaptureClient(),
+  );
   const client = providedClient ?? fallbackClient;
   const source = providedSource ?? fallbackSource;
+  const captureClient = providedCaptureClient ?? fallbackCaptureClient;
+  const [captureStatus, setCaptureStatus] = useState<CaptureStatusSnapshot>(IDLE_STATUS);
+  const [captureActionError, setCaptureActionError] = useState<string>();
   const [snapshot, setSnapshot] = useState(source.getSnapshot());
   const [chunks, setChunks] = useState<TranscriptChunk[]>([]);
   const [partial, setPartial] = useState<PartialTranscriptChunk>();
@@ -120,6 +166,27 @@ export function App({
       source.stop();
     };
   }, [source]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // A live broadcast can arrive and resolve before this initial poll does;
+    // once that happens the poll's answer is stale and must not overwrite it.
+    let receivedLiveUpdate = false;
+    void captureClient.getStatus().then((status) => {
+      if (!cancelled && !receivedLiveUpdate) setCaptureStatus(status);
+    });
+    const unsubscribe = captureClient.subscribe((status) => {
+      if (!cancelled) {
+        receivedLiveUpdate = true;
+        setCaptureStatus(status);
+        setCaptureActionError(undefined);
+      }
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [captureClient]);
 
   useEffect(() => {
     // Keep a selected citation in view while the lecture continues.
@@ -345,6 +412,24 @@ export function App({
     }
   }
 
+  async function handleCaptureConsent() {
+    setCaptureActionError(undefined);
+    try {
+      setCaptureStatus(await captureClient.consent(captureStatus.generation));
+    } catch (failure) {
+      setCaptureActionError(failure instanceof Error ? failure.message : "Something went wrong.");
+    }
+  }
+
+  async function handleCaptureStop() {
+    setCaptureActionError(undefined);
+    try {
+      setCaptureStatus(await captureClient.stop(captureStatus.generation));
+    } catch (failure) {
+      setCaptureActionError(failure instanceof Error ? failure.message : "Something went wrong.");
+    }
+  }
+
   function jumpToCitation(chunkId: string) {
     const row = rowsRef.current.get(chunkId);
     if (!row) {
@@ -387,6 +472,48 @@ export function App({
         <strong>SIMULATION</strong>
         <span>Synthetic lecture text — no audio is being captured.</span>
       </section>
+      {captureStatus.state !== "idle" ? (
+        <section
+          className="capture-panel"
+          aria-label="Experimental tab-audio capture"
+          role="status"
+        >
+          <p className="eyebrow">Experimental — not part of this lecture yet</p>
+          {captureStatus.state === "awaiting_consent" ? (
+            <>
+              <p>
+                LiveLecture AI can capture only this browser tab&rsquo;s audio. Nothing is sent
+                anywhere and no audio is stored. Microphone and video are never used.
+              </p>
+              <button type="button" onClick={() => void handleCaptureConsent()}>
+                I consent — capture this tab&rsquo;s audio
+              </button>
+            </>
+          ) : null}
+          {captureStatus.state === "armed" ? (
+            <p>Click the extension icon again on this tab within 60 seconds to start.</p>
+          ) : null}
+          {captureStatus.state === "starting" ? <p>Starting capture…</p> : null}
+          {captureStatus.state === "active" ? (
+            <>
+              <p className="capture-active-indicator">
+                <span aria-hidden="true">●</span> Capturing this tab&rsquo;s audio
+              </p>
+              <button type="button" onClick={() => void handleCaptureStop()}>
+                Stop capture
+              </button>
+            </>
+          ) : null}
+          {captureStatus.state === "error" ? (
+            <p role="alert">
+              {captureStatus.reason && captureReasonCopy[captureStatus.reason]
+                ? captureReasonCopy[captureStatus.reason]
+                : "Something went wrong with capture."}
+            </p>
+          ) : null}
+          {captureActionError ? <p role="alert">{captureActionError}</p> : null}
+        </section>
+      ) : null}
       <p className="demo-disclosure">{ASSISTANCE_STATUS_LABELS[assistanceStatus]}</p>
       <section className="journey-guide" aria-label="How to try the demo">
         <p>Follow a lecture. Get unstuck. Practice what was hard.</p>
