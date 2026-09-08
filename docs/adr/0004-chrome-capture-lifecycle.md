@@ -2,6 +2,14 @@
 
 **Status:** Implemented offline; PASS/CUT decision DEFERRED — requires the separately authorized manual Chrome verification in [TASK-101](../tasks/TASK-101.md). This ADR records the implemented design and the reasoning behind its choices; it does not itself declare PASS.
 
+## Correction after independent review — 2026-09-07
+
+The original submission at `8336516` is CHANGES REQUESTED. Codex's correction is IN REVIEW and supersedes its offline correctness/inertness claims; [current evidence](../evaluations/TASK-101-102/README.md) records the findings and tests. Ordinary builds now explicitly disable capture. Only a separately prepared local capture-spike build uses `VITE_LIVELECTURE_CAPTURE_SPIKE=true`, and that flag does not authorize a Chrome session.
+
+The toolbar call now runs before the asynchronous state queue. Navigation, tab switching and closure invalidate pending authorization; Stop cancels delayed acquisition, late streams are stopped, graph failures clean up, and missing track acknowledgments time out. Starting/active capture sets a REC badge and title; wake reconciliation requires both Chrome's captured-tab evidence and a live offscreen track. The simulation panel identifies its sample transcript even if a capture spike is active. The manual matrix remains unrun and required.
+
+The design discussion below is retained from the original submission. Its historical test totals are not final correction evidence, and design intent is not proof of actual Chrome behavior.
+
 ## Context
 
 [TASK-101](../tasks/TASK-101.md) requires proving that LiveLecture AI can capture audio from exactly the user-authorized tab through a Manifest V3 service worker and offscreen document, while remaining audible, controllable after the side panel closes, and truthfully recoverable after a service-worker restart — without ever transcribing, transmitting, or persisting audio.

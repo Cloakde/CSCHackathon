@@ -10,7 +10,7 @@
 
 This document is the operating contract for LiveLecture AI. It is intentionally strict where mistakes would be expensive—shared contracts, credentials, audio capture, grounding, storage, and integration—and lightweight for isolated visual or documentation work.
 
-**Current assigned task (2026-09-07):** The user assigned Codex to fix the independently reviewed [TASK-306](tasks/TASK-306.md) Gemini application connection. This permits the bounded offline correction and regression checks in the latest handoff, superseding the earlier TASK-305 work order. It grants no parallel AIs, self-approval, main promotion, API traffic, provider/human acceptance or broader feature work. Do not seek credentials/spend or automatically resume the trial.
+**Current assigned task (2026-09-07):** The user assigned Codex to fix the defects found in Claude's TASK-101/102 capture and transcription submission at `8336516`. This bounded offline correction covers consent and cleanup, default-off capture, documented ElevenLabs messages and transcript timing, bounded token requests, and the deferred manual smoke launcher. See [correction evidence](evaluations/TASK-101-102/README.md) and [the current handoff](HANDOFF.md). A later user-started AI must independently review Codex's corrections. TASK-307 remains unstarted; manual Chrome and paid provider evidence are still required by TASK-101/102. TASK-306 and earlier review obligations remain separate. One AI, same branch; no API use, credential inspection, desktop control, MeltingPot edits, main merge or broader milestone work.
 
 Non-bootstrap feature implementation must not begin until the repository bootstrap gate in Section 3 is complete.
 

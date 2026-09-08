@@ -1,5 +1,16 @@
 # LiveLecture AI — Current handoff
 
+## TASK-101/102 correction — complete, IN REVIEW, 2026-09-07
+
+- **Active AI:** none — Codex completed the user-requested correction and released the turn. A later user-started AI must independently review it; do not start another AI automatically.
+- **Starting source:** clean local/remote `shared/livelecture`, `833651634364f98ec8241185f7a16c61eda542c5`. Claude's combined submission is CHANGES REQUESTED; 480 existing tests passed but 16 independent offline review probes failed.
+- **Application correction:** `057d79eed30a4571372e3031417fc1800d97c315`. The following documentation checkpoint records coordination/evidence only. Review the exact final shared head in [draft PR #5](https://github.com/Cloakde/CSCHackathon/pull/5), not the original Claude commits.
+- **Corrections:** tab-bound consent invalidation, delayed-start/Stop cleanup, REC badge/title, default-off capture and honest sample labels; documented ElevenLabs message shapes, valid canonical IDs, ordered delayed timestamp pairing, absolute reconnect timing and gap boundaries; socket readiness and cancellation; bounded token HTTP bodies/deadlines; guarded Windows manual smoke launcher using the exact bundled transport and validators. [Findings, tests and deferred run procedure](evaluations/TASK-101-102/README.md).
+- **Owned scope:** capture/background/offscreen/App and tests; transcription internals/tests; token route/server clients/tests; package verifier and manual launcher/harness/tests; normal demo activation isolation, environment example, and related coordination/ADRs/evidence. No assistance model or frozen transcript-schema change.
+- **Checks:** `npm run check` PASS — formatting, lint, secret scan, type checks, **516 tests (17 root + 73 shared + 285 web + 141 extension)**, production builds, default-off packaged-worker verification and production HTTP demo. The final offscreen race also passed its targeted 10-test suite. The separate guarded MeltingPot component journey passed 1/1. The no-argument smoke command prints an offline plan without reading credentials. Exact final-checkpoint CI belongs to [PR #5 checks](https://github.com/Cloakde/CSCHackathon/pull/5/checks); match the head SHA before approving.
+- **Preserved:** one shared branch and main only; main unchanged at `8cfa83b88c0f6186d3475266b005069da4fbe820`; MeltingPot rework clean/unchanged at `9244a641e0639982d4eece09b2274a05ee355096`. Original repositories/services were untouched. No paid or free provider calls, credential inspection, audio capture, desktop/browser control, deployment or main merge occurred.
+- **Next:** independently review this correction. TASK-101 still needs the authorized human Chrome matrix; TASK-102 still needs an explicitly authorized capped real-provider smoke. Neither is PASS. TASK-307's audio tap and `LiveTranscriptSource` remain unstarted; Simulation remains the working demo. TASK-306's independent review and earlier review obligations remain separately outstanding.
+
 ## TASK-101 + TASK-102 — Claude capture/transcription implementation, IN REVIEW, 2026-09-07
 
 - **Active AI:** none — Claude finished this turn and released it. Independent review by a different AI is required before either task can reach PASS or before TASK-307 (the integration task this work sets up) begins.
