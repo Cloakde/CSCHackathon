@@ -1,0 +1,41 @@
+# ADR 0012 — Gemini for explanations and practice
+
+**Status:** Product Owner direction accepted, 2026-09-06; migration assigned to Claude
+
+The user explicitly chose Gemini after learning that the prepared trial used OpenAI's GPT-4.1 mini, then assigned Claude to make the correction. Use Google's Gemini API for the explanation and practice generation/verification trial. Do not execute the earlier OpenAI proposal or introduce an automatic OpenAI fallback. No provider implementation was changed when this direction was recorded.
+
+This supersedes ADR 0010's provider selection and the executable OpenAI proposal in TASK-103B. Their existing controls remain requirements: bounded cost, durable accounting, safe cancellation, separate verification, source identity, protected credentials, synthetic input and honest evidence. Preserve the historical implementation/review record. TASK-103C defines the migration scope.
+
+Claude must choose and document a concrete Gemini API/model configuration using current official Google documentation before adapting the implementation. The user selected the provider, not a specific model ID, pricing tier, retention policy, SDK, or reasoning setting. Record those facts rather than borrowing OpenAI-specific settings. Do not guess that one provider's privacy controls have equivalent meaning on another.
+
+The previous $1/32-attempt proposal was never spending permission. Keep the proposed ceiling at or below $1 total and 32 attempts, with $0 currently authorized; recalculate conservative cost bounds for the selected Gemini configuration. No provider requests, including free-tier or token-counting requests, occur before the agreed data/credential/run authorization. Do not use a new policy or ledger ID to reset an existing allowance.
+
+This direction covers text assistance and practice. Live audio/transcription remains a separate conditional decision; no Gemini transcription replacement, ElevenLabs removal, capture change, deployment, app activation or broader redesign is authorized here.
+
+## Current offline correction (Codex, 2026-09-06; IN REVIEW)
+
+Independent review of Claude's `e0da4df` found three defects: raw JSON Schema sent through `responseSchema`, implicit cache hits rejected, and unexpected tool-use usage accepted for settlement. The correction uses `responseJsonSchema`, validates cached tokens as a subset of the prompt while charging the full uncached prompt, and rejects nonzero tool-use tokens. Runtime output/identity checks, model, endpoint, no-thinking default, `store:false`, deadlines and spending caps stay unchanged. See [the review and regressions](../GEMINI_OFFLINE_REVIEW.md).
+
+The policy hash changes; the existing plan ID and ledger directory do not. A prior ledger with a different policy must stop with `POLICY_MISMATCH`; never delete or rename it to obtain a fresh allowance. Corrections need independent review; no provider compatibility or spending approval is implied.
+
+## Historical configuration report (Claude, checked 2026-09-06)
+
+Preserved as submitted. Its `responseSchema` compatibility and zero-cache claims below are superseded by the correction above; other settings were independently checked against public documentation. They remain unverified against an actual provider response.
+
+Selected **`gemini-2.5-flash-lite`** via the direct Gemini API's stable `generateContent` method (not the newer Interactions API — see rejected alternative below). Facts below are quoted or closely paraphrased from Google's own documentation, checked 2026-09-06; re-verify before the first authorized live call, since preview/model-status pages change without a dated snapshot the way this task's prior OpenAI choice had.
+
+- **Endpoint:** `POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`. [API reference](https://ai.google.dev/api/generate-content).
+- **Auth:** header `x-goog-api-key: GEMINI_API_KEY`, never a URL query parameter. [API key guide](https://ai.google.dev/gemini-api/docs/api-key).
+- **Context:** 1,048,576 input tokens, 65,536 output tokens (documented maximum; the trial caps requested output at 2,048, well under that). [Model card](https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash-lite).
+- **Thinking:** **Off by default** for this model (documented `thinking_level` default is "Off"). The trial does not set any thinking configuration, so it stays off; the transport additionally fails closed if `usageMetadata.thoughtsTokenCount` is ever reported as nonzero, since the reservation below does not budget for it. [Thinking guide](https://ai.google.dev/gemini-api/docs/thinking).
+- **Structured output:** `generationConfig.responseMimeType: "application/json"` + `responseSchema`. Confirmed the schema subset supports `anyOf` (verified against a worked union example in Google's own docs), which the trial's `help_generate`/`help_verify`/`practice_verify` schemas rely on. This is **best-effort guided generation, not a hard validity guarantee** the way OpenAI's `strict:true` was — the trial's frozen runtime Zod parse remains the actual correctness boundary regardless, so a schema-violating attempt still fails closed as an `output` error rather than being silently trusted. [Structured output guide](https://ai.google.dev/gemini-api/docs/structured-output), [generateContent (Legacy) structured-output examples](https://ai.google.dev/gemini-api/docs/generate-content/structured-output).
+- **Pricing (paid tier, text):** $0.10 / 1M input tokens, $0.40 / 1M output tokens (audio input is priced separately and is not used here). [Pricing page](https://ai.google.dev/gemini-api/docs/pricing).
+- **Reservation:** conservative worst case per attempt, `ceil((1,048,576 × 1 + 2,048 × 4) / 10)` = **105,677 microdollars** (~$0.106), well under the prior OpenAI figure because this model is materially cheaper. At the same $1 / 32-attempt ceiling, the cap (not the attempt count) is the binding limit: roughly 9 full-context reservations fit before `BUDGET_EXHAUSTED`, though actual settled charges on these short synthetic prompts will be far smaller, so materially more of the 32 attempts should fit in practice.
+- **Retention:** paid-tier requests are **not used to improve or train** Google's products. Google still **logs prompts and responses for a limited, undisclosed period** for Prohibited-Use-Policy abuse monitoring, regardless of tier. `store: false` is included on every request as the documented per-request logging-behavior override, but — exactly like OpenAI's `store:false` before it — **this is not a zero-retention claim**. [Gemini API terms](https://ai.google.dev/gemini-api/terms).
+- **No `cachedContent`** is ever sent, so `usageMetadata.cachedContentTokenCount` must be absent or zero; the transport fails closed otherwise.
+
+**Rejected alternative — the Interactions API:** Google is steering new integrations toward a newer `v1beta/interactions` surface. It was not selected for this trial: `generateContent` remains fully supported (Google's own migration guide: "While `generateContent` remains fully supported, we recommend the Interactions API for all new development"); Interactions already has an announced breaking-change date (May 2026), which is a poor fit for a dated, reviewable trial snapshot; `generateContent`'s request/response shape is completely and consistently documented, while Interactions' documentation was thinner and, across separate fetches, produced conflicting field descriptions. This is a routine implementation setting decided from the verified facts above, not a material limitation — flagging it here so a reviewer can override it if they weigh the tradeoff differently.
+
+**Known risk carried into review, not resolved here:** the strict check `modelVersion === "gemini-2.5-flash-lite"` assumes Gemini echoes back exactly the requested model ID rather than a more specific resolved/dated build string. This is unverified without a live call. If the first authorized attempt fails on this specific check, relax it under a reviewed follow-up rather than loosening validation preemptively.
+
+Implementation record, exact source hash, and remaining approval steps are in [TASK-103C](../tasks/TASK-103C.md) and [the Phase B runbook](../evaluations/TASK-103/PHASE-B.md).

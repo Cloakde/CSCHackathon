@@ -6,9 +6,13 @@ LiveLecture AI connects a moment of confusion during a lecture to focused practi
 
 The local learning demo connects a sample transcript, “I’m Lost” explanations, clickable lecture evidence, saved confusion moments, and matching post-class practice. It covers two distinct calculus concepts: identifying inner/outer functions and including the inner derivative.
 
+**Ask the Lecture** now answers four published sample questions by quoting the supporting passages already received. Open the suggested questions or type one of them; unsupported questions are clearly declined. **Catch Me Up** shows complete passages overlapping the latest two minutes, with clickable timestamps. These are recent excerpts, not a generated summary. Both tools appear in the extension's lecture screen and its browser rehearsal; they do not create confusion/practice records or store question history.
+
 **The transcript is simulated and the help/practice are prewritten. No AI provider is called.** This proves the learning flow, not real AI quality or live transcription. Actual AI evaluation, an unpacked-Chrome check, an uncoached learner demonstration, and the final judge route remain pending.
 
 No audio is captured or stored. Synthetic sessions live only in bounded local server memory; they expire, can be deleted, and disappear when the server restarts. This demo is not a public service or an authenticated multi-user app.
+
+The reviewed defects have been corrected or deferred from the active build; the old Ask/study/audio additions remain recoverable in Git history. The new bounded Ask and recap implementation is tracked in [TASK-305](docs/tasks/TASK-305.md), with [current check results](docs/evaluations/TASK-305/README.md). See also [the earlier correction evidence](docs/evaluations/TASK-304/README.md) and [the later manual setup guide](docs/evaluations/TASK-304/MANUAL_CHECK.md). Corrections and new tools await independent review; API testing remains deferred.
 
 ## Install and check
 
@@ -89,7 +93,7 @@ Committed transcript passages continue uploading while an explanation is being p
 
 Run `npm run test:ai-readiness` for the frozen synthetic cases and the extension-to-service test at normal lecture speed. It uses no provider or browser. [The evaluation record](docs/evaluations/TASK-103/README.md) separates these engineering checks from actual AI evidence. The unchanged MeltingPot relay is checked against the new dispatcher separately; the preserved older running lecture server cannot establish new paired production HTTP evidence.
 
-An inactive trial connection is also prepared for `gpt-4.1-mini-2025-04-14`. `npm run ai:trial` prints its plan offline. Paid execution needs separate approval of the proposed **$1 total** limit, a locally configured server-process key, and the exact reviewed source. Ordinary tests and demo commands make no provider calls. [The trial runbook](docs/evaluations/TASK-103/PHASE-B.md) records the fixed limits, commands, retention disclosure and pending human review.
+The user selected **Gemini** for explanations and practice. Claude implemented the migration under [TASK-103C](docs/tasks/TASK-103C.md): the trial's four hooks now target `gemini-2.5-flash-lite` via `generateContent`, with pricing, reservation and retention facts verified against current official Google documentation (see [ADR 0012](docs/adr/0012-gemini-assistance-direction.md) and [the Phase B runbook](docs/evaluations/TASK-103/PHASE-B.md)). The trial remains fully inactive: `npm run ai:trial` still only prints the offline plan, and ordinary tests and demo commands make no provider calls. Codex reviewed the original migration and corrected its request-schema and usage-validation defects; [the review](docs/GEMINI_OFFLINE_REVIEW.md) records before/after evidence. The corrected implementation is IN REVIEW for another AI. No API testing, credential setup or spending is authorized now; those requirements wait until the user deliberately resumes provider testing.
 
 ## Repository map
 
@@ -103,4 +107,6 @@ docs/       Milestones, workflow, task ownership, decisions, and evidence
 
 ## Collaboration
 
-Read `AGENTS.md`, `docs/MULTI_AGENT_WORKFLOW.md`, `docs/MILESTONE_PLAN.md`, the assigned task contract, and relevant `docs/adr/` decisions before changes. `docs/TASK_BOARD.md` records ownership and readiness. Use isolated task branches and preserve existing work. Historical model-named branches are reference material only.
+All AIs take turns on **`shared/livelecture`** in the same project folder: `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon`. Start with `AGENTS.md` and [the current handoff](docs/HANDOFF.md), then the task board, workflow, milestone plan and relevant task/decision documents. Preserve unfinished work, leave a short handoff, and stop before another AI starts. Only **`main` and `shared/livelecture`** remain, locally and on GitHub; do not create another branch or worktree. Old branch history is [archived and recoverable](docs/BRANCH_ARCHIVE.md), and old folders remain reference copies. `main` remains the reviewed baseline. [ADR 0011](docs/adr/0011-sequential-shared-branch.md) records this user-approved change.
+
+[Current assignments](docs/AI_ASSIGNMENTS.md): Claude makes the Gemini provider correction; Gemini checks it and proceeds through the remaining milestone gates; Codex supplies senior scope and review. These assignments do not permit simultaneous AI work.

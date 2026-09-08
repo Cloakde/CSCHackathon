@@ -29,7 +29,7 @@
     "secret:scan": "node scripts/secret-scan.mjs",
     "verify:extension-package": "node scripts/verify-extension-package.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "node --test scripts/demo-server.test.mjs scripts/ai-trial.test.mjs && npm run test --workspaces --if-present",
+    "test": "node --test scripts/demo-server.test.mjs scripts/ai-trial.test.mjs scripts/manual/scribe-spike.test.mjs && npm run test --workspaces --if-present",
     "check": "npm run format:check && npm run lint && npm run secret:scan && npm run typecheck && npm run test && npm run build && npm run verify:demo"
   },
   "devDependencies": {

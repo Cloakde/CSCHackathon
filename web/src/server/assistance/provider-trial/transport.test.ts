@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { createTrialTransport } from "./transport";
+import { OutputJsonSchemas } from "./schemas";
 import {
+  TRIAL_AUTH_HEADER,
   TRIAL_ENDPOINT,
   TRIAL_MODEL,
   TRIAL_MAX_INPUT_TOKENS,
@@ -18,32 +20,22 @@ const signal = () => new AbortController().signal;
 const parse = (value: unknown) => z.object({ result: z.string() }).strict().parse(value).result;
 function envelope() {
   return {
-    id: "resp_offline",
-    object: "response",
-    model: TRIAL_MODEL,
-    service_tier: "default",
-    status: "completed",
-    error: null,
-    incomplete_details: null,
-    usage: { input_tokens: 120, output_tokens: 30, total_tokens: 150 },
-    output: [
+    responseId: "resp_offline",
+    modelVersion: TRIAL_MODEL,
+    usageMetadata: { promptTokenCount: 120, candidatesTokenCount: 30, totalTokenCount: 150 },
+    candidates: [
       {
-        type: "message",
-        role: "assistant",
-        status: "completed",
-        content: [
-          {
-            type: "output_text",
-            text: JSON.stringify({ result: "safe synthetic answer" }),
-            annotations: [],
-          },
-        ],
+        content: {
+          role: "model",
+          parts: [{ text: JSON.stringify({ result: "safe synthetic answer" }) }],
+        },
+        finishReason: "STOP",
       },
     ],
   };
 }
 function response(raw: unknown = envelope()) {
-  return Response.json(raw, { headers: { "x-request-id": "req_offline" } });
+  return Response.json(raw);
 }
 function setup(fetcher: typeof fetch = vi.fn(async () => response())) {
   const meter: TrialMeter = { reserve: vi.fn(() => 1), settle: vi.fn() };
@@ -64,7 +56,42 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("offline bounded Responses transport", () => {
+describe("offline bounded generateContent transport", () => {
+  it.each(Object.keys(OutputJsonSchemas) as (keyof typeof OutputJsonSchemas)[])(
+    "sends %s through the JSON Schema field without dropping strict object constraints",
+    async (kind) => {
+      let request: Record<string, unknown> = {};
+      const state = setup(
+        vi.fn(async (_url, options) => {
+          request = JSON.parse(options!.body as string);
+          return response();
+        }),
+      );
+      await state.call(kind, { lecture: "synthetic" }, signal(), parse);
+      expect(request.generationConfig).toMatchObject({
+        responseMimeType: "application/json",
+        responseJsonSchema: OutputJsonSchemas[kind],
+      });
+      expect(request.generationConfig).not.toHaveProperty("responseSchema");
+      expect(request.generationConfig).not.toHaveProperty("_responseJsonSchema");
+    },
+  );
+
+  it("accepts implicit cache usage and conservatively charges the entire prompt", async () => {
+    const raw = envelope();
+    Object.assign(raw.usageMetadata, { cachedContentTokenCount: 100 });
+    const state = setup(vi.fn(async () => response(raw)));
+    await expect(state.call("help_generate", {}, signal(), parse)).resolves.toBe(
+      "safe synthetic answer",
+    );
+    expect(state.meter.settle).toHaveBeenCalledExactlyOnceWith(1, {
+      inputTokens: 120,
+      outputTokens: 30,
+      reportedModel: TRIAL_MODEL,
+      responseId: "resp_offline",
+    });
+  });
+
   it("reserves before sending a pinned request and reconciles validated usage exactly once", async () => {
     vi.useFakeTimers();
     const state = setup(
@@ -77,31 +104,23 @@ describe("offline bounded Responses transport", () => {
           credentials: "omit",
           cache: "no-store",
         });
-        expect(new Headers(options!.headers).get("authorization")).toBe(`Bearer ${key}`);
+        expect(new Headers(options!.headers).get(TRIAL_AUTH_HEADER)).toBe(key);
+        expect(new Headers(options!.headers).get("authorization")).toBeNull();
         const body = JSON.parse(options!.body as string);
         expect(body).toMatchObject({
-          model: TRIAL_MODEL,
-          max_output_tokens: 2048,
           store: false,
-          background: false,
-          service_tier: "default",
-          prompt_cache_retention: "in_memory",
-          truncation: "disabled",
-          stream: false,
-          tools: [],
-          tool_choice: "none",
-          text: {
-            format: {
-              name: "help_generate",
-              type: "json_schema",
-              strict: true,
-              schema: { type: "object", required: ["result"], additionalProperties: false },
-            },
+          generationConfig: {
+            responseMimeType: "application/json",
+            maxOutputTokens: 2048,
+            candidateCount: 1,
           },
+          systemInstruction: { parts: [{ text: expect.any(String) }] },
+          contents: [{ role: "user", parts: [{ text: expect.any(String) }] }],
         });
-        expect(body).not.toHaveProperty("previous_response_id");
-        expect(body).not.toHaveProperty("conversation");
+        expect(body).not.toHaveProperty("cachedContent");
+        expect(body).not.toHaveProperty("tools");
         expect(body).not.toHaveProperty("temperature");
+        expect(body.generationConfig).not.toHaveProperty("thinkingConfig");
         expect(options!.body).not.toContain(key);
         expect(state.meter.reserve).toHaveBeenCalledWith({
           kind: "help_generate",
@@ -125,7 +144,6 @@ describe("offline bounded Responses transport", () => {
       outputTokens: 30,
       reportedModel: TRIAL_MODEL,
       responseId: "resp_offline",
-      requestId: "req_offline",
     });
     expect(removed).toHaveBeenCalledWith("abort", added.mock.calls[0]![1]);
     expect(vi.getTimerCount()).toBe(0);
@@ -316,19 +334,36 @@ describe("offline bounded Responses transport", () => {
     "output-bound",
     "sum",
     "model",
-    "tier",
+    "thinking",
+    "tool-usage",
+    "cache-over-prompt",
+    "cache-negative",
+    "cache-fraction",
+    "cache-null",
     "id",
   ])("retains the full charge for %s usage evidence", async (mode) => {
     const raw = envelope();
-    if (mode === "missing") delete (raw as Partial<typeof raw>).usage;
-    else if (mode === "negative") raw.usage.input_tokens = -1;
-    else if (mode === "fraction") raw.usage.output_tokens = 0.5;
-    else if (mode === "input-bound") raw.usage.input_tokens = TRIAL_MAX_INPUT_TOKENS + 1;
-    else if (mode === "output-bound") raw.usage.output_tokens = TRIAL_MAX_OUTPUT_TOKENS + 1;
-    else if (mode === "sum") raw.usage.total_tokens += 1;
-    else if (mode === "model") raw.model = "gpt-4.1-mini";
-    else if (mode === "tier") raw.service_tier = "priority";
-    else raw.id = "untrusted provider text";
+    if (mode === "missing") delete (raw as Partial<typeof raw>).usageMetadata;
+    else if (mode === "negative") raw.usageMetadata.promptTokenCount = -1;
+    else if (mode === "fraction") raw.usageMetadata.candidatesTokenCount = 0.5;
+    else if (mode === "input-bound")
+      raw.usageMetadata.promptTokenCount = TRIAL_MAX_INPUT_TOKENS + 1;
+    else if (mode === "output-bound")
+      raw.usageMetadata.candidatesTokenCount = TRIAL_MAX_OUTPUT_TOKENS + 1;
+    else if (mode === "sum") raw.usageMetadata.totalTokenCount += 1;
+    else if (mode === "model") raw.modelVersion = "gemini-2.5-flash";
+    else if (mode === "thinking") Object.assign(raw.usageMetadata, { thoughtsTokenCount: 5 });
+    else if (mode === "tool-usage")
+      Object.assign(raw.usageMetadata, { toolUsePromptTokenCount: 5 });
+    else if (mode === "cache-over-prompt")
+      Object.assign(raw.usageMetadata, { cachedContentTokenCount: 121 });
+    else if (mode === "cache-negative")
+      Object.assign(raw.usageMetadata, { cachedContentTokenCount: -1 });
+    else if (mode === "cache-fraction")
+      Object.assign(raw.usageMetadata, { cachedContentTokenCount: 0.5 });
+    else if (mode === "cache-null")
+      Object.assign(raw.usageMetadata, { cachedContentTokenCount: null });
+    else raw.responseId = "untrusted provider text";
     const { call, meter } = setup(vi.fn(async () => response(raw)));
     await expect(call("help_generate", {}, signal(), parse)).rejects.toMatchObject({
       code: "response",
@@ -340,12 +375,17 @@ describe("offline bounded Responses transport", () => {
     "rejects %s content while charging independently valid usage",
     async (mode) => {
       const raw = envelope();
-      if (mode === "incomplete") raw.status = "incomplete";
-      else if (mode === "refusal") raw.output[0]!.content[0]!.type = "refusal";
-      else if (mode === "tool") raw.output[0]!.type = "function_call";
-      else if (mode === "extra-message") raw.output.push(raw.output[0]!);
-      else if (mode === "bad-output") raw.output[0]!.content[0]!.text = key.slice(0, 5);
-      else raw.output[0]!.content[0]!.text = JSON.stringify({ result: "text", unexpected: true });
+      if (mode === "incomplete") raw.candidates[0]!.finishReason = "MAX_TOKENS";
+      else if (mode === "refusal") raw.candidates[0]!.finishReason = "SAFETY";
+      else if (mode === "tool")
+        (raw.candidates[0]!.content.parts as unknown[])[0] = { functionCall: { name: "x" } };
+      else if (mode === "extra-message") raw.candidates.push(raw.candidates[0]!);
+      else if (mode === "bad-output") raw.candidates[0]!.content.parts[0]!.text = key.slice(0, 5);
+      else
+        raw.candidates[0]!.content.parts[0]!.text = JSON.stringify({
+          result: "text",
+          unexpected: true,
+        });
       const { call, meter, fetcher } = setup(vi.fn(async () => response(raw)));
       await expect(call("practice_verify", {}, signal(), parse)).rejects.toThrow(
         "The model trial could not complete this call",
@@ -358,22 +398,23 @@ describe("offline bounded Responses transport", () => {
     },
   );
 
-  it.each(["fetch", "body", "output", "escaped-output", "request-id", "response-id"])(
+  it.each(["fetch", "body", "output", "escaped-output", "response-id"])(
     "never exposes the credential through %s",
     async (mode) => {
       const raw = envelope();
-      if (mode === "output") raw.output[0]!.content[0]!.text = JSON.stringify({ result: key });
+      if (mode === "output")
+        raw.candidates[0]!.content.parts[0]!.text = JSON.stringify({ result: key });
       if (mode === "escaped-output") {
-        raw.output[0]!.content[0]!.text = JSON.stringify({ result: key }).replace(
+        raw.candidates[0]!.content.parts[0]!.text = JSON.stringify({ result: key }).replace(
           key,
           `\\u006f${key.slice(1)}`,
         );
         expect(JSON.stringify(raw)).not.toContain(key);
       }
-      if (mode === "response-id") raw.id = key;
+      if (mode === "response-id") raw.responseId = key;
       const state = setup(
         vi.fn(async () => {
-          if (mode === "fetch") throw new Error(`Authorization: ${key}`);
+          if (mode === "fetch") throw new Error(`${TRIAL_AUTH_HEADER}: ${key}`);
           if (mode === "body")
             return new Response(
               new ReadableStream({
@@ -383,9 +424,7 @@ describe("offline bounded Responses transport", () => {
               }),
               { headers: { "Content-Type": "application/json" } },
             );
-          return Response.json(raw, {
-            headers: { "x-request-id": mode === "request-id" ? key : "req_safe" },
-          });
+          return response(raw);
         }),
       );
       const error = await state

@@ -10,6 +10,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         sidepanel: fileURLToPath(new URL("./sidepanel.html", import.meta.url)),
+        offscreen: fileURLToPath(new URL("./offscreen.html", import.meta.url)),
         background: fileURLToPath(new URL("./src/background.ts", import.meta.url)),
       },
       output: {
