@@ -8,13 +8,21 @@ afterEach(() => {
 function fakeCaptureChrome() {
   const actionListeners: ((tab: unknown) => void)[] = [];
   return {
-    action: { onClicked: { addListener: (l: (tab: unknown) => void) => actionListeners.push(l) } },
+    action: {
+      setBadgeText: vi.fn(async () => undefined),
+      setTitle: vi.fn(async () => undefined),
+      onClicked: { addListener: (l: (tab: unknown) => void) => actionListeners.push(l) },
+    },
     sidePanel: {
       open: vi.fn(async () => undefined),
       setPanelBehavior: vi.fn(async () => undefined),
     },
     storage: { session: { get: vi.fn(async () => ({})), set: vi.fn(async () => undefined) } },
-    tabs: { onRemoved: { addListener: vi.fn() } },
+    tabs: {
+      onUpdated: { addListener: vi.fn() },
+      onActivated: { addListener: vi.fn() },
+      onRemoved: { addListener: vi.fn() },
+    },
     tabCapture: {
       getMediaStreamId: vi.fn(async () => "s"),
       getCapturedTabs: vi.fn(async () => []),
@@ -39,7 +47,7 @@ function fakeCaptureChrome() {
 /** Drains pending microtasks so async work already queued (but not yet run)
  * has a chance to complete before an assertion inspects its side effects. */
 async function flush(): Promise<void> {
-  for (let iteration = 0; iteration < 10; iteration += 1) await Promise.resolve();
+  for (let iteration = 0; iteration < 40; iteration += 1) await Promise.resolve();
 }
 
 describe("background side-panel and capture setup (TASK-101)", () => {
@@ -73,7 +81,7 @@ describe("background side-panel and capture setup (TASK-101)", () => {
     const { startBackground } = await import("../src/background");
     const fake = fakeCaptureChrome();
 
-    startBackground(fake as never);
+    startBackground(fake as never, console, true);
 
     // Listeners must be attached before this call returns, not after a later microtask.
     expect(fake._actionListeners).toHaveLength(1);
@@ -84,7 +92,7 @@ describe("background side-panel and capture setup (TASK-101)", () => {
   it("an action click routes through the capture controller, not the old openPanelOnActionClick path", async () => {
     const { startBackground } = await import("../src/background");
     const fake = fakeCaptureChrome();
-    startBackground(fake as never);
+    startBackground(fake as never, console, true);
 
     fake._actionListeners[0]?.({ id: 42 });
     await flush();
@@ -96,4 +104,14 @@ describe("background side-panel and capture setup (TASK-101)", () => {
       }),
     );
   });
+});
+it("ordinary builds never arm capture after a toolbar click or consent", async () => {
+  const { startBackground } = await import("../src/background");
+  const fake = fakeCaptureChrome();
+  startBackground(fake as never);
+  fake._actionListeners[0]?.({ id: 42 });
+  expect(fake.sidePanel.open).toHaveBeenCalledOnce();
+  await flush();
+  expect(fake.storage.session.set).not.toHaveBeenCalled();
+  expect(fake.tabCapture.getMediaStreamId).not.toHaveBeenCalled();
 });

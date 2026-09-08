@@ -720,10 +720,24 @@ describe("experimental tab-audio capture panel (TASK-101)", () => {
     render(<App source={h.source} client={h.client} captureClient={capture} />);
     await act(async () => capture.emit({ state: "active", generation: 3, tabId: 7 }));
     expect(screen.getByText(/Capturing this tab/i)).toBeVisible();
+    expect(screen.getByLabelText("SIMULATION source disclosure")).toHaveTextContent(
+      "does not supply this transcript",
+    );
+    expect(screen.queryByText(/no audio is being captured/i)).not.toBeInTheDocument();
     await act(async () => {
       screen.getByRole("button", { name: "Stop capture" }).click();
     });
     expect(capture.stopCalls).toEqual([3]);
+  });
+
+  it("can cancel a pending capture from the panel", async () => {
+    const h = harness();
+    const capture = fakeCaptureClient();
+    render(<App source={h.source} client={h.client} captureClient={capture} />);
+    await act(async () => capture.emit({ state: "starting", generation: 4, tabId: 7 }));
+    await act(async () => screen.getByRole("button", { name: "Cancel capture" }).click());
+    expect(capture.stopCalls).toEqual([4]);
+    expect(screen.queryByLabelText("Experimental tab-audio capture")).not.toBeInTheDocument();
   });
 
   it("shows a safe, non-technical message for an error state", async () => {

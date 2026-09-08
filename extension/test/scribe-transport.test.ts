@@ -41,12 +41,18 @@ function fakeSocketFactory() {
       },
     } as ScribeSocket & { sent: unknown[]; closed: boolean };
     sockets.push(socket);
-    queueMicrotask(() => socket.onopen?.());
+    queueMicrotask(() => {
+      socket.onopen?.();
+      socket.onmessage?.({
+        data: JSON.stringify({ message_type: "session_started", session_id: "session_provider" }),
+      });
+    });
     return socket;
   });
   return { connect, sockets };
 }
 
+const disposals: (() => void)[] = [];
 function harness(overrides: Partial<Parameters<typeof createScribeRealtimeTransport>[0]> = {}) {
   const events: TranscriptEvent[] = [];
   const warnings: string[] = [];
@@ -66,6 +72,7 @@ function harness(overrides: Partial<Parameters<typeof createScribeRealtimeTransp
     now: () => 0,
     ...overrides,
   });
+  disposals.push(transport.stop);
   return { transport, events, warnings, gaps, sockets, mintToken, connect };
 }
 
@@ -73,7 +80,11 @@ async function flush(): Promise<void> {
   for (let iteration = 0; iteration < 10; iteration += 1) await Promise.resolve();
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  disposals.splice(0).forEach((stop) => stop());
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("Scribe realtime transport (TASK-102)", () => {
   it("mints a token and connects with the pinned model/format/commit-strategy query", async () => {
@@ -116,6 +127,7 @@ describe("Scribe realtime transport (TASK-102)", () => {
     await flush();
     transport.chunk(halfSecondChunk(0));
     expect(sockets[0]!.sent[0]).toEqual({
+      message_type: "input_audio_chunk",
       audio_base_64: base64FromPcmBytes(pcmBytes(PCM_SAMPLE_RATE_HZ / 2)),
       sample_rate: PCM_SAMPLE_RATE_HZ,
       commit: false,
@@ -130,10 +142,10 @@ describe("Scribe realtime transport (TASK-102)", () => {
     await flush();
     transport.chunk(halfSecondChunk(0));
     sockets[0]!.onmessage?.({
-      data: JSON.stringify({ type: "partial_transcript", text: "the inside" }),
+      data: JSON.stringify({ message_type: "partial_transcript", text: "the inside" }),
     });
     sockets[0]!.onmessage?.({
-      data: JSON.stringify({ type: "partial_transcript", text: "the inside acts first" }),
+      data: JSON.stringify({ message_type: "partial_transcript", text: "the inside acts first" }),
     });
     const partials = events.filter((e) => e.type === "transcript.partial");
     expect(partials).toHaveLength(2);
@@ -146,15 +158,15 @@ describe("Scribe realtime transport (TASK-102)", () => {
     await flush();
     transport.chunk(halfSecondChunk(0));
     sockets[0]!.onmessage?.({
-      data: JSON.stringify({ type: "committed_transcript", text: "the inside acts first" }),
+      data: JSON.stringify({ message_type: "committed_transcript", text: "the inside acts first" }),
     });
     sockets[0]!.onmessage?.({
       data: JSON.stringify({
-        type: "committed_transcript_with_timestamps",
+        message_type: "committed_transcript_with_timestamps",
         text: "the inside acts first",
         words: [
           { text: "the", start: 0.0, end: 0.2 },
-          { text: "first", start: 0.6, end: 0.9 },
+          { text: "first", start: 0.3, end: 0.5 },
         ],
       }),
     });
@@ -163,7 +175,7 @@ describe("Scribe realtime transport (TASK-102)", () => {
     expect(committed[0]!.chunk).toMatchObject({
       text: "the inside acts first",
       startMs: 0,
-      endMs: 900,
+      endMs: 500,
     });
   });
 
@@ -171,7 +183,7 @@ describe("Scribe realtime transport (TASK-102)", () => {
     [
       "mismatched text",
       {
-        type: "committed_transcript_with_timestamps",
+        message_type: "committed_transcript_with_timestamps",
         text: "different text",
         words: [{ text: "x", start: 0, end: 0.1 }],
       },
@@ -179,13 +191,13 @@ describe("Scribe realtime transport (TASK-102)", () => {
     [
       "no prior committed_transcript",
       {
-        type: "committed_transcript_with_timestamps",
+        message_type: "committed_transcript_with_timestamps",
         text: "orphan",
         words: [{ text: "x", start: 0, end: 0.1 }],
       },
     ],
-    ["unrecognized frame type", { type: "not_a_real_event" }],
-    ["malformed json shape", { type: "warning" }], // missing required "warning" field
+    ["unrecognized frame type", { message_type: "not_a_real_event" }],
+    ["malformed json shape", { message_type: "warning" }], // missing required "warning" field
   ])(
     "treats %s as a visible, safe error rather than corrupting the transcript",
     async (_label, frame) => {
@@ -194,7 +206,7 @@ describe("Scribe realtime transport (TASK-102)", () => {
       transport.chunk(halfSecondChunk(0));
       if (
         "text" in frame &&
-        frame.type === "committed_transcript_with_timestamps" &&
+        frame.message_type === "committed_transcript_with_timestamps" &&
         frame.text !== "orphan"
       )
         void 0; // mismatched-text case relies on no prior pending commit either, which is fine to test as-is
@@ -214,7 +226,9 @@ describe("Scribe realtime transport (TASK-102)", () => {
   it("maps a nonretryable provider error to a terminal, non-retryable source.error", async () => {
     const { sockets, events, connect } = harness();
     await flush();
-    sockets[0]!.onmessage?.({ data: JSON.stringify({ type: "auth_error", error: "bad token" }) });
+    sockets[0]!.onmessage?.({
+      data: JSON.stringify({ message_type: "auth_error", error: "bad token" }),
+    });
     const errorEvent = events.find((e) => e.type === "source.error");
     expect(errorEvent).toMatchObject({ error: { retryable: false } });
     expect(connect).toHaveBeenCalledOnce(); // No reconnect attempt follows a nonretryable error.
@@ -226,11 +240,11 @@ describe("Scribe realtime transport (TASK-102)", () => {
     await vi.advanceTimersByTimeAsync(0);
     transport.chunk(halfSecondChunk(0));
     sockets[0]!.onmessage?.({
-      data: JSON.stringify({ type: "committed_transcript", text: "first part" }),
+      data: JSON.stringify({ message_type: "committed_transcript", text: "first part" }),
     });
     sockets[0]!.onmessage?.({
       data: JSON.stringify({
-        type: "committed_transcript_with_timestamps",
+        message_type: "committed_transcript_with_timestamps",
         text: "first part",
         words: [{ text: "first", start: 0, end: 0.5 }],
       }),
@@ -241,11 +255,11 @@ describe("Scribe realtime transport (TASK-102)", () => {
     expect(connect).toHaveBeenCalledTimes(2);
     transport.chunk(halfSecondChunk(8_000));
     sockets[1]!.onmessage?.({
-      data: JSON.stringify({ type: "committed_transcript", text: "second part" }),
+      data: JSON.stringify({ message_type: "committed_transcript", text: "second part" }),
     });
     sockets[1]!.onmessage?.({
       data: JSON.stringify({
-        type: "committed_transcript_with_timestamps",
+        message_type: "committed_transcript_with_timestamps",
         text: "second part",
         words: [{ text: "second", start: 0, end: 0.4 }],
       }),
@@ -314,7 +328,9 @@ describe("Scribe realtime transport (TASK-102)", () => {
     transport.stop();
     transport.chunk(halfSecondChunk(0));
     expect(sockets[0]!.sent).toHaveLength(0);
-    sockets[0]!.onmessage?.({ data: JSON.stringify({ type: "partial_transcript", text: "late" }) });
+    sockets[0]!.onmessage?.({
+      data: JSON.stringify({ message_type: "partial_transcript", text: "late" }),
+    });
     expect(events.filter((e) => e.type === "transcript.partial")).toHaveLength(0);
     expect(sockets[0]!.closed).toBe(true);
   });
@@ -323,9 +339,162 @@ describe("Scribe realtime transport (TASK-102)", () => {
     const { sockets, warnings, events } = harness();
     await flush();
     sockets[0]!.onmessage?.({
-      data: JSON.stringify({ type: "warning", warning: "Zero retention unavailable" }),
+      data: JSON.stringify({ message_type: "warning", warning: "Zero retention unavailable" }),
     });
-    expect(warnings).toEqual(["Zero retention unavailable"]);
-    expect(events).toHaveLength(0);
+    expect(warnings[0]).toContain("RETENTION_ACTIVE");
+    expect(events.every((event) => event.type === "source.state")).toBe(true);
   });
+});
+function frame(
+  socket: ScribeSocket,
+  message_type: string,
+  text = "",
+  extra: Record<string, unknown> = {},
+) {
+  socket.onmessage?.({ data: JSON.stringify({ message_type, text, ...extra }) });
+}
+function commit(socket: ScribeSocket, text: string, start: number, end: number) {
+  frame(socket, "committed_transcript", text);
+  frame(socket, "committed_transcript_with_timestamps", text, { words: [{ text, start, end }] });
+}
+it("uses the absolute first audio sample and preserves the clock across a discarded segment", async () => {
+  vi.useFakeTimers();
+  const h = harness();
+  await vi.advanceTimersByTimeAsync(0);
+  h.transport.chunk(halfSecondChunk(160000)); // 10 seconds into the original capture.
+  commit(h.sockets[0]!, "first", 0, 0.5);
+  h.transport.chunk(halfSecondChunk(168000));
+  h.sockets[0]!.onclose?.({ code: 1006, reason: "" });
+  expect(h.gaps).toEqual([{ startSample: 168000, endSample: 176000 }]);
+  await vi.advanceTimersByTimeAsync(1000);
+  h.transport.chunk(halfSecondChunk(176000));
+  commit(h.sockets[1]!, "second", 0, 0.4);
+  const chunks = h.events.filter((e) => e.type === "transcript.committed");
+  expect(chunks.map((e) => e.chunk.startMs)).toEqual([10000, 11000]);
+});
+it("advances partial capture bounds after each committed segment", async () => {
+  const h = harness();
+  await flush();
+  h.transport.chunk(halfSecondChunk(0));
+  commit(h.sockets[0]!, "first", 0, 0.5);
+  h.transport.chunk(halfSecondChunk(8000));
+  frame(h.sockets[0]!, "partial_transcript", "second");
+  expect(h.events.find((e) => e.type === "transcript.partial")).toMatchObject({
+    chunk: { startMs: 500, endMs: 1000 },
+  });
+});
+it("retains stable commits until their delayed timestamp frames arrive and drops exact replays", async () => {
+  const h = harness();
+  await flush();
+  h.transport.chunk(halfSecondChunk(0));
+  h.transport.chunk(halfSecondChunk(8000));
+  frame(h.sockets[0]!, "committed_transcript", "first");
+  frame(h.sockets[0]!, "committed_transcript", "second");
+  frame(h.sockets[0]!, "committed_transcript_with_timestamps", "first", {
+    words: [{ text: "first", start: 0, end: 0.4 }],
+  });
+  frame(h.sockets[0]!, "committed_transcript_with_timestamps", "second", {
+    words: [{ text: "second", start: 0.5, end: 0.9 }],
+  });
+  commit(h.sockets[0]!, "first", 0, 0.4);
+  expect(h.events.filter((e) => e.type === "transcript.committed")).toHaveLength(2);
+  expect(h.events.filter((e) => e.type === "source.error")).toHaveLength(0);
+});
+it("reports missing/ambiguous timing instead of retaining unbounded pending commits", async () => {
+  vi.useFakeTimers();
+  const h = harness();
+  await vi.advanceTimersByTimeAsync(0);
+  h.transport.chunk(halfSecondChunk(0));
+  frame(h.sockets[0]!, "committed_transcript", "first");
+  await vi.advanceTimersByTimeAsync(5001);
+  expect(h.events.some((e) => e.type === "source.error" && !e.error.retryable)).toBe(true);
+  expect(h.sockets[0]!.closed).toBe(true);
+});
+it("does not send on a connecting socket and surfaces dropped audio as a gap", async () => {
+  const socket: ScribeSocket = {
+    send: vi.fn(() => {
+      throw new Error("CONNECTING");
+    }),
+    close: vi.fn(),
+    onopen: null,
+    onmessage: null,
+    onclose: null,
+    onerror: null,
+  };
+  const h = harness({ connect: () => socket });
+  await flush();
+  expect(h.transport.chunk(halfSecondChunk(0))).toBe(false);
+  expect(socket.send).not.toHaveBeenCalled();
+  socket.send = vi.fn();
+  socket.onopen?.();
+  frame(socket, "session_started", "", { session_id: "provider" });
+  expect(h.transport.chunk(halfSecondChunk(8000))).toBe(true);
+  expect(h.gaps).toEqual([{ startSample: 0, endSample: 8000 }]);
+});
+it("ignores saved old-socket callbacks after a reconnect", async () => {
+  vi.useFakeTimers();
+  const h = harness();
+  await vi.advanceTimersByTimeAsync(0);
+  const oldMessage = h.sockets[0]!.onmessage!,
+    oldClose = h.sockets[0]!.onclose!;
+  oldClose({ code: 1006, reason: "" });
+  await vi.advanceTimersByTimeAsync(1000);
+  oldMessage({ data: JSON.stringify({ message_type: "auth_error", error: "old" }) });
+  oldClose({ code: 1006, reason: "" });
+  expect(h.sockets[1]!.closed).toBe(false);
+  expect(h.mintToken).toHaveBeenCalledTimes(2);
+});
+it("cancels a pending token mint and never connects after Stop", async () => {
+  let release!: (token: { token: string; expiresInSeconds: number }) => void;
+  let aborted = false;
+  const h = harness({
+    mintToken: (signal) => {
+      signal!.addEventListener("abort", () => {
+        aborted = true;
+      });
+      return new Promise((resolve) => {
+        release = resolve;
+      });
+    },
+  });
+  h.transport.stop();
+  release({ token: "late-test", expiresInSeconds: 900 });
+  await flush();
+  expect(aborted).toBe(true);
+  expect(h.connect).not.toHaveBeenCalled();
+});
+it("treats unaccepted terms as permanent and never forwards provider details", async () => {
+  const h = harness();
+  await flush();
+  frame(h.sockets[0]!, "unaccepted_terms", "", { error: "sensitive-provider-detail" });
+  expect(h.sockets[0]!.closed).toBe(true);
+  expect(JSON.stringify(h.events)).not.toContain("sensitive-provider-detail");
+  expect(h.events.some((e) => e.type === "source.error" && !e.error.retryable)).toBe(true);
+});
+it("accepts exactly the audio cap and refuses the next chunk before sending", async () => {
+  const h = harness({ budget: { ...defaultBudget, maxAudioSeconds: 1 } });
+  await flush();
+  expect(h.transport.chunk(halfSecondChunk(0))).toBe(true);
+  expect(h.transport.chunk(halfSecondChunk(8000))).toBe(true);
+  expect(h.transport.chunk(halfSecondChunk(16000))).toBe(false);
+  expect(h.sockets[0]!.sent).toHaveLength(2);
+  expect(h.sockets[0]!.closed).toBe(true);
+});
+
+it("accepts documented spacing tokens without using them as timestamp evidence", async () => {
+  const h = harness({ idFactory: undefined });
+  await flush();
+  h.transport.chunk(halfSecondChunk(0));
+  frame(h.sockets[0]!, "committed_transcript", "two words");
+  frame(h.sockets[0]!, "committed_transcript_with_timestamps", "two words", {
+    words: [
+      { type: "word", text: "two", start: 0, end: 0.2 },
+      { type: "spacing", text: " " },
+      { type: "word", text: "words", start: 0.2, end: 0.4 },
+    ],
+  });
+  expect(h.events.find((e) => e.type === "transcript.committed")).toMatchObject({
+    chunk: { text: "two words", startMs: 0, endMs: 400 },
+  });
+  expect(h.events.some((e) => e.type === "source.error")).toBe(false);
 });

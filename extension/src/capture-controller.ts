@@ -19,6 +19,8 @@ import {
 export interface CaptureControllerChrome {
   action: {
     onClicked: { addListener(listener: (tab: chrome.tabs.Tab) => void): void };
+    setBadgeText(options: { text: string }): Promise<void>;
+    setTitle(options: { title: string }): Promise<void>;
   };
   sidePanel: {
     open(options: { tabId: number }): Promise<void>;
@@ -32,6 +34,12 @@ export interface CaptureControllerChrome {
   };
   tabs: {
     onRemoved: { addListener(listener: (tabId: number) => void): void };
+    onUpdated: {
+      addListener(
+        listener: (tabId: number, change: { status?: string; url?: string }) => void,
+      ): void;
+    };
+    onActivated: { addListener(listener: (info: { tabId: number }) => void): void };
   };
   tabCapture: {
     getMediaStreamId(options: { targetTabId: number }): Promise<string>;
@@ -101,6 +109,7 @@ export function createCaptureController(
   chromeApis: CaptureControllerChrome,
   logger: CaptureControllerLogger = console,
   reconcileStatusTimeoutMs: number = RECONCILE_STATUS_TIMEOUT_MS,
+  enabled: boolean = true,
 ) {
   // Guards concurrent action clicks / message handling from creating two offscreen
   // documents or racing two handshakes. Chrome extension service workers are
@@ -108,6 +117,10 @@ export function createCaptureController(
   let creatingOffscreen: Promise<void> | undefined;
   let pending: Promise<unknown> = Promise.resolve();
   const statusWaiters = new Map<number, (stillActive: boolean) => void>();
+  const tabEpochs = new Map<number, number>();
+  let activationEpoch = 0;
+  const cancelledStarts = new Set<number>();
+  let handshakeTimer: ReturnType<typeof setTimeout> | undefined;
 
   function serialize<T>(work: () => Promise<T>): Promise<T> {
     const result = pending.then(work, work);
@@ -127,6 +140,13 @@ export function createCaptureController(
 
   async function publish(record: CaptureStorageRecord): Promise<void> {
     await writeRecord(record);
+    const recording = record.state === "starting" || record.state === "active";
+    await Promise.all([
+      chromeApis.action.setBadgeText({ text: recording ? "REC" : "" }),
+      chromeApis.action.setTitle({
+        title: recording ? "LiveLecture AI: capturing tab audio — open to stop" : "LiveLecture AI",
+      }),
+    ]);
     await broadcast(chromeApis, { channel: PANEL_STATUS_CHANNEL, status: snapshotOf(record) });
   }
 
@@ -160,11 +180,17 @@ export function createCaptureController(
     record: CaptureStorageRecord,
     reason?: CaptureErrorReason,
   ): Promise<void> {
-    await sendToOffscreen({
-      channel: OFFSCREEN_COMMAND_CHANNEL,
-      kind: "stop",
-      generation: record.generation,
-    });
+    clearTimeout(handshakeTimer);
+    handshakeTimer = undefined;
+    try {
+      await sendToOffscreen({
+        channel: OFFSCREEN_COMMAND_CHANNEL,
+        kind: "stop",
+        generation: record.generation,
+      });
+    } catch {
+      /* Closing the document below still stops its media tracks. */
+    }
     try {
       await chromeApis.offscreen.closeDocument();
     } catch {
@@ -176,21 +202,34 @@ export function createCaptureController(
     await publish(next);
   }
 
-  async function handleActionClicked(tab: chrome.tabs.Tab): Promise<void> {
+  function handleActionClicked(tab: chrome.tabs.Tab): Promise<void> {
+    // Call open directly in the toolbar callback, before entering the async queue.
+    if (tab.id === undefined) return Promise.resolve();
+    const tabId = tab.id;
+    const epoch = tabEpochs.get(tabId) ?? 0;
+    const activation = activationEpoch;
+    const opened = chromeApis.sidePanel.open({ tabId }).then(
+      () => true,
+      () => false,
+    );
+    return serialize(async () => {
+      if (!(await opened) || !enabled) return;
+      if (epoch !== (tabEpochs.get(tabId) ?? 0) || activation !== activationEpoch) return;
+      await handleOpenedAction(tab, epoch, activation);
+    });
+  }
+
+  async function handleOpenedAction(
+    tab: chrome.tabs.Tab,
+    epoch: number,
+    activation: number,
+  ): Promise<void> {
     if (tab.id === undefined) return; // Restricted page or no addressable tab: fail closed.
     const tabId = tab.id;
     // Called first and awaited immediately, before any other work, so the side
     // panel opens inside the click's user-gesture window regardless of which
     // branch below actually applies. Opening an already-open panel for the
     // same tab is an idempotent no-op.
-    try {
-      await chromeApis.sidePanel.open({ tabId });
-    } catch {
-      // A restricted page (chrome://, the Web Store, etc.) rejects this. Fail closed
-      // silently; there is no disclosure surface to explain anything on such a page.
-      return;
-    }
-
     const record = await readRecord();
 
     if (
@@ -209,7 +248,7 @@ export function createCaptureController(
       record.armedExpiresAt !== undefined &&
       now() < record.armedExpiresAt
     ) {
-      await beginHandshake(record);
+      await beginHandshake(record, epoch, activation);
       return;
     }
 
@@ -237,7 +276,11 @@ export function createCaptureController(
     await publish(fresh);
   }
 
-  async function beginHandshake(record: CaptureStorageRecord): Promise<void> {
+  async function beginHandshake(
+    record: CaptureStorageRecord,
+    epoch: number,
+    activation: number,
+  ): Promise<void> {
     const starting: CaptureStorageRecord = {
       version: 1,
       state: "starting",
@@ -253,6 +296,15 @@ export function createCaptureController(
       return;
     }
 
+    const invalidated = () =>
+      cancelledStarts.has(record.generation) ||
+      epoch !== (tabEpochs.get(record.tabId) ?? 0) ||
+      activation !== activationEpoch;
+    if (invalidated()) {
+      await teardown(starting, "tab_mismatch");
+      return;
+    }
+
     let streamId: string;
     try {
       streamId = await chromeApis.tabCapture.getMediaStreamId({ targetTabId: record.tabId });
@@ -260,14 +312,30 @@ export function createCaptureController(
       await teardown(starting, "stream_id_failed");
       return;
     }
+    if (invalidated()) {
+      await teardown(starting, "tab_mismatch");
+      return;
+    }
 
     // Immediately forward the single-use ID; no other await may intervene.
-    await sendToOffscreen({
-      channel: OFFSCREEN_COMMAND_CHANNEL,
-      kind: "consume_stream",
-      generation: record.generation,
-      streamId,
-    });
+    try {
+      await sendToOffscreen({
+        channel: OFFSCREEN_COMMAND_CHANNEL,
+        kind: "consume_stream",
+        generation: record.generation,
+        streamId,
+      });
+    } catch {
+      await teardown(starting, "capture_failed");
+      return;
+    }
+    handshakeTimer = setTimeout(() => {
+      void serialize(async () => {
+        const current = await readRecord();
+        if (current?.generation === record.generation && current.state === "starting")
+          await teardown(current, "capture_failed");
+      }).catch(() => logger.error("LiveLecture AI: capture timeout cleanup failed."));
+    }, 10_000);
     // `active` is only entered once the offscreen document acknowledges a live
     // track (see handleOffscreenAck); "starting" already reflects the interim state.
   }
@@ -277,6 +345,10 @@ export function createCaptureController(
     sendResponse: (response: unknown) => void,
   ): Promise<void> {
     if (!isPanelToBackgroundMessage(message)) return;
+    if (!enabled) {
+      sendResponse({ ok: true, status: IDLE_STATUS });
+      return;
+    }
     if (message.kind === "get_status") {
       const record = await readRecord();
       sendResponse({ ok: true, status: snapshotOf(record) });
@@ -330,6 +402,8 @@ export function createCaptureController(
     const record = await readRecord();
     if (!record || record.generation !== message.generation) return; // Stale event.
     if (message.kind === "track_active" && record.state === "starting") {
+      clearTimeout(handshakeTimer);
+      handshakeTimer = undefined;
       await publish({ ...record, state: "active" });
       return;
     }
@@ -397,7 +471,20 @@ export function createCaptureController(
 
   async function reconcileOnWake(): Promise<void> {
     const record = await readRecord();
-    if (!record) return;
+    if (!record) {
+      const contexts = await chromeApis.runtime.getContexts({
+        contextTypes: ["OFFSCREEN_DOCUMENT"],
+        documentUrls: [chromeApis.runtime.getURL(OFFSCREEN_DOCUMENT_PATH)],
+      });
+      if (contexts.length) await chromeApis.offscreen.closeDocument();
+      await chromeApis.action.setBadgeText({ text: "" });
+      await chromeApis.action.setTitle({ title: "LiveLecture AI" });
+      return;
+    }
+    if (!enabled) {
+      await teardown(record);
+      return;
+    }
     if (record.state === "awaiting_consent") {
       if (
         record.awaitingConsentExpiresAt === undefined ||
@@ -438,7 +525,12 @@ export function createCaptureController(
         });
         return;
       }
-      const stillActive = await queryOffscreenGeneration(record.generation);
+      const [offscreenActive, captures] = await Promise.all([
+        queryOffscreenGeneration(record.generation),
+        chromeApis.tabCapture.getCapturedTabs(),
+      ]);
+      const stillActive =
+        offscreenActive && captures.some((c) => c.tabId === record.tabId && c.status === "active");
       if (stillActive) {
         await publish({ ...record, state: "active" });
       } else {
@@ -447,18 +539,44 @@ export function createCaptureController(
       return;
     }
     // idle / error: nothing to reconcile.
+    await publish(record);
+  }
+
+  async function invalidateConsent(tabId?: number): Promise<void> {
+    const record = await readRecord();
+    if (!record || (tabId !== undefined && tabId !== record.tabId)) return;
+    if (
+      record.state === "awaiting_consent" ||
+      record.state === "armed" ||
+      record.state === "starting"
+    )
+      await teardown(record, "tab_mismatch");
   }
 
   function attachListeners(): void {
     chromeApis.action.onClicked.addListener((tab) => {
-      void serialize(() => handleActionClicked(tab)).catch((error: unknown) =>
+      void handleActionClicked(tab).catch((error: unknown) =>
         logger.error(
           `LiveLecture AI: capture action handling failed (${error instanceof Error ? error.name : "unknown"}).`,
         ),
       );
     });
+    chromeApis.tabs.onUpdated.addListener((tabId, change) => {
+      if (change.status !== "loading" && change.url === undefined) return;
+      tabEpochs.set(tabId, (tabEpochs.get(tabId) ?? 0) + 1);
+      void serialize(() => invalidateConsent(tabId)).catch(() =>
+        logger.error("LiveLecture AI: navigation cleanup failed."),
+      );
+    });
+    chromeApis.tabs.onActivated.addListener(() => {
+      activationEpoch += 1;
+      void serialize(() => invalidateConsent()).catch(() =>
+        logger.error("LiveLecture AI: tab-switch cleanup failed."),
+      );
+    });
     chromeApis.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (isPanelToBackgroundMessage(message)) {
+        if (message.kind === "stop") cancelledStarts.add(message.generation);
         void serialize(() => handlePanelMessage(message, sendResponse)).catch((error: unknown) =>
           logger.error(
             `LiveLecture AI: capture message handling failed (${error instanceof Error ? error.name : "unknown"}).`,
@@ -477,6 +595,8 @@ export function createCaptureController(
       return false;
     });
     chromeApis.tabs.onRemoved.addListener((tabId) => {
+      // Invalidate an in-flight stream request before queued cleanup can run.
+      tabEpochs.set(tabId, (tabEpochs.get(tabId) ?? 0) + 1);
       void serialize(() => handleTabRemoved(tabId)).catch((error: unknown) =>
         logger.error(
           `LiveLecture AI: capture tab-close handling failed (${error instanceof Error ? error.name : "unknown"}).`,

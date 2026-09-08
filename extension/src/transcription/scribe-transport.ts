@@ -3,7 +3,9 @@ import {
   SCRIBE_COMMIT_STRATEGY,
   SCRIBE_MODEL_ID,
   SCRIBE_REALTIME_URL,
+  TranscriptEventSchema,
   type ErrorCode,
+  type SourceStatus,
   type TranscriptEvent,
 } from "@livelecture/shared";
 import {
@@ -13,19 +15,7 @@ import {
   validatePcmContinuity,
   type PcmChunk,
 } from "./pcm";
-import {
-  isRetryableWireError,
-  parseWireEvent,
-  type WireErrorCode,
-  type WireEvent,
-} from "./wire-events";
-
-/**
- * TASK-102 — provider-isolated realtime transport. Accepts already-normalized
- * PCM chunks and emits only the existing canonical `TranscriptEvent` union
- * (plus two small side channels below for information that union has no slot
- * for). No raw ElevenLabs type crosses this boundary.
- */
+import { isRetryableWireError, parseWireEvent, type WireErrorCode } from "./wire-events";
 
 export interface ScribeTransportBudget {
   maxAudioSeconds: number;
@@ -34,13 +24,10 @@ export interface ScribeTransportBudget {
   maxTokenIssuances: number;
   maxReconnects: number;
 }
-
 export interface MintedToken {
   token: string;
   expiresInSeconds: number;
 }
-
-/** Minimal WebSocket surface, so tests inject a fake instead of a real socket. */
 export interface ScribeSocket {
   send(data: string): void;
   close(code?: number): void;
@@ -49,24 +36,18 @@ export interface ScribeSocket {
   onerror: ((event: unknown) => void) | null;
   onclose: ((event: { code: number; reason: string }) => void) | null;
 }
-
 export interface DiscardedGap {
   startSample: number;
   endSample: number;
 }
-
 export interface ScribeTransportOptions {
   sessionId: string;
-  mintToken(): Promise<MintedToken>;
+  mintToken(signal?: AbortSignal): Promise<MintedToken>;
   connect(url: string): ScribeSocket;
   budget: ScribeTransportBudget;
   onEvent(event: TranscriptEvent): void;
-  /** The canonical `TranscriptEvent` union has no warning/gap slots; these are
-   * reported separately rather than widening a frozen shared schema. */
   onWarning?: (message: string) => void;
   onDiscardedGap?: (gap: DiscardedGap) => void;
-  /** Sent once, on the very first accepted chunk of the whole session only —
-   * never repeated on a reconnect. Truncated to 50 characters. */
   initialContext?: string;
   now?: () => number;
   setTimer?: (callback: () => void, delayMs: number) => unknown;
@@ -74,353 +55,398 @@ export interface ScribeTransportOptions {
   idFactory?: () => string;
   random?: () => number;
 }
-
-type TerminalReason =
-  | "audio_budget_exceeded"
-  | "wall_clock_exceeded"
-  | "attempts_exhausted"
-  | "tokens_exhausted"
-  | "reconnects_exhausted"
-  | "nonretryable_error"
-  | "stopped";
-
-const NONRETRYABLE_ERROR_CODES: Record<WireErrorCode, ErrorCode> = {
-  auth_error: "INVALID_REQUEST",
-  invalid_request: "INVALID_REQUEST",
-  input_error: "INVALID_REQUEST",
-  chunk_size_exceeded: "INVALID_REQUEST",
-  quota_exceeded: "PROVIDER_UNAVAILABLE",
-  rate_limited: "RATE_LIMITED",
-  commit_throttled: "RATE_LIMITED",
-  queue_overflow: "RATE_LIMITED",
-  resource_exhausted: "RATE_LIMITED",
-  session_time_limit_exceeded: "PROVIDER_UNAVAILABLE",
-  transcriber_error: "PROVIDER_UNAVAILABLE",
-  insufficient_audio_activity: "PROVIDER_UNAVAILABLE",
-  error: "PROVIDER_UNAVAILABLE",
+const TIMING_WAIT_MS = 5_000,
+  MAX_PENDING_COMMITS = 32,
+  MAX_WIRE_CHARS = 256 * 1024;
+const errorDetails: Record<WireErrorCode, [ErrorCode, string]> = {
+  auth_error: ["INVALID_REQUEST", "Transcription authentication failed."],
+  unaccepted_terms: [
+    "INVALID_REQUEST",
+    "Accept the transcription provider's terms in its dashboard before retrying.",
+  ],
+  quota_exceeded: ["PROVIDER_UNAVAILABLE", "The transcription allowance is exhausted."],
+  rate_limited: ["RATE_LIMITED", "Transcription is rate limited."],
+  commit_throttled: ["RATE_LIMITED", "Transcription commits are rate limited."],
+  queue_overflow: ["RATE_LIMITED", "The transcription queue is full."],
+  resource_exhausted: ["RATE_LIMITED", "Transcription capacity is unavailable."],
+  session_time_limit_exceeded: [
+    "PROVIDER_UNAVAILABLE",
+    "The transcription session time limit was reached.",
+  ],
+  input_error: ["INVALID_REQUEST", "The transcription service rejected the audio."],
+  invalid_request: ["INVALID_REQUEST", "The transcription service rejected the request."],
+  chunk_size_exceeded: ["INVALID_REQUEST", "The transcription audio chunk is too large."],
+  insufficient_audio_activity: [
+    "PROVIDER_UNAVAILABLE",
+    "The transcription service detected insufficient audio.",
+  ],
+  transcriber_error: ["PROVIDER_UNAVAILABLE", "The transcription service failed."],
+  error: ["PROVIDER_UNAVAILABLE", "The transcription service failed."],
 };
-
-function normalize(text: string): string {
-  return text.trim().replace(/\s+/g, " ").toLowerCase();
+function normalize(text: string) {
+  return text.trim().replace(/\s+/g, " ");
 }
-
-function connectionUrl(token: string): string {
-  const params = new URLSearchParams({
-    token,
-    model_id: SCRIBE_MODEL_ID,
-    audio_format: SCRIBE_AUDIO_FORMAT,
-    include_timestamps: "true",
-    commit_strategy: SCRIBE_COMMIT_STRATEGY,
-    enable_logging: "false",
-  });
-  return `${SCRIBE_REALTIME_URL}?${params.toString()}`;
+function connectionUrl(token: string) {
+  return (
+    SCRIBE_REALTIME_URL +
+    "?" +
+    new URLSearchParams({
+      token,
+      model_id: SCRIBE_MODEL_ID,
+      audio_format: SCRIBE_AUDIO_FORMAT,
+      include_timestamps: "true",
+      commit_strategy: SCRIBE_COMMIT_STRATEGY,
+      enable_logging: "false",
+    })
+  );
 }
-
+interface PendingCommit {
+  text: string;
+  timer: unknown;
+}
+interface Connection {
+  socket?: ScribeSocket;
+  opened: boolean;
+  ready: boolean;
+  abort: AbortController;
+  baseMs?: number;
+  uncommittedSample?: number;
+  latestSample?: number;
+  pending: PendingCommit[];
+}
 export function createScribeRealtimeTransport(options: ScribeTransportOptions) {
-  const now = options.now ?? (() => Date.now());
-  const setTimer = options.setTimer ?? ((callback, delayMs) => setTimeout(callback, delayMs));
+  const now = options.now ?? Date.now;
+  const setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
   const clearTimer =
-    options.clearTimer ?? ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
-  const idFactory = options.idFactory ?? (() => crypto.randomUUID());
+    options.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
+  const idFactory =
+    options.idFactory ?? (() => `scribe_${crypto.randomUUID().replaceAll("-", "_")}`);
   const random = options.random ?? Math.random;
   const { budget } = options;
-
-  let stopped = false;
-  let terminal: TerminalReason | undefined;
-  let socket: ScribeSocket | undefined;
-  let attempts = 0;
-  let tokensIssued = 0;
-  let reconnects = 0;
-  let sequence = 0;
-  let committedSequence = 0;
-  let audioSecondsSent = 0;
-  let sentInitialContext = false;
-  let deadlineTimer: unknown;
-  let backoffTimer: unknown;
-
-  // Per-connection base: application ms for provider-seconds-timestamp 0 on
-  // the segment currently open when this connection was established.
-  let connectionBaseMs = 0;
-  let lastAcceptedEndSample: number | undefined;
-  let activePartialId: string | undefined;
-  let activeSegmentStartSample: number | undefined;
-  let latestTransmittedSample: number | undefined;
-  let pendingCommitText: string | undefined;
-  let lastCommittedEndMs: number | undefined;
-  const seenCommittedIdentities = new Set<string>();
-
-  function sampleToAppMs(sample: number): number {
-    return Math.round((sample / PCM_SAMPLE_RATE_HZ) * 1_000);
+  if (
+    !Object.values(budget).every((v) => Number.isFinite(v) && v >= 0) ||
+    ![budget.maxConnectionAttempts, budget.maxTokenIssuances, budget.maxReconnects].every(
+      Number.isSafeInteger,
+    ) ||
+    budget.maxWallClockMs <= 0 ||
+    budget.maxAudioSeconds <= 0
+  )
+    throw new Error("Invalid transcription budget.");
+  let terminal = false,
+    attempts = 0,
+    tokensIssued = 0,
+    reconnects = 0;
+  let sequence = 0,
+    committedSequence = 0,
+    audioSecondsSent = 0,
+    sentInitialContext = false;
+  let current: Connection | undefined;
+  let lastInputEnd: number | undefined, lastCommittedEndMs: number | undefined;
+  let partialId: string | undefined, dropped: DiscardedGap | undefined, backoff: unknown;
+  const identities = new Set<string>();
+  const envelope = () => ({
+    schemaVersion: 1 as const,
+    eventId: idFactory(),
+    sessionId: options.sessionId,
+    sequence: sequence++,
+    emittedAt: new Date(now()).toISOString(),
+  });
+  function emit(event: TranscriptEvent) {
+    options.onEvent(TranscriptEventSchema.parse(event));
   }
-  function providerSecondsToAppMs(providerSeconds: number): number {
-    return connectionBaseMs + Math.round(providerSeconds * 1_000);
+  function state(status: SourceStatus) {
+    emit({ ...envelope(), type: "source.state", sourceMode: "live", status });
   }
-
-  function envelope(): {
-    schemaVersion: 1;
-    eventId: string;
-    sessionId: string;
-    sequence: number;
-    emittedAt: string;
-  } {
-    return {
-      schemaVersion: 1,
-      eventId: idFactory(),
-      sessionId: options.sessionId,
-      sequence: sequence++,
-      emittedAt: new Date(now()).toISOString(),
-    };
-  }
-
-  function emitError(code: ErrorCode, message: string, retryable: boolean): void {
-    options.onEvent({
+  function error(code: ErrorCode, message: string, retryable: boolean) {
+    emit({
       ...envelope(),
       type: "source.error",
       sourceMode: "live",
       error: { code, message, retryable },
     });
   }
-
-  function stopAllTimers(): void {
-    if (deadlineTimer !== undefined) clearTimer(deadlineTimer);
-    if (backoffTimer !== undefined) clearTimer(backoffTimer);
-    deadlineTimer = undefined;
-    backoffTimer = undefined;
+  const toMs = (sample: number) => Math.round((sample * 1000) / PCM_SAMPLE_RATE_HZ);
+  function reportGap(startSample: number | undefined, endSample: number | undefined) {
+    if (startSample !== undefined && endSample !== undefined && endSample > startSample)
+      options.onDiscardedGap?.({ startSample, endSample });
   }
-
-  function terminate(reason: TerminalReason, message: string): void {
+  function flushDropped() {
+    if (dropped) reportGap(dropped.startSample, dropped.endSample);
+    dropped = undefined;
+  }
+  function closeConnection() {
+    const old = current;
+    current = undefined;
+    if (!old) return;
+    old.abort.abort();
+    old.pending.forEach((p) => clearTimer(p.timer));
+    old.pending = [];
+    reportGap(old.uncommittedSample, old.latestSample);
+    if (old.socket) {
+      old.socket.onopen = old.socket.onmessage = old.socket.onerror = old.socket.onclose = null;
+      try {
+        old.socket.close();
+      } catch {
+        /* already gone */
+      }
+    }
+    partialId = undefined;
+  }
+  function finish(message?: string, code: ErrorCode = "PROVIDER_UNAVAILABLE") {
     if (terminal) return;
-    terminal = reason;
-    stopAllTimers();
-    socket?.close();
-    socket = undefined;
-    if (reason !== "stopped") emitError("PROVIDER_UNAVAILABLE", message, false);
+    terminal = true;
+    clearTimer(deadline);
+    if (backoff !== undefined) clearTimer(backoff);
+    backoff = undefined;
+    closeConnection();
+    flushDropped();
+    identities.clear();
+    if (message) error(code, message, false);
+    state(message ? "error" : "stopped");
   }
-
-  function scheduleDeadline(): void {
-    deadlineTimer = setTimer(
-      () => terminate("wall_clock_exceeded", "Transcription time budget exhausted."),
-      budget.maxWallClockMs,
+  function disconnect(
+    connection: Connection,
+    message = "The transcription connection was interrupted.",
+    code: ErrorCode = "PROVIDER_UNAVAILABLE",
+  ) {
+    if (terminal || current !== connection) return;
+    closeConnection();
+    if (reconnects >= budget.maxReconnects) {
+      finish("No transcription reconnects remain.");
+      return;
+    }
+    reconnects += 1;
+    error(code, message, true);
+    state("starting");
+    backoff = setTimer(
+      () => {
+        backoff = undefined;
+        void connectOnce();
+      },
+      Math.min(1000 * 2 ** (reconnects - 1), 8000) * (0.5 + random() * 0.5),
     );
   }
-
-  async function connectOnce(): Promise<void> {
-    if (terminal || stopped) return;
-    if (attempts >= budget.maxConnectionAttempts) {
-      terminate("attempts_exhausted", "No further connection attempts remain.");
-      return;
-    }
-    if (tokensIssued >= budget.maxTokenIssuances) {
-      terminate("tokens_exhausted", "No further transcription tokens remain.");
-      return;
-    }
-    attempts += 1;
-    tokensIssued += 1;
-    let minted: MintedToken;
-    try {
-      minted = await options.mintToken();
-    } catch {
-      handleDisconnect();
-      return;
-    }
-    if (terminal || stopped) return;
-    connectionBaseMs = lastCommittedEndMs ?? 0;
-    activePartialId = undefined;
-    activeSegmentStartSample = undefined;
-    latestTransmittedSample = undefined;
-    pendingCommitText = undefined;
-    const opened = options.connect(connectionUrl(minted.token));
-    socket = opened;
-    opened.onopen = () => {
-      /* Ready for chunk() calls; nothing to send proactively. */
-    };
-    opened.onmessage = (event) => handleMessage(event.data);
-    opened.onerror = () => {
-      /* onclose follows every onerror for a real WebSocket; nothing to do here. */
-    };
-    opened.onclose = () => handleDisconnect();
+  function protocolFailure() {
+    finish("The transcription response could not be validated.", "INTERNAL_ERROR");
   }
-
-  function handleMessage(raw: string): void {
-    if (terminal || stopped) return;
-    let parsedJson: unknown;
-    try {
-      parsedJson = JSON.parse(raw);
-    } catch {
-      emitError("INTERNAL_ERROR", "The transcription service sent an unreadable message.", true);
+  function message(connection: Connection, raw: string) {
+    if (terminal || current !== connection) return;
+    if (typeof raw !== "string" || raw.length > MAX_WIRE_CHARS) {
+      protocolFailure();
       return;
     }
-    const event = parseWireEvent(parsedJson);
+    let value: unknown;
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      protocolFailure();
+      return;
+    }
+    const event = parseWireEvent(value);
     if (!event) {
-      emitError("INTERNAL_ERROR", "The transcription service sent an unrecognized message.", true);
+      protocolFailure();
       return;
     }
-    reconcile(event);
-  }
-
-  function reconcile(event: WireEvent): void {
-    if (event.type === "session_started") return;
     if (event.type === "warning") {
-      options.onWarning?.(event.message);
+      options.onWarning?.(
+        "RETENTION_ACTIVE: the provider reports that this transcription session is being logged.",
+      );
       return;
     }
     if (event.type === "error") {
-      const mappedCode = NONRETRYABLE_ERROR_CODES[event.code];
-      const retryable = isRetryableWireError(event.code);
-      emitError(mappedCode, event.message, retryable);
-      if (!retryable) terminate("nonretryable_error", event.message);
+      const [code, safeMessage] = errorDetails[event.code];
+      if (isRetryableWireError(event.code)) disconnect(connection, safeMessage, code);
+      else finish(safeMessage, code);
+      return;
+    }
+    if (event.type === "session_started") {
+      if (!connection.opened) {
+        protocolFailure();
+        return;
+      }
+      connection.ready = true;
+      state("active");
+      return;
+    }
+    if (
+      !connection.ready ||
+      connection.baseMs === undefined ||
+      connection.latestSample === undefined
+    ) {
+      protocolFailure();
       return;
     }
     if (event.type === "partial_transcript") {
-      if (activeSegmentStartSample === undefined) return; // No audio sent yet to anchor this.
-      activePartialId ??= idFactory();
-      options.onEvent({
+      if (!event.text.trim()) return;
+      partialId ??= idFactory();
+      emit({
         ...envelope(),
         type: "transcript.partial",
         chunk: {
-          partialId: activePartialId,
+          partialId,
           sessionId: options.sessionId,
           text: event.text,
-          startMs: sampleToAppMs(activeSegmentStartSample),
-          endMs: sampleToAppMs(latestTransmittedSample ?? activeSegmentStartSample),
+          startMs: toMs(connection.uncommittedSample ?? connection.latestSample),
+          endMs: toMs(connection.latestSample),
         },
       });
       return;
     }
     if (event.type === "committed_transcript") {
-      pendingCommitText = event.text;
+      if (connection.pending.length >= MAX_PENDING_COMMITS) {
+        protocolFailure();
+        return;
+      }
+      const pending: PendingCommit = { text: event.text, timer: undefined };
+      pending.timer = setTimer(() => {
+        if (!terminal && current === connection && connection.pending.includes(pending))
+          protocolFailure();
+      }, TIMING_WAIT_MS);
+      connection.pending.push(pending);
       return;
     }
-    if (event.type === "committed_transcript_with_timestamps") {
-      if (
-        pendingCommitText === undefined ||
-        normalize(pendingCommitText) !== normalize(event.text)
-      ) {
-        emitError(
-          "INTERNAL_ERROR",
-          "A committed transcript's timing could not be matched to its text.",
-          true,
-        );
-        pendingCommitText = undefined;
-        return;
-      }
-      pendingCommitText = undefined;
-      const first = event.words[0]!;
-      const last = event.words.at(-1)!;
-      const startMs = providerSecondsToAppMs(first.start);
-      const endMs = providerSecondsToAppMs(last.end);
-      if (endMs <= startMs) {
-        emitError("INTERNAL_ERROR", "The transcription service returned invalid timing.", true);
-        return;
-      }
-      if (lastCommittedEndMs !== undefined && startMs < lastCommittedEndMs) {
-        emitError(
-          "INTERNAL_ERROR",
-          "The transcription service returned out-of-order timing.",
-          true,
-        );
-        return;
-      }
-      const identity = `${normalize(event.text)}|${startMs}|${endMs}`;
-      if (seenCommittedIdentities.has(identity)) {
-        activePartialId = undefined;
-        return; // Exact duplicate, most likely from a reconnect boundary: drop silently.
-      }
-      seenCommittedIdentities.add(identity);
-      lastCommittedEndMs = endMs;
-      activePartialId = undefined;
-      options.onEvent({
-        ...envelope(),
-        type: "transcript.committed",
-        chunk: {
-          chunkId: idFactory(),
-          sessionId: options.sessionId,
-          sequence: committedSequence++,
-          text: event.text,
-          startMs,
-          endMs,
-        },
-      });
+    const matches = connection.pending.filter((p) => normalize(p.text) === normalize(event.text));
+    if (matches.length !== 1 || connection.pending[0] !== matches[0]) {
+      protocolFailure();
+      return;
+    }
+    const pending = connection.pending.shift()!;
+    clearTimer(pending.timer);
+    const startMs = connection.baseMs + Math.round(event.words[0]!.start * 1000);
+    const endMs = connection.baseMs + Math.round(event.words.at(-1)!.end * 1000);
+    const identity = JSON.stringify([normalize(event.text), startMs, endMs]);
+    if (identities.has(identity)) return;
+    if (
+      endMs <= startMs ||
+      endMs > toMs(connection.latestSample) + 1 ||
+      (lastCommittedEndMs !== undefined && startMs < lastCommittedEndMs)
+    ) {
+      protocolFailure();
+      return;
+    }
+    identities.add(identity);
+    if (identities.size > 10000) {
+      protocolFailure();
+      return;
+    }
+    lastCommittedEndMs = endMs;
+    connection.uncommittedSample = Math.min(
+      connection.latestSample,
+      Math.round((endMs * PCM_SAMPLE_RATE_HZ) / 1000),
+    );
+    partialId = undefined;
+    emit({
+      ...envelope(),
+      type: "transcript.committed",
+      chunk: {
+        chunkId: idFactory(),
+        sessionId: options.sessionId,
+        sequence: committedSequence++,
+        text: event.text,
+        startMs,
+        endMs,
+      },
+    });
+  }
+  async function connectOnce() {
+    if (terminal) return;
+    if (attempts >= budget.maxConnectionAttempts) {
+      finish("No further connection attempts remain.");
+      return;
+    }
+    if (tokensIssued >= budget.maxTokenIssuances) {
+      finish("No further transcription tokens remain.");
+      return;
+    }
+    attempts += 1;
+    tokensIssued += 1;
+    const connection: Connection = {
+      opened: false,
+      ready: false,
+      abort: new AbortController(),
+      pending: [],
+    };
+    current = connection;
+    let minted: MintedToken;
+    try {
+      minted = await options.mintToken(connection.abort.signal);
+    } catch {
+      disconnect(connection, "A transcription token could not be obtained.");
+      return;
+    }
+    if (terminal || current !== connection) return;
+    if (
+      !minted ||
+      typeof minted.token !== "string" ||
+      !minted.token ||
+      minted.token.length > 4096 ||
+      !Number.isFinite(minted.expiresInSeconds) ||
+      minted.expiresInSeconds <= 0 ||
+      minted.expiresInSeconds > 900
+    ) {
+      protocolFailure();
+      return;
+    }
+    try {
+      const socket = options.connect(connectionUrl(minted.token));
+      connection.socket = socket;
+      socket.onopen = () => {
+        if (current === connection && !terminal) connection.opened = true;
+      };
+      socket.onmessage = (e) => message(connection, e.data);
+      socket.onerror = () => disconnect(connection);
+      socket.onclose = () => disconnect(connection);
+    } catch {
+      disconnect(connection);
     }
   }
-
-  function handleDisconnect(): void {
-    if (terminal || stopped) return;
-    socket = undefined;
-    // Discard whatever was sent but never committed in the open segment; it is
-    // reported as a gap, never silently replayed as exactly-once delivery.
-    if (activeSegmentStartSample !== undefined && latestTransmittedSample !== undefined) {
-      options.onDiscardedGap?.({
-        startSample: activeSegmentStartSample,
-        endSample: latestTransmittedSample,
-      });
+  // True only when sent. Dropped input is reported as a gap and never replayed.
+  function chunk(pcm: PcmChunk): boolean {
+    if (terminal) return false;
+    const issue = validatePcmChunkShape(pcm) ?? validatePcmContinuity(pcm, lastInputEnd);
+    if (issue) {
+      error("INVALID_REQUEST", "Rejected audio chunk (" + issue + ").", false);
+      return false;
     }
-    lastAcceptedEndSample = latestTransmittedSample ?? lastAcceptedEndSample;
-    activeSegmentStartSample = undefined;
-    latestTransmittedSample = undefined;
-    activePartialId = undefined;
-    pendingCommitText = undefined;
-    if (reconnects >= budget.maxReconnects) {
-      terminate(
-        "reconnects_exhausted",
-        "The transcription connection was lost and could not be retried.",
-      );
-      return;
+    lastInputEnd = pcm.endSample;
+    const connection = current;
+    if (!connection?.ready || !connection.socket) {
+      dropped ??= { startSample: pcm.startSample, endSample: pcm.endSample };
+      dropped.endSample = pcm.endSample;
+      return false;
     }
-    reconnects += 1;
-    const backoffMs = Math.min(1_000 * 2 ** (reconnects - 1), 8_000) * (0.5 + random() * 0.5);
-    backoffTimer = setTimer(() => {
-      backoffTimer = undefined;
-      void connectOnce();
-    }, backoffMs);
-  }
-
-  function chunk(pcm: PcmChunk): void {
-    if (terminal || stopped) return;
-    const shapeIssue = validatePcmChunkShape(pcm);
-    if (shapeIssue) {
-      emitError("INVALID_REQUEST", `Rejected audio chunk (${shapeIssue}).`, false);
-      return;
+    const seconds = (pcm.endSample - pcm.startSample) / PCM_SAMPLE_RATE_HZ;
+    if (audioSecondsSent + seconds > budget.maxAudioSeconds + 1e-9) {
+      finish("Audio budget exhausted.");
+      return false;
     }
-    const continuityIssue = validatePcmContinuity(pcm, lastAcceptedEndSample);
-    if (continuityIssue) {
-      emitError("INVALID_REQUEST", `Rejected audio chunk (${continuityIssue}).`, false);
-      return;
-    }
-    const sampleCount = pcm.endSample - pcm.startSample;
-    const wouldBeSeconds = audioSecondsSent + sampleCount / PCM_SAMPLE_RATE_HZ;
-    if (wouldBeSeconds > budget.maxAudioSeconds + 1e-9) {
-      terminate("audio_budget_exceeded", "Audio budget exhausted.");
-      return;
-    }
-    lastAcceptedEndSample = pcm.endSample;
-    audioSecondsSent = wouldBeSeconds;
-    activeSegmentStartSample ??= pcm.startSample;
-    latestTransmittedSample = pcm.endSample;
-    if (!socket) return; // Between connections: audio is validated and accounted, then dropped.
-    const message: Record<string, unknown> = {
+    flushDropped();
+    connection.baseMs ??= toMs(pcm.startSample);
+    connection.uncommittedSample ??= pcm.startSample;
+    const payload: Record<string, unknown> = {
+      message_type: "input_audio_chunk",
       audio_base_64: base64FromPcmBytes(pcm.bytes),
       sample_rate: PCM_SAMPLE_RATE_HZ,
       commit: false,
     };
-    if (!sentInitialContext && options.initialContext) {
-      message.previous_text = options.initialContext.slice(0, 50);
-    }
+    if (!sentInitialContext && options.initialContext)
+      payload.previous_text = options.initialContext.slice(0, 49);
+    audioSecondsSent += seconds;
+    connection.latestSample = pcm.endSample;
     sentInitialContext = true;
-    socket.send(JSON.stringify(message));
+    try {
+      connection.socket.send(JSON.stringify(payload));
+    } catch {
+      disconnect(connection);
+      return false;
+    }
+    return true;
   }
-
-  function stop(): void {
-    if (stopped) return;
-    stopped = true;
-    terminal = "stopped";
-    stopAllTimers();
-    socket?.close();
-    socket = undefined;
-  }
-
-  scheduleDeadline();
+  const deadline = setTimer(
+    () => finish("Transcription time budget exhausted."),
+    budget.maxWallClockMs,
+  );
+  state("starting");
   void connectOnce();
-
-  return { chunk, stop };
+  return { chunk, stop: () => finish(), isReady: () => !terminal && Boolean(current?.ready) };
 }

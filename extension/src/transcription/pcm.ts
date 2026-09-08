@@ -27,14 +27,20 @@ export type PcmRejectionReason =
   | "overlap";
 
 export function validatePcmChunkShape(chunk: PcmChunk): PcmRejectionReason | undefined {
-  if (!Number.isInteger(chunk.startSample) || !Number.isInteger(chunk.endSample))
+  if (
+    !chunk ||
+    !Number.isSafeInteger(chunk.startSample) ||
+    !Number.isSafeInteger(chunk.endSample) ||
+    chunk.startSample < 0
+  )
     return "non_integer_offsets";
   if (chunk.endSample <= chunk.startSample) return "non_positive_range";
   const sampleCount = chunk.endSample - chunk.startSample;
   const durationSeconds = sampleCount / PCM_SAMPLE_RATE_HZ;
   if (durationSeconds < MIN_CHUNK_SECONDS - 1e-9 || durationSeconds > MAX_CHUNK_SECONDS + 1e-9)
     return "duration_out_of_bounds";
-  if (chunk.bytes.byteLength !== sampleCount * 2) return "byte_count_mismatch";
+  if (!(chunk.bytes instanceof Uint8Array) || chunk.bytes.byteLength !== sampleCount * 2)
+    return "byte_count_mismatch";
   return undefined;
 }
 

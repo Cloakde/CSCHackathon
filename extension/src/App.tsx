@@ -172,9 +172,17 @@ export function App({
     // A live broadcast can arrive and resolve before this initial poll does;
     // once that happens the poll's answer is stale and must not overwrite it.
     let receivedLiveUpdate = false;
-    void captureClient.getStatus().then((status) => {
-      if (!cancelled && !receivedLiveUpdate) setCaptureStatus(status);
-    });
+    void captureClient
+      .getStatus()
+      .then((status) => {
+        if (!cancelled && !receivedLiveUpdate) setCaptureStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled)
+          setCaptureActionError(
+            "Capture status could not be checked. Reopen the extension to retry.",
+          );
+      });
     const unsubscribe = captureClient.subscribe((status) => {
       if (!cancelled) {
         receivedLiveUpdate = true;
@@ -470,7 +478,11 @@ export function App({
       </header>
       <section className="simulation-banner" aria-label="SIMULATION source disclosure">
         <strong>SIMULATION</strong>
-        <span>Synthetic lecture text — no audio is being captured.</span>
+        <span>
+          {captureStatus.state === "active" || captureStatus.state === "starting"
+            ? "Synthetic lecture text. The separate capture experiment does not supply this transcript."
+            : "Synthetic lecture text — no audio is being captured."}
+        </span>
       </section>
       {captureStatus.state !== "idle" ? (
         <section
@@ -494,6 +506,11 @@ export function App({
             <p>Click the extension icon again on this tab within 60 seconds to start.</p>
           ) : null}
           {captureStatus.state === "starting" ? <p>Starting capture…</p> : null}
+          {["awaiting_consent", "armed", "starting"].includes(captureStatus.state) ? (
+            <button type="button" onClick={() => void handleCaptureStop()}>
+              Cancel capture
+            </button>
+          ) : null}
           {captureStatus.state === "active" ? (
             <>
               <p className="capture-active-indicator">

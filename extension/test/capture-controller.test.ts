@@ -28,6 +28,9 @@ function createFakeChrome() {
   ) => boolean | void)[] = [];
   const tabRemovedListeners: ((tabId: number) => void)[] = [];
   const statusChangedListeners: ((info: { tabId: number; status: string }) => void)[] = [];
+  const updatedListeners: ((tabId: number, change: { status?: string; url?: string }) => void)[] =
+    [];
+  const activatedListeners: ((info: { tabId: number }) => void)[] = [];
   const session = new Map<string, unknown>();
   const sentMessages: unknown[] = [];
   let offscreenExists = false;
@@ -43,7 +46,11 @@ function createFakeChrome() {
   });
 
   const chromeApis: CaptureControllerChrome = {
-    action: { onClicked: { addListener: (l) => actionListeners.push(l) } },
+    action: {
+      setBadgeText: vi.fn(async () => undefined),
+      setTitle: vi.fn(async () => undefined),
+      onClicked: { addListener: (l) => actionListeners.push(l) },
+    },
     sidePanel: { open: sidePanelOpen, setPanelBehavior: vi.fn(async () => undefined) },
     storage: {
       session: {
@@ -57,7 +64,11 @@ function createFakeChrome() {
         },
       },
     },
-    tabs: { onRemoved: { addListener: (l) => tabRemovedListeners.push(l) } },
+    tabs: {
+      onUpdated: { addListener: (l) => updatedListeners.push(l) },
+      onActivated: { addListener: (l) => activatedListeners.push(l) },
+      onRemoved: { addListener: (l) => tabRemovedListeners.push(l) },
+    },
     tabCapture: {
       getMediaStreamId,
       getCapturedTabs: async () => capturedTabs,
@@ -103,6 +114,8 @@ function createFakeChrome() {
 
   return {
     chromeApis,
+    fireUpdated: (id: number) => updatedListeners.forEach((l) => l(id, { status: "loading" })),
+    fireActivated: (id: number) => activatedListeners.forEach((l) => l({ tabId: id })),
     fireAction: (tab: chrome.tabs.Tab) => actionListeners.forEach((l) => l(tab)),
     fireTabRemoved: (tabId: number) => tabRemovedListeners.forEach((l) => l(tabId)),
     fireStatusChanged: (info: { tabId: number; status: string }) =>
@@ -442,6 +455,7 @@ describe("capture controller (TASK-101)", () => {
       generation: 1,
     });
     await flush();
+    fake.setCapturedTabs([{ tabId: 7, status: "active" }]);
     // Simulate a fresh worker: a brand-new controller instance over the same storage.
     const restarted = createCaptureController(fake.chromeApis, console, TEST_RECONCILE_TIMEOUT_MS);
     restarted.attachListeners();
@@ -501,5 +515,93 @@ describe("capture controller (TASK-101)", () => {
     const stored = JSON.stringify(Object.fromEntries(fake.session));
     expect(stored).not.toContain("stream-id-1");
     expect(JSON.stringify(panelStatuses)).not.toContain("stream-id-1");
+  });
+  it("opens the panel in the click stack even when reconciliation is blocked", async () => {
+    let release!: (value: Record<string, unknown>) => void;
+    const original = fake.chromeApis.storage.session.get;
+    fake.chromeApis.storage.session.get = () =>
+      new Promise((resolve) => {
+        release = resolve;
+      });
+    const wake = controller.reconcileOnWake();
+    await flush();
+    fake.fireAction({ id: 7 } as chrome.tabs.Tab);
+    expect(fake.sidePanelOpen).toHaveBeenCalledOnce();
+    fake.chromeApis.storage.session.get = original;
+    release({});
+    await wake;
+    await flush();
+  });
+  it.each(["navigate", "switch"] as const)(
+    "clears consent on %s before capture starts",
+    async (kind) => {
+      fake.fireAction({ id: 7 } as chrome.tabs.Tab);
+      await flush();
+      await sendMessage(fake, { channel: PANEL_CHANNEL, kind: "consent", generation: 1 });
+      if (kind === "navigate") fake.fireUpdated(7);
+      else {
+        fake.fireActivated(8);
+        fake.fireActivated(7);
+      }
+      await flush();
+      fake.fireAction({ id: 7 } as chrome.tabs.Tab);
+      await flush();
+      expect(fake.getMediaStreamId).not.toHaveBeenCalled();
+      expect(storageRecord()?.state).toBe("awaiting_consent");
+    },
+  );
+  it("shows REC while starting and clears it on Stop", async () => {
+    await armAndStart();
+    expect(fake.chromeApis.action.setBadgeText).toHaveBeenCalledWith({ text: "REC" });
+    await sendMessage(fake, { channel: PANEL_CHANNEL, kind: "stop", generation: 1 });
+    expect(fake.chromeApis.action.setBadgeText).toHaveBeenLastCalledWith({ text: "" });
+  });
+  it("does not cancel an already active capture solely on navigation", async () => {
+    await armAndStart();
+    await fake.fireOffscreenAck({
+      channel: OFFSCREEN_ACK_CHANNEL,
+      kind: "track_active",
+      generation: 1,
+    });
+    await flush();
+    fake.fireUpdated(7);
+    await flush();
+    expect(storageRecord()?.state).toBe("active");
+  });
+  it("times out a missing track acknowledgment without pretending capture is active", async () => {
+    vi.useFakeTimers();
+    await armAndStart();
+    await vi.advanceTimersByTimeAsync(10001);
+    expect(storageRecord()?.state).toBe("error");
+    expect(fake.closeDocument).toHaveBeenCalled();
+  });
+
+  it.each(["stop", "close"] as const)("discards a delayed stream ID after %s", async (kind) => {
+    fake.fireAction({ id: 7 } as chrome.tabs.Tab);
+    await flush();
+    await sendMessage(fake, { channel: PANEL_CHANNEL, kind: "consent", generation: 1 });
+    let resolveStream!: (id: string) => void;
+    fake.getMediaStreamId.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveStream = resolve;
+        }),
+    );
+    fake.fireAction({ id: 7 } as chrome.tabs.Tab);
+    await flush();
+    let stopped: Promise<unknown> | undefined;
+    if (kind === "stop")
+      stopped = sendMessage(fake, { channel: PANEL_CHANNEL, kind: "stop", generation: 1 });
+    else fake.fireTabRemoved(7);
+    resolveStream("delayed-stream");
+    await stopped;
+    await flush();
+    expect(
+      fake
+        .messagesOn(OFFSCREEN_COMMAND_CHANNEL)
+        .some((m) => (m as { kind: string }).kind === "consume_stream"),
+    ).toBe(false);
+    expect(storageRecord()?.state).not.toBe("active");
+    expect(fake.closeDocument).toHaveBeenCalled();
   });
 });

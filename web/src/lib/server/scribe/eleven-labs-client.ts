@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readBoundedJson, withDeadline, ScribeHttpError } from "./bounded-http";
 
 /**
  * TASK-102 — server-only adapter for ElevenLabs' single-use realtime-token
@@ -34,6 +35,7 @@ export interface MintScribeTokenOptions {
   fetcher?: typeof fetch;
   baseUrl?: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 export async function mintScribeRealtimeToken({
@@ -41,39 +43,39 @@ export async function mintScribeRealtimeToken({
   fetcher = globalThis.fetch,
   baseUrl = ELEVENLABS_BASE_URL,
   timeoutMs = UPSTREAM_TIMEOUT_MS,
+  signal,
 }: MintScribeTokenOptions): Promise<{ token: string; expiresInSeconds: number }> {
   if (typeof apiKey !== "string" || apiKey.length === 0)
     throw new ScribeTokenMintError("configuration");
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let response: Response;
   try {
-    response = await fetcher(`${baseUrl}${TOKEN_ENDPOINT_PATH}`, {
-      method: "POST",
-      headers: { "xi-api-key": apiKey, Accept: "application/json" },
-      signal: controller.signal,
-      redirect: "error",
-      cache: "no-store",
-    });
-  } catch {
-    throw controller.signal.aborted
-      ? new ScribeTokenMintError("timeout")
-      : new ScribeTokenMintError("transport");
-  } finally {
-    clearTimeout(timer);
+    return await withDeadline(
+      async (boundedSignal) => {
+        const response = await fetcher(baseUrl + TOKEN_ENDPOINT_PATH, {
+          method: "POST",
+          headers: { "xi-api-key": apiKey, Accept: "application/json" },
+          signal: boundedSignal,
+          redirect: "error",
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          void response.body?.cancel().catch(() => undefined);
+          throw new ScribeTokenMintError("upstream");
+        }
+        const raw = await readBoundedJson(response.body, 8192, boundedSignal);
+        const parsed = ElevenLabsTokenResponseSchema.safeParse(raw);
+        if (!parsed.success || parsed.data.token === apiKey)
+          throw new ScribeTokenMintError("response");
+        return { token: parsed.data.token, expiresInSeconds: SCRIBE_TOKEN_TTL_SECONDS };
+      },
+      timeoutMs,
+      signal,
+    );
+  } catch (error) {
+    if (error instanceof ScribeTokenMintError) throw error;
+    if (error instanceof ScribeHttpError && error.status === 408)
+      throw new ScribeTokenMintError("timeout");
+    if (error instanceof SyntaxError || error instanceof ScribeHttpError)
+      throw new ScribeTokenMintError("response");
+    throw new ScribeTokenMintError("transport");
   }
-  if (!response.ok) {
-    // The upstream body may echo request details or provider diagnostics;
-    // never forward it, and never log it — only the safe failure code.
-    throw new ScribeTokenMintError("upstream");
-  }
-  let raw: unknown;
-  try {
-    raw = await response.json();
-  } catch {
-    throw new ScribeTokenMintError("response");
-  }
-  const parsed = ElevenLabsTokenResponseSchema.safeParse(raw);
-  if (!parsed.success) throw new ScribeTokenMintError("response");
-  return { token: parsed.data.token, expiresInSeconds: SCRIBE_TOKEN_TTL_SECONDS };
 }

@@ -5,22 +5,13 @@
  * adapter maps every one of these into the existing canonical
  * `TranscriptEvent` union before anything else in the app ever sees it.
  *
- * Event names and the general shape are taken from ElevenLabs' own event
- * reference (checked 2026-09-07): session_started, partial_transcript,
- * committed_transcript, committed_transcript_with_timestamps, warning, and a
- * set of named error events. The exact field-level JSON (in particular,
- * whether a `type` discriminator is present, and whether word timing arrives
- * as `start`/`end` in seconds) is inferred from that reference plus the task
- * contract's own instruction to "translate provider seconds to application
- * milliseconds" — it is not confirmed against a live connection. Every
- * validator below is deliberately strict for exactly that reason: an
- * unexpected shape must fail visibly, never be silently coerced.
+ * Wire format verified against the official realtime API reference, 2026-09-07.
+ * The provider uses message_type; internal type values below stay adapter-local.
  */
 
 export interface WireWord {
   text: string;
-  /** Seconds, per the task contract's own "translate provider seconds"
-   * instruction — unconfirmed against a live connection. */
+  /** Seconds, as documented by ElevenLabs. Live epoch behavior still needs verification. */
   start: number;
   end: number;
 }
@@ -36,6 +27,7 @@ export type WireEvent =
 export type WireErrorCode =
   | "error"
   | "auth_error"
+  | "unaccepted_terms"
   | "quota_exceeded"
   | "rate_limited"
   | "commit_throttled"
@@ -51,6 +43,7 @@ export type WireErrorCode =
 const ERROR_CODES: readonly WireErrorCode[] = [
   "error",
   "auth_error",
+  "unaccepted_terms",
   "quota_exceeded",
   "rate_limited",
   "commit_throttled",
@@ -68,6 +61,7 @@ const ERROR_CODES: readonly WireErrorCode[] = [
  * unaccepted-terms-shaped failures never get an automatic retry. */
 const NONRETRYABLE_CODES = new Set<WireErrorCode>([
   "auth_error",
+  "unaccepted_terms",
   "quota_exceeded",
   "invalid_request",
   "input_error",
@@ -82,42 +76,51 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
+  return typeof value === "string" && value.trim().length > 0 && value.length <= 10_000;
 }
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
 function parseWords(value: unknown): WireWord[] | undefined {
-  if (!Array.isArray(value) || value.length === 0) return undefined;
+  if (!Array.isArray(value) || value.length === 0 || value.length > 10000) return undefined;
   const words: WireWord[] = [];
   for (const entry of value) {
+    if (!isRecord(entry)) return undefined;
+    // The documented words array can also contain untimed spacing tokens.
+    // These carry no boundary evidence; only timed words establish citations.
+    if (entry.type === "spacing") {
+      if (typeof entry.text !== "string" || entry.text.length > 10000 || entry.text.trim())
+        return undefined;
+      continue;
+    }
     if (
-      !isRecord(entry) ||
+      (entry.type !== undefined && entry.type !== "word") ||
       !isNonEmptyString(entry.text) ||
       !isFiniteNumber(entry.start) ||
       !isFiniteNumber(entry.end) ||
       entry.end < entry.start ||
-      entry.start < 0
+      entry.start < 0 ||
+      (words.length > 0 && entry.start < words.at(-1)!.end)
     )
       return undefined;
     words.push({ text: entry.text, start: entry.start, end: entry.end });
   }
-  return words;
+  return words.length > 0 ? words : undefined;
 }
 
 /** Parses one raw JSON WebSocket message. Returns `undefined` for anything
  * that does not match a known, well-formed frame — the caller treats that as
  * a visible, safe protocol error, never as data to guess at. */
 export function parseWireEvent(raw: unknown): WireEvent | undefined {
-  if (!isRecord(raw) || typeof raw.type !== "string") return undefined;
-  switch (raw.type) {
+  if (!isRecord(raw) || typeof raw.message_type !== "string") return undefined;
+  switch (raw.message_type) {
     case "session_started":
       return isNonEmptyString(raw.session_id)
         ? { type: "session_started", sessionId: raw.session_id }
         : undefined;
     case "partial_transcript":
-      return isNonEmptyString(raw.text)
+      return typeof raw.text === "string" && raw.text.length <= 10_000
         ? { type: "partial_transcript", text: raw.text }
         : undefined;
     case "committed_transcript":
@@ -134,8 +137,11 @@ export function parseWireEvent(raw: unknown): WireEvent | undefined {
     case "warning":
       return isNonEmptyString(raw.warning) ? { type: "warning", message: raw.warning } : undefined;
     default:
-      if ((ERROR_CODES as readonly string[]).includes(raw.type) && isNonEmptyString(raw.error))
-        return { type: "error", message: raw.error, code: raw.type as WireErrorCode };
+      if (
+        (ERROR_CODES as readonly string[]).includes(raw.message_type) &&
+        isNonEmptyString(raw.error)
+      )
+        return { type: "error", message: raw.error, code: raw.message_type as WireErrorCode };
       return undefined;
   }
 }

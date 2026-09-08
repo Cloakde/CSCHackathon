@@ -45,6 +45,8 @@ export function createStreamResampler(
 ): StreamResampler {
   if (!Number.isFinite(sourceRateHz) || sourceRateHz <= 0)
     throw new Error("sourceRateHz must be a positive finite number");
+  if (!Number.isFinite(targetRateHz) || targetRateHz <= 0)
+    throw new Error("targetRateHz must be positive");
   const ratio = sourceRateHz / targetRateHz;
   let carry: number | undefined;
   // Fractional read position into the (carry-prefixed) buffer, in source samples.

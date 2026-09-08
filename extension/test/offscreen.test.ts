@@ -40,6 +40,33 @@ function fakeChrome(): { chrome: OffscreenChrome; sent: unknown[]; deliver: (m: 
 }
 
 describe("offscreen capture handler (TASK-101)", () => {
+  it("cleans a track that ends while audio playback is still resuming", async () => {
+    const track = fakeTrack();
+    const close = vi.fn(async () => undefined);
+    let resume!: () => void;
+    const { chrome, sent } = fakeChrome();
+    const handler = createOffscreenCaptureHandler(chrome, {
+      getUserMedia: async () => fakeStream([track]),
+      createAudioContext: () => ({
+        createMediaStreamSource: () => ({ connect: vi.fn(), disconnect: vi.fn() }),
+        destination: {},
+        resume: () =>
+          new Promise<void>((resolve) => {
+            resume = resolve;
+          }),
+        close,
+      }),
+    });
+    const starting = handler._internal.consumeStream(1, "synthetic-stream");
+    await Promise.resolve();
+    (track.onended as () => void)();
+    resume();
+    await starting;
+    expect(close).toHaveBeenCalledOnce();
+    expect(sent).toContainEqual(expect.objectContaining({ kind: "track_ended" }));
+    expect(sent).not.toContainEqual(expect.objectContaining({ kind: "track_active" }));
+  });
+
   it("consumes a stream ID exactly once, connects passthrough exactly once, and acks track_active", async () => {
     const track = fakeTrack();
     const stream = fakeStream([track]);
@@ -217,5 +244,63 @@ describe("offscreen capture handler (TASK-101)", () => {
       kind: "track_active",
       generation: 1,
     });
+  });
+});
+it("stops media that resolves after Stop and rejects duplicate pending consumes", async () => {
+  let release!: (stream: MediaStream) => void;
+  const getUserMedia = vi.fn(
+    () =>
+      new Promise<MediaStream>((resolve) => {
+        release = resolve;
+      }),
+  );
+  const track = fakeTrack();
+  const stream = fakeStream([track]);
+  const { chrome, sent, deliver } = fakeChrome();
+  const context = {
+    createMediaStreamSource: () => ({ connect: vi.fn() }),
+    destination: {},
+    close: vi.fn(async () => undefined),
+  };
+  createOffscreenCaptureHandler(chrome, {
+    getUserMedia,
+    createAudioContext: () => context,
+  }).attach();
+  const command = {
+    channel: OFFSCREEN_COMMAND_CHANNEL,
+    kind: "consume_stream",
+    generation: 4,
+    streamId: "test-stream",
+  };
+  deliver(command);
+  deliver(command);
+  expect(getUserMedia).toHaveBeenCalledOnce();
+  deliver({ channel: OFFSCREEN_COMMAND_CHANNEL, kind: "stop", generation: 4 });
+  release(stream);
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(track.stop).toHaveBeenCalledOnce();
+  expect(sent).not.toContainEqual({
+    channel: OFFSCREEN_ACK_CHANNEL,
+    kind: "track_active",
+    generation: 4,
+  });
+});
+it("cleans up and reports failure when audio graph setup throws", async () => {
+  const track = fakeTrack();
+  const { chrome, sent } = fakeChrome();
+  const handler = createOffscreenCaptureHandler(chrome, {
+    getUserMedia: async () => fakeStream([track]),
+    createAudioContext: () => {
+      throw new Error("graph failed");
+    },
+  });
+  await handler._internal.consumeStream(4, "test-stream");
+  expect(track.stop).toHaveBeenCalledOnce();
+  expect(sent).toContainEqual({
+    channel: OFFSCREEN_ACK_CHANNEL,
+    kind: "track_failed",
+    generation: 4,
+    reason: "capture_failed",
   });
 });

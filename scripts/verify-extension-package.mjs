@@ -91,29 +91,67 @@ await assertLocalDocument(offscreenPath);
 // rather than only asserting this against source that might not be what shipped.
 const setPanelBehaviorCalls = [];
 let actionListenerCount = 0;
+let actionListener, messageListener;
+let captureAttempts = 0,
+  offscreenCreations = 0,
+  panelOpens = 0;
+const storedRecords = [];
 globalThis.chrome = {
-  action: { onClicked: { addListener: () => (actionListenerCount += 1) } },
+  action: {
+    setBadgeText: async () => undefined,
+    setTitle: async () => undefined,
+    onClicked: {
+      addListener: (listener) => {
+        actionListener = listener;
+        actionListenerCount += 1;
+      },
+    },
+  },
   sidePanel: {
+    async open() {
+      panelOpens += 1;
+    },
     async setPanelBehavior(options) {
       setPanelBehaviorCalls.push(options);
     },
   },
-  storage: { session: { get: async () => ({}), set: async () => undefined } },
-  tabs: { onRemoved: { addListener: () => undefined } },
+  storage: {
+    session: {
+      get: async () => ({}),
+      set: async (items) => {
+        storedRecords.push(items);
+      },
+    },
+  },
+  tabs: {
+    onUpdated: { addListener: () => undefined },
+    onActivated: { addListener: () => undefined },
+    onRemoved: { addListener: () => undefined },
+  },
   tabCapture: {
     getMediaStreamId: async () => {
-      throw new Error("not exercised by package verification");
+      captureAttempts += 1;
+      return "unexpected-stream";
     },
     getCapturedTabs: async () => [],
     onStatusChanged: { addListener: () => undefined },
   },
   runtime: {
-    onMessage: { addListener: () => undefined },
+    onMessage: {
+      addListener: (listener) => {
+        messageListener = listener;
+      },
+    },
     sendMessage: async () => undefined,
     getContexts: async () => [],
     getURL: (relativePath) => `chrome-extension://package-verification/${relativePath}`,
   },
-  offscreen: { createDocument: async () => undefined, closeDocument: async () => undefined },
+  offscreen: {
+    createDocument: async () => {
+      offscreenCreations += 1;
+    },
+    closeDocument: async () => undefined,
+  },
 };
 await import(`${pathToFileURL(workerPath).href}?package-verification=${Date.now()}`);
 assert(
@@ -127,6 +165,20 @@ assert(
 assert(
   actionListenerCount === 1,
   "packaged background worker must register exactly one explicit action.onClicked listener",
+);
+actionListener({ id: 7 });
+assert(panelOpens === 1, "the panel must open directly in the click callback");
+const consentResult = await new Promise((resolve) => {
+  messageListener({ channel: "livelecture-capture", kind: "consent", generation: 1 }, {}, resolve);
+});
+actionListener({ id: 7 });
+await new Promise((resolve) => setImmediate(resolve));
+assert(consentResult.status.state === "idle", "ordinary builds must leave capture disabled");
+assert(captureAttempts === 0, "ordinary builds must not request a capture stream");
+assert(offscreenCreations === 0, "ordinary builds must not create a capture document");
+assert(
+  !storedRecords.some((r) => Object.values(r).some((v) => v.state === "armed")),
+  "ordinary builds must not arm capture",
 );
 
 console.log("Packaged extension verification passed.");

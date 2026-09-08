@@ -61,7 +61,10 @@ describe("realtime-token route (TASK-102)", () => {
       audioFormat: "pcm_16000",
       commitStrategy: "vad",
     });
-    expect(mintToken).toHaveBeenCalledExactlyOnceWith({ apiKey: KEY });
+    expect(mintToken).toHaveBeenCalledExactlyOnceWith({
+      apiKey: KEY,
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it("handles preflight with an exact origin, no wildcard", async () => {
@@ -163,4 +166,51 @@ describe("realtime-token route (TASK-102)", () => {
     const { handle: handle3 } = handler({ apiKey: undefined });
     expect((await handle3(request())).status).toBe(404);
   });
+});
+it("rejects a chunked oversized body before EOF and never mints", async () => {
+  const { handle, mintToken } = handler();
+  const stream = new ReadableStream<Uint8Array>({
+    start(c) {
+      c.enqueue(new Uint8Array(2048));
+    },
+  });
+  const req = request();
+  const response = await handle(
+    new Request(req.url, {
+      method: "POST",
+      headers: req.headers,
+      body: stream,
+      duplex: "half",
+    } as RequestInit),
+  );
+  expect(response.status).toBe(413);
+  expect(mintToken).not.toHaveBeenCalled();
+});
+it("bounds stalled incoming bodies and cancellation before any issuance", async () => {
+  vi.useFakeTimers();
+  try {
+    const { handle, mintToken } = handler();
+    const req = request();
+    const pending = handle(
+      new Request(req.url, {
+        method: "POST",
+        headers: req.headers,
+        body: new ReadableStream(),
+        duplex: "half",
+      } as RequestInit),
+    );
+    await vi.advanceTimersByTimeAsync(5001);
+    expect((await pending).status).toBe(408);
+    expect(mintToken).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it("an authenticated HEAD proves readiness without spending either issuance", async () => {
+  const { handle, mintToken } = handler();
+  expect((await handle(request({ method: "HEAD" }))).status).toBe(204);
+  expect(mintToken).not.toHaveBeenCalled();
+  expect((await handle(request())).status).toBe(200);
+  expect((await handle(request())).status).toBe(200);
+  expect((await handle(request())).status).toBe(429);
 });

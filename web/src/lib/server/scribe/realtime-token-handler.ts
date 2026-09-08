@@ -5,6 +5,7 @@ import {
   ScribeTokenRequestSchema,
 } from "@livelecture/shared";
 import { mintScribeRealtimeToken, ScribeTokenMintError } from "./eleven-labs-client";
+import { readBoundedJson, withDeadline, ScribeHttpError } from "./bounded-http";
 
 /**
  * TASK-102 — the protected local-spike-only route that mints a short-lived
@@ -45,8 +46,7 @@ function corsHeaders(origin: string): HeadersInit {
 
 function isLoopbackHost(host: string | null): boolean {
   if (!host) return false;
-  const hostname = host.split(":")[0]?.toLowerCase();
-  return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]";
+  return /^(127\.0\.0\.1|localhost|\[::1\])(?::[0-9]{1,5})?$/.test(host);
 }
 
 export function createRealtimeTokenHandler({
@@ -59,27 +59,53 @@ export function createRealtimeTokenHandler({
 }: RealtimeTokenHandlerOptions) {
   let issued = 0;
   const expectedOrigin = extensionId ? `chrome-extension://${extensionId}` : undefined;
-  const misconfigured = !enabled || !expectedOrigin || !capabilityToken || !apiKey;
+  const misconfigured =
+    !enabled ||
+    !extensionId ||
+    !/^[a-p]{32}$/.test(extensionId) ||
+    !capabilityToken ||
+    !apiKey ||
+    !Number.isSafeInteger(maxIssuances) ||
+    maxIssuances < 1 ||
+    maxIssuances > 2;
 
   return async function handleRealtimeTokenRequest(request: Request): Promise<Response> {
     const origin = request.headers.get("origin");
 
     if (request.method === "OPTIONS") {
-      if (!enabled || !expectedOrigin || origin !== expectedOrigin)
+      if (
+        misconfigured ||
+        !isLoopbackHost(request.headers.get("host")) ||
+        !expectedOrigin ||
+        origin !== expectedOrigin
+      )
         return new Response(null, { status: 404 });
-      return new Response(null, { status: 204, headers: corsHeaders(expectedOrigin) });
+      return new Response(null, {
+        status: 204,
+        headers: { ...corsHeaders(expectedOrigin), "Cache-Control": "no-store" },
+      });
     }
 
     // Every failure below happens before the upstream fetch, and before any
     // response identifies which specific check failed — a wrong origin, a
     // missing capability, and a disabled route all look the same from outside.
     const fail = (status: number) =>
-      new Response(null, { status, headers: { "Cache-Control": "no-store" } });
+      new Response(null, {
+        status,
+        headers: {
+          "Cache-Control": "no-store",
+          ...(origin === expectedOrigin ? corsHeaders(expectedOrigin!) : {}),
+        },
+      });
 
-    if (misconfigured || request.method !== "POST") return fail(404);
+    if (misconfigured || !["POST", "HEAD"].includes(request.method)) return fail(404);
     if (!isLoopbackHost(request.headers.get("host"))) return fail(404);
     if (origin !== expectedOrigin) return fail(404);
     if (request.headers.get(CAPABILITY_HEADER) !== capabilityToken) return fail(404);
+    if (request.signal.aborted) return fail(408);
+    // Authenticated readiness probe: proves this exact run, and never mints a token.
+    if (request.method === "HEAD")
+      return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
     if ((request.headers.get("content-type") ?? "").split(";")[0]?.trim() !== "application/json")
       return fail(415);
 
@@ -92,11 +118,13 @@ export function createRealtimeTokenHandler({
 
     let body: unknown;
     try {
-      const text = await request.text();
-      if (Buffer.byteLength(text, "utf8") > MAX_BODY_BYTES) return fail(413);
-      body = text.length === 0 ? {} : JSON.parse(text);
-    } catch {
-      return fail(400);
+      body = await withDeadline(
+        (signal) => readBoundedJson(request.body, MAX_BODY_BYTES, signal),
+        5_000,
+        request.signal,
+      );
+    } catch (error) {
+      return fail(error instanceof ScribeHttpError ? error.status : 400);
     }
     if (!ScribeTokenRequestSchema.safeParse(body).success) return fail(400);
 
@@ -106,7 +134,7 @@ export function createRealtimeTokenHandler({
     issued += 1;
 
     try {
-      const minted = await mintToken({ apiKey });
+      const minted = await mintToken({ apiKey: apiKey!, signal: request.signal });
       return Response.json(
         {
           token: minted.token,

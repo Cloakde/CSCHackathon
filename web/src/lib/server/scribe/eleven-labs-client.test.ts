@@ -71,3 +71,22 @@ describe("ElevenLabs single-use realtime token adapter (TASK-102)", () => {
     expect(String(error)).not.toContain(key);
   });
 });
+it("keeps the timeout active through a stalled response body", async () => {
+  vi.useFakeTimers();
+  const pending = mintScribeRealtimeToken({
+    apiKey: key,
+    timeoutMs: 100,
+    fetcher: async () => new Response(new ReadableStream()),
+  });
+  const assertion = expect(pending).rejects.toMatchObject({ code: "timeout" });
+  await vi.advanceTimersByTimeAsync(101);
+  await assertion;
+});
+it("bounds upstream bytes and discards a token that echoes the permanent key", async () => {
+  await expect(
+    mintScribeRealtimeToken({ apiKey: key, fetcher: async () => new Response("x".repeat(8193)) }),
+  ).rejects.toMatchObject({ code: "response" });
+  await expect(
+    mintScribeRealtimeToken({ apiKey: key, fetcher: async () => Response.json({ token: key }) }),
+  ).rejects.toMatchObject({ code: "response" });
+});
