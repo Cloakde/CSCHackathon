@@ -22,16 +22,16 @@ The corrected integrated build starts its six-second panel lease before arming c
 
 Current author checks and final source pair are recorded at completion below. Mock Gemini results establish contracts/status propagation, not model quality. No provider call, credential inspection, real recording, browser/desktop control, deployment or submission has occurred during this implementation.
 
-## Remaining acceptance
-
 ## Local verification
 
 - LiveLecture `npm run check`: PASS, including formatting, lint, secret scan, type checks, **547 tests (24 root + 73 shared + 288 web + 162 extension)**, production builds, ordinary extension-package verification and the production HTTP demo.
 - Separate opt-in `live-test` extension build: PASS. Manifest has the separate LIVE TEST name and ElevenLabs socket policy; ordinary package retains its local-only connection policy. Actual installation and audio behavior remain untested.
 - Isolated MeltingPot guarded check: PASS, lint, types, **343 tests in 25 files**, production build. Saved at `4534dba6bb490d3a4c95bce499656aee5b8f4c52`; remote-free and push-guarded.
 - Paired component journey: PASS, **2 tests**, prewritten and mock-Gemini assistance through the extension, API, relay and MeltingPot with distinct practice topics.
+- Paired production HTTP: PASS at LiveLecture `345850d9589f88dd9b4c245215e96f9b077b615b` / MeltingPot `4534dba6bb490d3a4c95bce499656aee5b8f4c52`. Both loopback servers were launched for the check, their owned listener processes were verified, and both were stopped afterward. Two confusion topics, distinct practice, citations, repeated Finish, private access guards, inherited-route rejection and deletion passed. The first run exposed obsolete disclosure assertions; the test now requires truthful sample/live and prewritten/Gemini labels. It does not turn fake Gemini into live evidence.
 - Synthetic WAV/PCM format, duration, non-silence and hashes: PASS. No recording or playback was performed.
 - Initial review failures and the later UI type-check failure were corrected before the successful full check. Paid/manual launchers were tested only with fake dependencies or no-argument offline plans.
+- Source implementation is `aac4b9b`; the following disclosure-test and documentation checkpoints do not change application runtime. The local package manifest pins both final source commits/trees and artifact hashes. Final CI must match the shared branch head in PR #5 checks.
 
 ## Remaining acceptance
 
