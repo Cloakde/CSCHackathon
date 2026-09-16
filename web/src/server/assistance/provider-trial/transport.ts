@@ -140,7 +140,11 @@ export function createMeteredGeminiTransport({
 }: ProviderTransportOptions) {
   if (
     typeof apiKey !== "string" ||
-    !/^[A-Za-z0-9_-]{8,512}$/.test(apiKey) ||
+    apiKey.length < 8 ||
+    apiKey.length > 512 ||
+    // Google authorization keys contain dots. Validate bounded header-safe input,
+    // not a legacy key shape; only the provider can establish credential validity.
+    /[^A-Za-z0-9_.-]/.test(apiKey) ||
     !safeId.safeParse(scenarioId).success ||
     typeof meter?.reserve !== "function" ||
     typeof meter?.settle !== "function" ||

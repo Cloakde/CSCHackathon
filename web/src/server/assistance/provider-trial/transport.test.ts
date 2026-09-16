@@ -57,6 +57,47 @@ afterEach(() => {
 });
 
 describe("offline bounded generateContent transport", () => {
+  it.each([key, "AQ.offline-test-only_0123-xyz"])(
+    "sends opaque credentials only in the auth header, including authorization keys (%s)",
+    async (apiKey) => {
+      const meter: TrialMeter = { reserve: vi.fn(() => 1), settle: vi.fn() };
+      const fetcher = vi.fn(async (url, options) => {
+        expect(meter.reserve).toHaveBeenCalledOnce();
+        expect(url).toBe(TRIAL_ENDPOINT);
+        expect(new Headers(options!.headers).get(TRIAL_AUTH_HEADER)).toBe(apiKey);
+        expect(String(options!.body)).not.toContain(apiKey);
+        return response();
+      });
+      const call = createTrialTransport({ apiKey, scenarioId: "offline_case", meter, fetcher });
+      await expect(call("help_generate", { lecture: "synthetic" }, signal(), parse)).resolves.toBe(
+        "safe synthetic answer",
+      );
+      expect(fetcher).toHaveBeenCalledOnce();
+      expect(meter.settle).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([
+    "short",
+    "x".repeat(513),
+    ` ${key}`,
+    `${key} `,
+    `${key}\n`,
+    `${key}\r\nx-extra: injected`,
+    `${key}\t`,
+    `${key}\0`,
+    `"${key}"`,
+    `${key}\u200b`,
+  ])("rejects unsafe or out-of-bound credentials before reservation or fetch (%#)", (apiKey) => {
+    const meter: TrialMeter = { reserve: vi.fn(() => 1), settle: vi.fn() };
+    const fetcher = vi.fn(async () => response());
+    expect(() =>
+      createTrialTransport({ apiKey, scenarioId: "offline_case", meter, fetcher }),
+    ).toThrow("configuration");
+    expect(meter.reserve).not.toHaveBeenCalled();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it.each(Object.keys(OutputJsonSchemas) as (keyof typeof OutputJsonSchemas)[])(
     "sends %s through the JSON Schema field without dropping strict object constraints",
     async (kind) => {

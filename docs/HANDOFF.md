@@ -1,5 +1,13 @@
 # LiveLecture AI — Current handoff
 
+## Gemini credential compatibility correction — active, 2026-09-15
+
+- **Active AI:** Codex. The user reported repeated rejection by the private key helper. This is an application/helper validation defect: the already-saved entry has Google's newer authorization-key format, including a dot. It is not evidence of a bad paste or invalid provider credential; no replacement is needed for this format issue.
+- **Ownership:** the shared Gemini transport's credential validation and focused offline tests, the external PowerShell helper, and current coordination/evidence. Preserve both saved credentials unchanged, all ledgers, existing model/settings/caps and Simulation Mode. No Scribe retry or MeltingPot changes.
+- **Next:** accept the newer format while retaining length and header-safety checks, verify offline, obtain sequential review, then resume the previously authorized bounded Gemini check on the clean corrected source. No Google request or trial ledger exists yet; this is not a budget reset.
+- **Correction/review:** the transport now permits dots while still rejecting out-of-bound, whitespace, control and quoted input before reservation or fetch. The external helper uses the same alphabet with strict whole-string matching. The saved entries were preserved; 90 focused tests, full type checking and six fake helper-input checks passed. Sequential read-only review found no P1/P2 and approved the narrow correction/resumption after the full offline check passes and the clean source bundle is rebuilt. Google authentication itself remains unverified.
+- **Full offline verification:** `npm run check` PASS — formatting, lint, secret scan, types, **559 tests (24 root + 73 shared + 300 web + 162 extension)**, production builds, default-off package verification and production HTTP demo. No provider request was made by these checks.
+
 ## Authorized provider test session — stopped with blockers, 2026-09-15
 
 - **Active AI:** none — Codex completed the bounded attempt and released the turn. The user saved both keys through the private PowerShell helper, requested another API attempt, and authorized takeover/testing for this session. Older no-provider/no-desktop statements describe past turns and did not forbid this session.

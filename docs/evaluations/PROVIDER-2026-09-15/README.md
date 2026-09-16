@@ -2,6 +2,14 @@
 
 **Result: Gemini BLOCKED before provider use; Scribe FAIL after real provider use.** Neither result establishes live extension readiness. The user saved credentials privately and authorized testing for this session. Synthetic text/audio only; no browser capture, real classroom data, account changes, main merge or original/isolated MeltingPot edits.
 
+## Gemini key-format diagnosis corrected
+
+The user's follow-up exposed a local validator bug. Google's [current key documentation](https://ai.google.dev/gemini-api/docs/api-key) describes authorization keys as the default for new AI Studio keys. A secret-safe local boolean check confirmed the existing saved entry uses that format, includes a dot, fits the existing bounded ASCII length and has no surrounding whitespace. The helper and shared transport incorrectly excluded dots. The earlier instruction to replace the key was unnecessary; this local rejection never proved that Google would reject it.
+
+The correction permits dots while retaining length, whitespace/control-character and unsafe-header rejection. The helper now reports a precise input instruction instead of asserting that the value is not a key. Both saved credentials were preserved unchanged. Offline evidence: **90 focused transport/application tests**, full type checking and **six fake helper-input checks** passed. A sequential read-only review found no P1/P2 and approved resuming the previously authorized bounded Gemini RunId 02 after a successful full offline check, clean checkpoint and fresh bundle. Model/settings/limits and all prior records remain unchanged; no Scribe retry is authorized by this correction.
+
+The full offline `npm run check` subsequently passed: formatting, lint, secret scan, types, **559 tests (24 root + 73 shared + 300 web + 162 extension)**, production builds, ordinary extension-package verification and production HTTP demo. These checks made no provider calls.
+
 ## Gemini
 
 The production application service was exercised at commit `e1a942838e246618371b38c2958fb4f97094fe34`, tree `5f6fb20197f2f8e12eae68a0af3eb9ba90273a15`. Session creation, synthetic transcript append and cleanup succeeded. Help returned HTTP 503 with `gemini_blocked`: the saved Gemini entry failed the existing credential syntax validation. The diagnostic fetcher recorded **zero provider requests**, and the shared trial ledger did not exist after this attempt. No AI output or quality evidence was obtained.
