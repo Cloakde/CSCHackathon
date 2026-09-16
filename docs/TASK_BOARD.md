@@ -4,7 +4,9 @@
 
 The AI holding the active turn edits this file on behalf of the Coordinator. [HANDOFF.md](HANDOFF.md) records the current turn and next step.
 
-## Current execution — 2026-09-15
+## Current execution — 2026-09-16
+
+**Gemini learning-loop diagnosis IN PROGRESS; active AI Codex.** User authorized diagnosis/correction and the bounded two-topic learning test, unsupported question and instruction-text checks. Preserve the existing allowance, frozen evaluation, verification and timing requirements. Start with a reviewed two-call synthetic diagnostic; current scope/order is in [HANDOFF.md](HANDOFF.md). Real AI and human acceptance remain pending.
 
 **Gemini connectivity verified; active AI none.** Stable Flash-Lite 3.1 returned two HTTP 200 responses for Help generation and verification, with validated usage. The application returned insufficient evidence, so the bounded smoke stopped before practice; grounded-answer acceptance remains FAIL. Model/accounting changes passed sequential review, 574 offline tests/full checks and exact-source CI at `64ec615`. The append-only ledger transition preserved prior spending; all three attempts now debit 106,416 microdollars total. Next is a bounded diagnostic/quality review with existing checks and remaining allowance preserved. [Evidence](evaluations/PROVIDER-2026-09-15/README.md). No new key, Scribe retry or MeltingPot change occurred.
 

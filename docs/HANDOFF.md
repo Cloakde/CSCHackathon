@@ -1,5 +1,12 @@
 # LiveLecture AI — Current handoff
 
+## Gemini learning-loop diagnosis — IN PROGRESS, 2026-09-16
+
+- **Active AI:** Codex. The user said Execute on diagnosing the rejected explanation and proving two-topic explanation/citation/practice plus unsupported-question and instruction-text handling. One AI works at a time; sequential review pauses implementation.
+- **Starting source:** clean `3031936a43d3a71bb83327028580f37edd504357` on `shared/livelecture`. Saved-key setup is complete. Preserve the existing three attempts and 106,416-microdollar debit under the same $1/32-attempt cap.
+- **Owned scope:** application Gemini prompts/validation and focused regressions if diagnosis warrants changes; external synthetic diagnostic/learning-loop helper and explicit source-rebind maintenance; affected evidence, handoff and task board. Frozen benchmark cases, verifier requirements, deadlines, provider policy/prices and public contracts stay intact. The isolated MeltingPot copy may be exercised read-only; original repositories/services remain excluded.
+- **Order:** review a maximum-two-call diagnostic on unchanged runtime, then inspect its bounded synthetic candidate/verdict evidence. Fix a reproduced cause, run offline checks and sequential review, and execute one bounded acceptance continuation on that reviewed source. Stop each run on unexpected failure; no automatic retry or budget reset. Exact-source CI precedes provider use. Any further continuation must follow diagnosis/review within this same allowance. No Scribe, desktop, main merge or release acceptance is implied.
+
 ## Gemini model compatibility update — complete; connection verified, 2026-09-15
 
 - **Active AI:** none — Codex completed the correction and the authorized continuation, then released the turn. The user replied Done to continue the saved-key/provider setup. Both encrypted entries remain readable. No desktop, Scribe retry, original/isolated MeltingPot changes or live activation occurred.
