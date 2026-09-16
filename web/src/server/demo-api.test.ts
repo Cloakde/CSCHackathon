@@ -1211,9 +1211,9 @@ describe("local HTTP boundary", () => {
             shortExplanation: "Identify outer function and inner function.",
             practiceItems: [
               {
-                prompt: "Identify inner and outer functions for (2x + 1)^3",
-                expectedAnswer: "inner 2x+1, outer u^3",
-                explanation: "The composite structure has 2x+1 inside the cube.",
+                prompt: inputData.benchmarkQuestion,
+                expectedAnswer: "g(x) = 2x + 3; f(u) = u⁴",
+                explanation: "The expression 2x + 3 is inside the fourth-power operation.",
               },
             ],
             evidenceChunkIds: inputData.confusion.evidenceChunkIds,
@@ -1293,7 +1293,9 @@ describe("local HTTP boundary", () => {
       });
       expect(drillRes.status).toBe(200);
       const drillJson = await drillRes.json();
-      expect(drillJson.data.practiceItems[0].prompt).toContain("inner and outer functions");
+      expect(drillJson.data.practiceItems[0].prompt).toContain(
+        "inner function g(x) and outer function f(u)",
+      );
     });
 
     it("aborts in-flight Gemini requests when session is deleted", async () => {

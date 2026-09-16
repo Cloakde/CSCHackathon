@@ -150,7 +150,7 @@ describe("actual Gemini application runtime with offline transport and durable a
           shortExplanation: "Multiply by the derivative of the inside.",
           practiceItems: [
             {
-              prompt: "What is the derivative of (2x + 3)^4?",
+              prompt: payload.benchmarkQuestion,
               expectedAnswer: "8(2x + 3)^3",
               explanation: "Multiply 4(2x + 3)^3 by the inner derivative, 2.",
             },

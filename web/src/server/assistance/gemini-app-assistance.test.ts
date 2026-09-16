@@ -6,6 +6,7 @@ import {
   type CompletedSessionView,
 } from "@livelecture/shared";
 import { createGeminiAppAssistance, GeminiAppError } from "./gemini-app-assistance";
+import { BENCHMARK_QUESTIONS } from "./provider-trial/prompts";
 
 const sid = "session_gemini_test";
 const canonicalChunks = getCommittedChunksFromFixture().map((chunk) => ({
@@ -373,10 +374,9 @@ describe("gemini-app-assistance", () => {
           shortExplanation: "Multiply by the inner derivative.",
           practiceItems: [
             {
-              prompt: "What is the derivative of (3x + 1)^4?",
-              expectedAnswer: "12(3x + 1)^3",
-              explanation:
-                "Outer derivative is 4(3x+1)^3, inner derivative is 3. Multiply to get 12(3x+1)^3.",
+              prompt: BENCHMARK_QUESTIONS.concept_inner_derivative,
+              expectedAnswer: "The missing factor is 2; the derivative is 8(2x + 3)³.",
+              explanation: "Multiply 4(2x + 3)³ by the inner derivative, 2.",
             },
           ],
           evidenceChunkIds: ["chunk_calc_004"],
@@ -432,13 +432,28 @@ describe("gemini-app-assistance", () => {
       signal: new AbortController().signal,
     });
     expect(drill.drillId).toBe(drillId);
-    expect(drill.practiceItems[0]!.prompt).toContain("(3x + 1)^4");
+    expect(drill.practiceItems[0]!.prompt).toBe(BENCHMARK_QUESTIONS.concept_inner_derivative);
 
     const verdict = await assistant.verifyPractice(
       { view, confusionEvent: event, drill },
       new AbortController().signal,
     );
     expect(verdict.verdict).toBe("supported");
+    const truncated = structuredClone(drill);
+    truncated.practiceItems[0]!.prompt =
+      "Identify the missing factor and calculate the correct derivative for (2x + 3)⁴.";
+    mockFetcher.mockResolvedValueOnce(fakeGeminiResponse(truncated));
+    await expect(
+      assistant.generatePractice(event, drillId, { view, signal: new AbortController().signal }),
+    ).rejects.toMatchObject({ code: "output" });
+    const callsBeforeVerification = mockFetcher.mock.calls.length;
+    await expect(
+      assistant.verifyPractice(
+        { view, confusionEvent: event, drill: truncated },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: "output" });
+    expect(mockFetcher).toHaveBeenCalledTimes(callsBeforeVerification);
   });
 
   it("handles Ask the Lecture with grounded citations", async () => {

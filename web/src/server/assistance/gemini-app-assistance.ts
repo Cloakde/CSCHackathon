@@ -103,7 +103,7 @@ const APP_PRACTICE =
   boundary +
   " Create exactly one short practice question targeting the supplied confusion, using only sourceEvidence. Solve it independently. Preserve all supplied identities, concept ID, title and confusion IDs. Include the expected answer and supported explanation. Cite only the confusion's supplied evidence IDs.";
 const PRACTICE_CONCISION =
-  " Keep the exercise concise: shortExplanation at most 20 words, expectedAnswer one line, and the item's explanation at most 30 words. Preserve the mathematical steps needed to justify the answer. Do not repeat the question or definitions in the explanation. Return the complete required JSON and exact identities.";
+  " Keep the exercise concise: shortExplanation at most 20 words, expectedAnswer one line, and the item's explanation at most 30 words. Preserve the mathematical steps needed to justify the answer. Do not repeat the question or definitions in the explanation. The question must be self-contained, including any incorrect work the learner must diagnose. Return the complete required JSON and exact identities.";
 const APP_PRACTICE_VERIFY =
   boundary +
   " Independently solve the candidate question from citedPassages. Verify question_supported, answer_correct, explanation_supported (including shortExplanation), and confusion_aligned. Return supported with all four supportedChecks exactly once only if every check passes. A real citation or a matching topic alone is insufficient. Never repair the answer.";
@@ -250,7 +250,10 @@ export function createGeminiAppAssistance({ apiKey, meter, fetcher }: GeminiAppA
       return call({
         kind: "practice_generate",
         systemInstruction:
-          (sample ? TrialInstructions.practice_generate : APP_PRACTICE) + PRACTICE_CONCISION,
+          (sample
+            ? TrialInstructions.practice_generate +
+              " Copy benchmarkQuestion verbatim into practiceItems[0].prompt; never shorten the problem statement."
+            : APP_PRACTICE) + PRACTICE_CONCISION,
         input: payload,
         schema: sample ? OutputJsonSchemas.practice_generate : appPracticeJson,
         signal: contextInput.signal,
@@ -259,6 +262,9 @@ export function createGeminiAppAssistance({ apiKey, meter, fetcher }: GeminiAppA
             decoded,
           ).result;
           if (drill.practiceItems.length !== 1) throw new TrialProviderError("output");
+          if (sample && drill.practiceItems[0]!.prompt !== payload.benchmarkQuestion) {
+            throw new TrialProviderError("output");
+          }
           if (drill.drillId !== payload.identities.drillId) {
             throw new TrialProviderError("output");
           }
@@ -285,6 +291,12 @@ export function createGeminiAppAssistance({ apiKey, meter, fetcher }: GeminiAppA
       const drill = (sample ? TrialPracticeSchema : WeakAreaDrillResponseSchema).parse(
         candidateInput.drill,
       );
+      if (
+        sample &&
+        drill.practiceItems[0]!.prompt !==
+          BENCHMARK_QUESTIONS[TrialConceptSchema.parse(event.conceptId)]
+      )
+        throw new TrialProviderError("output");
       const source = sourceEvidence(event, view);
       assertWeakAreaDrillLinkage(
         { sessionId: event.sessionId, confusionEventIds: [event.confusionId] },
