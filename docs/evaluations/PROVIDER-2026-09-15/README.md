@@ -1,6 +1,25 @@
 # Bounded provider test — 2026-09-15 Pacific
 
-**Latest result: Gemini key-format bug fixed; real Google request blocked by model availability. Scribe FAIL after real provider use.** Neither result establishes live extension readiness. The user saved credentials privately and authorized testing for this session. Synthetic text/audio only; no browser capture, real classroom data, account changes, main merge or original/isolated MeltingPot edits.
+**Latest result: Gemini key/model connectivity verified; grounded Help smoke FAIL. Scribe FAIL after real provider use.** Neither result establishes live extension readiness. The user saved credentials privately and authorized testing for this session. Synthetic text/audio only; no browser capture, real classroom data, account changes, main merge or original/isolated MeltingPot edits.
+
+## Gemini model update and real RunId 03
+
+At commit `64ec615898b6f7ffc88587b0a4e9442cd1dcc320`, tree `8e499c2aa83f476aca27fc1588d87c8993bea607`, the direct model became stable `gemini-3.1-flash-lite` with explicit minimal thinking. [ADR 0012](../../adr/0012-gemini-assistance-direction.md) records current documentation, prices and conservative bounds. Full checks passed **574 tests**, production builds/package/HTTP verification; sequential review found no P1/P2. Exact-source [CI 35055011077](https://github.com/Cloakde/CSCHackathon/actions/runs/35055011077) passed verification and Gitleaks before provider use.
+
+The credential-free maintenance helper appended a source/policy transition to the same authoritative ledger after checking its previous full hash. All original bytes, attempt 1 and its 105,677-microdollar uncertain charge were preserved, with an exclusive backup. Current policy hash: `cc7fb0ee225cc251eaf850215ddd0ce3b3da15eb5ae2d59f637dd365b6ee2f1c`. It granted no additional dollar or attempts.
+
+From **2026-09-16 04:18:41.165Z to 04:18:44.914Z**, the production service made two real Google requests using only the canonical synthetic first topic. Both returned **HTTP 200** with matching model identity and independently validated usage:
+
+| Cumulative attempt | Call              | Input tokens | Billed output tokens, including thinking | Accounting debit, microdollars |
+| ------------------ | ----------------- | ------------ | ---------------------------------------- | ------------------------------ |
+| 2                  | Help generation   | 602          | 275                                      | 563                            |
+| 3                  | Help verification | 636          | 11                                       | 176                            |
+
+The Help route returned HTTP 200 with its safe insufficient-evidence fallback and `gemini_failed` after **3,095 ms**. Therefore the complete smoke is **FAIL**: it stopped before the second topic, Finish and practice. Its own synthetic session was deleted; no retry followed. The key and model connection work, but that does not establish a supported answer or successful learning journey. Raw candidate/verifier content was deliberately not persisted, so the exact reason for rejecting the answer is not established by these logs; do not assert a specific bad claim or weaken the verifier based on this result.
+
+Total ledger debit is **106,416 microdollars**: the prior uncertain 105,677 plus the new validated 739. Three attempts count against the original $1/32 ceiling; no lock remains. Accounting is not a measured invoice delta. No Scribe call, desktop action, real lecture data or MeltingPot change occurred.
+
+Safe local artifacts: `outputs/provider-session/gemini-migration-03.txt`, `gemini-run-03.txt` and `gemini-result-03.json` under the helper workspace. Result SHA-256: `780cf53bc5b1bd86aa407ac83918e38e88c99ba7d8480baaefafc1661cca0367`. Next is a reviewed, bounded synthetic diagnostic/quality run that retains enough safe candidate/verdict evidence to explain the fallback, preserves the remaining allowance and makes no automatic retries. Default builds remain simulation; no new key entry is required.
 
 ## Gemini key-format diagnosis corrected
 
