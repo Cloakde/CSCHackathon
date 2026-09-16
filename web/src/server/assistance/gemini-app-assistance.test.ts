@@ -57,6 +57,98 @@ function withToolVerification(fetcher: typeof fetch): typeof fetch {
       : fetcher(url, init);
 }
 describe("gemini-app-assistance", () => {
+  it("supports a live concept outside the frozen sample taxonomy, preserving evidence and separate practice verification", async () => {
+    const chunk = {
+      chunkId: "chunk_gravity",
+      sessionId: sid,
+      sequence: 0,
+      startMs: 0,
+      endMs: 5000,
+      text: "Gravity makes a dropped object accelerate downward.",
+    };
+    const event: ConfusionEvent = {
+      confusionId: "conf_gravity",
+      sessionId: sid,
+      trigger: "im_lost",
+      assistanceResponseId: "response_gravity",
+      occurredAtMs: 5000,
+      anchorChunkId: chunk.chunkId,
+      contextChunkIds: [chunk.chunkId],
+      evidenceChunkIds: [chunk.chunkId],
+      conceptId: "concept_gravity",
+      conceptTitle: "Gravity",
+    };
+    const view: CompletedSessionView = {
+      session: {
+        sessionId: sid,
+        sourceMode: "live",
+        status: "completed",
+        startedAt: new Date(0).toISOString(),
+        endedAt: new Date(5000).toISOString(),
+      },
+      committedChunks: [chunk],
+      confusionEvents: [event],
+    };
+    const drill = {
+      drillId: "drill_gravity",
+      sessionId: sid,
+      sourceConfusionEventIds: [event.confusionId],
+      conceptId: event.conceptId,
+      conceptTitle: event.conceptTitle,
+      shortExplanation: "Gravity accelerates a dropped object downward.",
+      practiceItems: [
+        {
+          prompt: "Which way does a dropped object accelerate?",
+          expectedAnswer: "Downward.",
+          explanation: "Gravity makes the object accelerate downward.",
+        },
+      ],
+      evidenceChunkIds: [chunk.chunkId],
+    };
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(fakeGeminiResponse(drill))
+      .mockResolvedValueOnce(
+        fakeGeminiResponse({
+          verdict: "supported",
+          supportedChecks: [
+            "question_supported",
+            "answer_correct",
+            "explanation_supported",
+            "confusion_aligned",
+          ],
+        }),
+      );
+    const assistant = createGeminiAppAssistance({
+      apiKey: "fake-gemini-key-12345",
+      meter: { reserve: vi.fn(() => 1), settle: vi.fn() },
+      fetcher,
+    });
+    const generated = await assistant.generatePractice(event, "drill_gravity", {
+      view,
+      signal: new AbortController().signal,
+    });
+    expect(generated.conceptId).toBe("concept_gravity");
+    expect(
+      (
+        await assistant.verifyPractice(
+          { confusionEvent: event, view, drill: generated },
+          new AbortController().signal,
+        )
+      ).verdict,
+    ).toBe("supported");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls.map((call) => String(call[1]?.body)).join(" ")).not.toContain(
+      "benchmarkQuestion",
+    );
+    await expect(
+      assistant.generatePractice({ ...event, evidenceChunkIds: ["chunk_wrong"] }, "drill_wrong", {
+        view,
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
   it("rejects invalid API key configuration", () => {
     expect(() =>
       createGeminiAppAssistance({

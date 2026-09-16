@@ -79,11 +79,11 @@ it.each(["prewritten", "gemini", "blocked"] as const)(
   },
 );
 
-it("updates lecture and companion labels after verified results and after a later failure", async () => {
+it("updates lecture and prototype companion labels after verified results and after a later failure", async () => {
   vi.useFakeTimers();
   const api = setup("gemini");
   const lecture = render(
-    <App source={api.source} client={api.client} companionDestination="meltingpot" />,
+    <App source={api.source} client={api.client} companionDestination="prototype" />,
   );
   await click("Start sample lecture");
   await act(async () => {

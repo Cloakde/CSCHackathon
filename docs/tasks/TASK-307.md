@@ -1,5 +1,7 @@
 # TASK-307 — Connect Capture and Transcription to the Lecture Screen
 
+**Current amendment, 2026-09-15:** implemented under the user's [TASK-308](TASK-308.md) roadmap instruction; IN REVIEW, not LIVE PASS. [ADR 0013](../adr/0013-bounded-live-rehearsal.md) records the necessary offscreen/controller/server seams, ordinary-build separation and bounded panel lifetime. The source owns a consent-to-capture flow; the offscreen document owns PCM and the Scribe socket. Unlike the independent capture spike, closing a live-test panel deliberately ends transcription/capture within six seconds. This narrow safety choice is disclosed, tested with fakes and still requires human Chrome verification. The dependency/PASS criteria below remain acceptance criteria, not a prohibition on the now-authorized default-off implementation. The original draft follows for history.
+
 **Tier:** 1
 
 **State:** DRAFT — written during offline preparation (2026-09-06/07), not yet started. **The number 307 is provisional.** It was chosen because this preparation's source snapshot (`4a4f52f6295851d58be1dcce5f878606a3002bcd`) had no task past TASK-305, and TASK-306 was already known to be in progress elsewhere. **Before starting this task, check the live `docs/TASK_BOARD.md` and renumber if 307 (or higher) has since been claimed.**

@@ -154,7 +154,7 @@ export async function runChildren(plan, environments, dependencies) {
     await Promise.all(children.map(terminateChild));
   }
 }
-async function ready(plan, signal) {
+export async function ready(plan, signal) {
   const until = Date.now() + 30000;
   while (!signal.aborted && Date.now() < until) {
     try {
@@ -178,7 +178,7 @@ async function ready(plan, signal) {
   }
   throw new Error("The authorized local token route did not become ready.");
 }
-function verifyListener(port, pid) {
+export function verifyListener(port, pid) {
   if (process.platform !== "win32")
     throw new Error("This smoke's OS listener check currently requires Windows.");
   const script =

@@ -12,11 +12,13 @@ export function LectureTools({
   jump,
   blocked,
   assistanceStatus = "unknown",
+  sourceMode = "simulation",
 }: {
   request: (prompt: LectureToolPrompt, signal: AbortSignal) => Promise<LectureToolResponse>;
   jump: (chunkId: string) => void;
   blocked: boolean;
   assistanceStatus?: AssistanceStatus;
+  sourceMode?: "simulation" | "live";
 }) {
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState<LectureToolResponse>();
@@ -57,9 +59,11 @@ export function LectureTools({
     <section className="lecture-tools" aria-labelledby="lecture-tools-heading">
       <h2 id="lecture-tools-heading">Ask the Lecture</h2>
       <p id="sample-questions-help">
-        {assistanceStatus === "prewritten"
-          ? "Sample questions only · answers quote the lecture. Gemini is not connected."
-          : "Ask about the lecture passages received so far. Answers must be supported by the lecture."}
+        {assistanceStatus === "prewritten" && sourceMode === "live"
+          ? "Questions need an authorized Gemini connection. Catch Me Up can still show received transcript excerpts."
+          : assistanceStatus === "prewritten"
+            ? "Sample questions only · answers quote the lecture. Gemini is not connected."
+            : "Ask about the lecture passages received so far. Answers must be supported by the lecture."}
       </p>
       {blocked && (
         <p role="status">
@@ -79,34 +83,46 @@ export function LectureTools({
           value={question}
           maxLength={500}
           aria-describedby="sample-questions-help"
-          disabled={blocked || busy}
+          disabled={blocked || busy || (sourceMode === "live" && assistanceStatus === "prewritten")}
           onChange={(event) => {
             setQuestion(event.target.value);
             setResponse(undefined);
           }}
         />
-        <button type="submit" disabled={blocked || busy || !question.trim()}>
-          {assistanceStatus === "prewritten" ? "Ask sample question" : "Ask the lecture"}
+        <button
+          type="submit"
+          disabled={
+            blocked ||
+            busy ||
+            !question.trim() ||
+            (sourceMode === "live" && assistanceStatus === "prewritten")
+          }
+        >
+          {assistanceStatus === "prewritten" && sourceMode === "simulation"
+            ? "Ask sample question"
+            : "Ask the lecture"}
         </button>
       </form>
-      <details>
-        <summary>Try a sample question</summary>
-        <div className="sample-questions">
-          {SAMPLE_LECTURE_QUESTIONS.map((sample) => (
-            <button
-              key={sample.question}
-              type="button"
-              disabled={blocked || busy}
-              onClick={() => {
-                setQuestion(sample.question);
-                void submit({ kind: "ask", question: sample.question });
-              }}
-            >
-              {sample.question}
-            </button>
-          ))}
-        </div>
-      </details>
+      {sourceMode === "simulation" && (
+        <details>
+          <summary>Try a sample question</summary>
+          <div className="sample-questions">
+            {SAMPLE_LECTURE_QUESTIONS.map((sample) => (
+              <button
+                key={sample.question}
+                type="button"
+                disabled={blocked || busy}
+                onClick={() => {
+                  setQuestion(sample.question);
+                  void submit({ kind: "ask", question: sample.question });
+                }}
+              >
+                {sample.question}
+              </button>
+            ))}
+          </div>
+        </details>
+      )}
       <button
         type="button"
         disabled={blocked || busy}
@@ -142,7 +158,9 @@ export function LectureTools({
               ? response.status === "ready"
                 ? "Gemini assistance · answer checked against the lecture"
                 : "No verified Gemini answer"
-              : "prewritten sample mode"}
+              : sourceMode === "live"
+                ? "transcript excerpts · no Gemini answer"
+                : "prewritten sample mode"}
           </p>
           {response.passages.map(({ text, citation }) => (
             <div key={citation.chunkId}>

@@ -114,14 +114,14 @@ export function createDemoClient(request: DemoFetch = (url, options) => fetch(ur
       return parsed.data.data;
     },
     async start(
-      body: { sourceMode: "simulation"; title?: string; subject?: string },
+      body: { sourceMode: "simulation" | "live"; title?: string; subject?: string },
       signal?: AbortSignal,
     ) {
       const response = ApiContracts.startSession.response.parse(
         await post("startSession", "/api/sessions", body, signal),
       );
       if (!response.ok) throw new Error("Could not start the sample lecture.");
-      if (response.data.session.sourceMode !== "simulation")
+      if (response.data.session.sourceMode !== body.sourceMode)
         throw new Error("This demo requires a sample lecture. Please reset and try again.");
       return response.data.session;
     },

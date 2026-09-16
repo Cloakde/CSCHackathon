@@ -30,8 +30,15 @@ export function startBackground(
   chromeApis: CaptureControllerChrome,
   logger: BackgroundLogger = console,
   captureEnabled = false,
+  liveTest = false,
 ): void {
-  const controller = createCaptureController(chromeApis, logger, undefined, captureEnabled);
+  const controller = createCaptureController(
+    chromeApis,
+    logger,
+    undefined,
+    captureEnabled,
+    liveTest,
+  );
   // Registered synchronously at module scope: a service-worker restart must not
   // miss an action click or message that arrives before an async setup completes.
   controller.attachListeners();
@@ -42,5 +49,10 @@ export function startBackground(
 declare const chrome: CaptureControllerChrome | undefined;
 
 if (typeof chrome !== "undefined" && chrome.action) {
-  startBackground(chrome, console, import.meta.env?.VITE_LIVELECTURE_CAPTURE_SPIKE === "true");
+  startBackground(
+    chrome,
+    console,
+    import.meta.env?.VITE_LIVELECTURE_CAPTURE_SPIKE === "true",
+    import.meta.env?.VITE_LIVELECTURE_LIVE_TEST === "true",
+  );
 }

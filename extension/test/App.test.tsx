@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiContracts,
@@ -47,7 +47,7 @@ function harness() {
       const input = ApiContracts.startSession.request.parse(body);
       session = {
         ...input,
-        sourceMode: "simulation",
+        sourceMode: input.sourceMode,
         status: "active",
         sessionId: `session_demo_${++counter}`,
         startedAt: "2026-09-05T08:00:00.000Z",
@@ -696,6 +696,39 @@ function fakeCaptureClient(initial: CaptureStatusSnapshot = IDLE_STATUS): Captur
 }
 
 describe("experimental tab-audio capture panel (TASK-101)", () => {
+  it("defaults to simulation and requires explicit live selection and consent; a live error never substitutes sample text", async () => {
+    const h = harness();
+    const capture = fakeCaptureClient({ state: "awaiting_consent", generation: 6, tabId: 7 });
+    const listeners = new Set<(raw: unknown) => void>();
+    vi.stubGlobal("chrome", {
+      runtime: {
+        sendMessage: vi.fn(async () => ({ ok: false })),
+        onMessage: {
+          addListener: (f: (raw: unknown) => void) => listeners.add(f),
+          removeListener: (f: (raw: unknown) => void) => listeners.delete(f),
+        },
+      },
+    });
+    const rendered = render(<App client={h.client} captureClient={capture} liveTestEnabled />);
+    expect(screen.getByLabelText("SIMULATION source disclosure")).toBeVisible();
+    fireEvent.click(screen.getByRole("radio", { name: /Live test/ }));
+    expect(screen.getByLabelText("LIVE TEST source disclosure")).toHaveTextContent("ElevenLabs");
+    fireEvent.change(screen.getByLabelText(/Temporary live-test code/), {
+      target: { value: "a".repeat(32) },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "I consent — prepare live transcription" }),
+      ).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "I consent — prepare live transcription" }));
+    await waitFor(() => expect(capture.consentCalls).toEqual([6]));
+    await act(async () => capture.emit({ state: "active", generation: 6, tabId: 7 }));
+    expect(await screen.findByText(/Live transcription stopped/)).toBeVisible();
+    expect(screen.queryByLabelText("SIMULATION source disclosure")).not.toBeInTheDocument();
+    expect(capture.stopCalls).toContain(6);
+    rendered.unmount();
+  });
   it("stays hidden while capture is idle", () => {
     const h = harness();
     render(<App source={h.source} client={h.client} captureClient={fakeCaptureClient()} />);

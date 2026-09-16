@@ -71,6 +71,8 @@ export const DEMO_LIMITS = {
 } as const;
 
 export interface DemoDispatcherOptions {
+  /** Explicit local rehearsal gate; ordinary demo deployments reject live sessions. */
+  liveEnabled?: boolean;
   assistanceProvider?: "prewritten" | "gemini" | "blocked";
   enabled?: boolean;
   extensionId?: string;
@@ -99,6 +101,7 @@ export interface DemoDispatcherOptions {
     input: LectureToolRequest,
     chunks: readonly TranscriptChunk[],
     signal: AbortSignal,
+    sourceMode?: "simulation" | "live",
   ) => LectureToolResponse | Promise<LectureToolResponse>;
 }
 
@@ -383,9 +386,10 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
       if (!sessionId) {
         const input = parse(ApiContracts.startSession.request, body);
         if (
-          input.sourceMode !== "simulation" ||
-          (input.title !== undefined && input.title !== simulationFixture.session.title) ||
-          (input.subject !== undefined && input.subject !== simulationFixture.session.subject)
+          input.sourceMode === "live"
+            ? !options.liveEnabled
+            : (input.title !== undefined && input.title !== simulationFixture.session.title) ||
+              (input.subject !== undefined && input.subject !== simulationFixture.session.subject)
         )
           throw invalid();
         if (sessions.size >= limits.sessions) throw limited();
@@ -405,9 +409,10 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         try {
           const session = await store.createSession({
             sessionId: freshId,
-            title: simulationFixture.session.title,
-            subject: simulationFixture.session.subject,
-            sourceMode: "simulation",
+            title: input.sourceMode === "live" ? input.title : simulationFixture.session.title,
+            subject:
+              input.sourceMode === "live" ? input.subject : simulationFixture.session.subject,
+            sourceMode: input.sourceMode,
             status: "active",
             startedAt: new Date(now()).toISOString(),
           });
@@ -456,10 +461,16 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
                     input,
                     view.committedChunks,
                     operation.signal,
+                    view.session.sourceMode,
                   ),
                 ),
               )
-            : buildLectureToolResponse(sessionId, input, view.committedChunks);
+            : buildLectureToolResponse(
+                sessionId,
+                input,
+                view.committedChunks,
+                view.session.sourceMode,
+              );
           result = LectureToolEnvelopeSchema.parse({
             ok: true,
             data: toolResponse,
@@ -476,8 +487,12 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
             const canonical = fixture[chunk.sequence];
             const rawChunk = (body as { chunks: unknown[] }).chunks[index];
             if (
-              !canonical ||
-              !exactObject(rawChunk, { ...canonical, sessionId }) ||
+              (view.session.sourceMode === "simulation"
+                ? !canonical || !exactObject(rawChunk, { ...canonical, sessionId })
+                : !exactObject(rawChunk, chunk) ||
+                  chunk.sessionId !== sessionId ||
+                  chunk.sequence >= 300 ||
+                  chunk.endMs > 90_000) ||
               chunk.sequence > next
             )
               throw invalid();
@@ -762,6 +777,7 @@ export function createDemoRequestHandler(
     const env = environment();
     const config = JSON.stringify([
       env.LIVELECTURE_DEMO_ENABLED,
+      env.LIVELECTURE_LIVE_TEST,
       env.LIVELECTURE_EXTENSION_ID,
       env.LIVELECTURE_ASSISTANCE_PROVIDER,
       env.LIVELECTURE_APP_EXECUTE,
@@ -801,6 +817,7 @@ export function createDemoRequestHandler(
       }
       const dispatch = createDemoDispatcher({
         enabled: env.LIVELECTURE_DEMO_ENABLED === "true",
+        liveEnabled: env.LIVELECTURE_LIVE_TEST === "synthetic-90-seconds" && !env.CI,
         extensionId: env.LIVELECTURE_EXTENSION_ID,
         ...hooks,
       });

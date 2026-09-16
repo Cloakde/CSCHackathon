@@ -24,6 +24,7 @@ import { createDemoClient, type DemoClient } from "./demo-api";
 import { demoHandoffUrl, MELTINGPOT_ORIGIN, type CompanionDestination } from "./demo-handoff";
 import { createDemoUploader, type DemoUploader } from "./demo-uploader";
 import { LectureTools } from "./LectureTools";
+import { LiveTranscriptSource } from "./live-transcript-source";
 
 interface AppProps {
   source?: TranscriptSource;
@@ -31,6 +32,7 @@ interface AppProps {
   captureClient?: CaptureClient;
   navigate?: (url: string) => void;
   companionDestination?: CompanionDestination;
+  liveTestEnabled?: boolean;
 }
 
 /** No `chrome.runtime` in a non-extension render (tests, the demo web page). */
@@ -74,6 +76,7 @@ export function App({
   captureClient: providedCaptureClient,
   navigate,
   companionDestination = "prototype",
+  liveTestEnabled = false,
 }: AppProps) {
   const [fallbackSource] = useState(() => {
     const source = new SimulationTranscriptSource();
@@ -87,8 +90,16 @@ export function App({
       : createFallbackCaptureClient(),
   );
   const client = providedClient ?? fallbackClient;
-  const source = providedSource ?? fallbackSource;
   const captureClient = providedCaptureClient ?? fallbackCaptureClient;
+  const [liveSource] = useState(() =>
+    liveTestEnabled && typeof chrome !== "undefined" && chrome.runtime
+      ? new LiveTranscriptSource(captureClient, chrome.runtime)
+      : undefined,
+  );
+  const [selectedMode, setSelectedMode] = useState<"simulation" | "live">("simulation");
+  const [liveCode, setLiveCode] = useState("");
+  const source =
+    providedSource ?? (selectedMode === "live" && liveSource ? liveSource : fallbackSource);
   const [captureStatus, setCaptureStatus] = useState<CaptureStatusSnapshot>(IDLE_STATUS);
   const [captureActionError, setCaptureActionError] = useState<string>();
   const [snapshot, setSnapshot] = useState(source.getSnapshot());
@@ -102,6 +113,7 @@ export function App({
   const [highlighted, setHighlighted] = useState<string>();
   const [busy, setBusy] = useState<Operation>();
   const [error, setError] = useState<string>();
+  const [sourceError, setSourceError] = useState<string>();
   const [retry, setRetry] = useState<Operation>();
   const [uploadError, setUploadError] = useState<string>();
   const sessionRef = useRef<ActiveLectureSession | undefined>(undefined);
@@ -133,6 +145,7 @@ export function App({
     setHighlighted(undefined);
     setBusy(undefined);
     setError(undefined);
+    setSourceError(undefined);
     setRetry(undefined);
     setUploadError(undefined);
     const unsubscribe = source.subscribe((event) => {
@@ -156,6 +169,11 @@ export function App({
         source.stop();
         setPartial(undefined);
       }
+      if (event.type === "source.error") {
+        setSourceError(event.error.message);
+        setPartial(undefined);
+      }
+      if (event.type === "source.state" && event.status === "active") setSourceError(undefined);
       setSnapshot(source.getSnapshot());
     });
     return () => {
@@ -216,7 +234,11 @@ export function App({
   async function run(operation: Operation) {
     if (operation !== "reset" && busyRef.current) return;
     if (operation === "reset" && busyRef.current === "reset") return;
-    if (operation === "start" && (sessionRef.current || source.getSnapshot().mode !== "simulation"))
+    if (
+      operation === "start" &&
+      (sessionRef.current ||
+        (source.getSnapshot().mode !== "simulation" && !(source instanceof LiveTranscriptSource)))
+    )
       return;
     if (
       (operation === "help" || operation === "end") &&
@@ -243,9 +265,11 @@ export function App({
     let succeeded = false;
     try {
       if (operation === "start") {
+        if (source instanceof LiveTranscriptSource && !/^[a-f0-9]{32}$/.test(liveCode))
+          throw new Error("Enter the temporary live-test code from the authorized launcher.");
         const created = await client.start(
           {
-            sourceMode: "simulation",
+            sourceMode: source.getSnapshot().mode,
             title: source.getSnapshot().session.title,
             subject: source.getSnapshot().session.subject,
           },
@@ -267,10 +291,15 @@ export function App({
               sessionRef.current?.sessionId === created.sessionId
             ) {
               setUploadError(failure.message);
+              if (source instanceof LiveTranscriptSource) source.stop();
             }
           },
         });
         if (isReplayableTranscriptSource(source)) source.reset();
+        if (source instanceof LiveTranscriptSource) {
+          source.prepare(created.sessionId, liveCode);
+          setLiveCode("");
+        }
         source.start();
         setSnapshot(source.getSnapshot());
       } else if (operation === "reset") {
@@ -359,7 +388,7 @@ export function App({
             companionDestination,
             existing.sessionId,
             result,
-            client.assistanceStatus(),
+            existing.sourceMode,
           );
           completedRef.current = true;
           setHandoff(destination);
@@ -409,7 +438,13 @@ export function App({
     try {
       const incoming = await client.lectureTools(existing.sessionId, input, signal);
       if (!current()) throw new Error("The lecture is unavailable.");
-      const answer = validateLectureToolResponse(existing.sessionId, input, acknowledged, incoming);
+      const answer = validateLectureToolResponse(
+        existing.sessionId,
+        input,
+        acknowledged,
+        incoming,
+        existing.sourceMode,
+      );
       checked = true;
       return answer;
     } finally {
@@ -457,12 +492,18 @@ export function App({
     : running
       ? replay?.isPaused
         ? "Paused"
-        : "Playing"
+        : snapshot.mode === "live"
+          ? "Listening"
+          : "Playing"
       : session
-        ? "Replay stopped"
+        ? snapshot.mode === "live"
+          ? "Live test stopped"
+          : "Replay stopped"
         : "Ready";
   const title = snapshot.session.title ?? "Sample lecture";
-  const liveUnavailable = snapshot.mode !== "simulation";
+  const liveUnavailable =
+    snapshot.mode !== "simulation" && !(source instanceof LiveTranscriptSource);
+  const isLive = snapshot.mode === "live";
   const meltingpotHandoff = handoff?.startsWith(`${MELTINGPOT_ORIGIN}/`) ?? false;
 
   return (
@@ -476,22 +517,73 @@ export function App({
           {status}
         </span>
       </header>
-      <section className="simulation-banner" aria-label="SIMULATION source disclosure">
-        <strong>SIMULATION</strong>
+      {liveSource && !providedSource ? (
+        <fieldset
+          disabled={
+            Boolean(session) ||
+            Boolean(busy) ||
+            ["active", "starting", "armed"].includes(captureStatus.state)
+          }
+        >
+          <legend>Lecture source</legend>
+          <label>
+            <input
+              type="radio"
+              name="source-mode"
+              checked={selectedMode === "simulation"}
+              onChange={() => setSelectedMode("simulation")}
+            />{" "}
+            Sample lecture
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="source-mode"
+              checked={selectedMode === "live"}
+              onChange={() => setSelectedMode("live")}
+            />{" "}
+            Live test (90 seconds)
+          </label>
+        </fieldset>
+      ) : null}
+      <section
+        className="simulation-banner"
+        aria-label={isLive ? "LIVE TEST source disclosure" : "SIMULATION source disclosure"}
+      >
+        <strong>{isLive ? "LIVE TEST · NOT YET VERIFIED IN CHROME" : "SIMULATION"}</strong>
         <span>
-          {captureStatus.state === "active" || captureStatus.state === "starting"
-            ? "Synthetic lecture text. The separate capture experiment does not supply this transcript."
-            : "Synthetic lecture text — no audio is being captured."}
+          {isLive
+            ? "With your consent, this tab's audio goes to ElevenLabs for transcription. Audio is not saved. Text stays in the local session; requesting Gemini help also sends lecture text to Gemini. Use only the approved synthetic test. Closing this panel stops the test within six seconds."
+            : captureStatus.state === "active" || captureStatus.state === "starting"
+              ? "Synthetic lecture text. The separate capture experiment does not supply this transcript."
+              : "Synthetic lecture text — no audio is being captured."}
         </span>
       </section>
+      {isLive && !session ? (
+        <label>
+          Temporary live-test code
+          <input
+            type="password"
+            autoComplete="off"
+            value={liveCode}
+            onChange={(event) => setLiveCode(event.target.value)}
+          />
+          <span>
+            Open the lecture tab using the extension icon first. This is a one-run test code, never
+            your provider API key.
+          </span>
+        </label>
+      ) : null}
       {captureStatus.state !== "idle" ? (
         <section
           className="capture-panel"
           aria-label="Experimental tab-audio capture"
           role="status"
         >
-          <p className="eyebrow">Experimental — not part of this lecture yet</p>
-          {captureStatus.state === "awaiting_consent" ? (
+          <p className="eyebrow">
+            {isLive ? "Live test capture" : "Experimental — not part of this lecture yet"}
+          </p>
+          {captureStatus.state === "awaiting_consent" && !isLive ? (
             <>
               <p>
                 LiveLecture AI can capture only this browser tab&rsquo;s audio. Nothing is sent
@@ -532,10 +624,15 @@ export function App({
         </section>
       ) : null}
       <p className="demo-disclosure">{ASSISTANCE_STATUS_LABELS[assistanceStatus]}</p>
+      {sourceError ? <p role="alert">{sourceError}</p> : null}
       <section className="journey-guide" aria-label="How to try the demo">
         <p>Follow a lecture. Get unstuck. Practice what was hard.</p>
         <ol>
-          <li>Start the sample lecture.</li>
+          <li>
+            {isLive
+              ? "Consent below, then click the extension icon again to start capture."
+              : "Start the sample lecture."}
+          </li>
           <li>
             Press <strong>I’m Lost</strong> when a step is unclear.
           </li>
@@ -576,10 +673,20 @@ export function App({
         <button
           className="primary-button"
           type="button"
-          disabled={Boolean(session) || Boolean(busy) || liveUnavailable}
+          disabled={
+            Boolean(session) ||
+            Boolean(busy) ||
+            liveUnavailable ||
+            (isLive &&
+              (captureStatus.state !== "awaiting_consent" || !/^[a-f0-9]{32}$/.test(liveCode)))
+          }
           onClick={() => void run("start")}
         >
-          {busy === "start" ? "Starting…" : "Start sample lecture"}
+          {busy === "start"
+            ? "Starting…"
+            : isLive
+              ? "I consent — prepare live transcription"
+              : "Start sample lecture"}
         </button>
         <button
           type="button"
@@ -590,7 +697,7 @@ export function App({
           }}
           disabled={!running}
         >
-          Stop replay
+          {isLive ? "Stop live test" : "Stop replay"}
         </button>
         {replay ? (
           <>
@@ -635,13 +742,18 @@ export function App({
       </section>
       <section className="learning-actions" aria-label="Get help and practice">
         <div>
-          <p className="eyebrow">{formatOffset(progressMs)} of 8:00</p>
+          <p className="eyebrow">
+            {formatOffset(progressMs)}
+            {isLive ? " · live test" : " of 8:00"}
+          </p>
           <p>
-            {progressMs < 145_000
-              ? "Wait for the first explanation, then ask for help."
-              : progressMs < 300_000
-                ? "Try I’m Lost for help spotting the inner and outer functions."
-                : "Try I’m Lost for help remembering the inner derivative."}
+            {isLive
+              ? "Ask for help once a complete passage arrives. Only confirmed passages are saved; unfinished speech may be omitted when you stop."
+              : progressMs < 145_000
+                ? "Wait for the first explanation, then ask for help."
+                : progressMs < 300_000
+                  ? "Try I’m Lost for help spotting the inner and outer functions."
+                  : "Try I’m Lost for help remembering the inner derivative."}
           </p>
         </div>
         <div className="action-buttons">
@@ -704,9 +816,7 @@ export function App({
             <p className="small-note">
               {meltingpotHandoff
                 ? "Opens MeltingPot in a new tab. If it is unavailable, start the MeltingPot rework app and use this link again. Keep both local demo servers running."
-                : companionDestination === "meltingpot"
-                  ? "Gemini practice opens in LiveLecture. MeltingPot currently supports prewritten practice only."
-                  : "Opens the companion app in a new tab. Keep the local demo server running."}
+                : "Opens the companion app in a new tab. Keep the local demo server running."}
             </p>
           </div>
         ) : null}
@@ -748,14 +858,13 @@ export function App({
               </div>
             </>
           ) : (
-            <p>
-              {help.message} Let a little more of the sample lecture play, then try I’m Lost again.
-            </p>
+            <p>{help.message} Let a little more of the lecture play, then try I’m Lost again.</p>
           )}
         </section>
       ) : null}
       {session && !handoff && busy !== "reset" && busy !== "end" ? (
         <LectureTools
+          sourceMode={source.getSnapshot().mode}
           key={session.sessionId}
           assistanceStatus={assistanceStatus}
           request={requestLectureTool}
@@ -766,7 +875,9 @@ export function App({
       <section className="transcript-panel" aria-labelledby="transcript-heading">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Sample lecture · {chunks.length} passages</p>
+            <p className="eyebrow">
+              {isLive ? "Live test" : "Sample lecture"} · {chunks.length} passages
+            </p>
             <h2 id="transcript-heading">What the class is covering</h2>
           </div>
           {highlighted ? (
@@ -786,8 +897,9 @@ export function App({
             <div className="empty-state">
               <span className="empty-glyph">0:00</span>
               <p>
-                Start the sample lecture to watch its words appear here. No microphone or recording
-                is used.
+                {isLive
+                  ? "Confirmed words from the captured tab will appear here. Microphone and video are never used."
+                  : "Start the sample lecture to watch its words appear here. No microphone or recording is used."}
               </p>
             </div>
           ) : null}
@@ -823,7 +935,10 @@ export function App({
       </section>
       <p className="small-note">
         This local demo keeps sessions temporarily in memory. Reset deletes this session; restarting
-        the server clears all sessions. Closing this page stops replay.
+        the server clears all sessions.{" "}
+        {isLive
+          ? "Closing the panel stops this live test within six seconds."
+          : "Closing this page stops replay."}
       </p>
     </main>
   );

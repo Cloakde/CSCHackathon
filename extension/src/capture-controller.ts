@@ -110,6 +110,7 @@ export function createCaptureController(
   logger: CaptureControllerLogger = console,
   reconcileStatusTimeoutMs: number = RECONCILE_STATUS_TIMEOUT_MS,
   enabled: boolean = true,
+  liveTest: boolean = false,
 ) {
   // Guards concurrent action clicks / message handling from creating two offscreen
   // documents or racing two handshakes. Chrome extension service workers are
@@ -376,6 +377,22 @@ export function createCaptureController(
         tabId: record.tabId,
         armedExpiresAt: now() + ARM_EXPIRY_MS,
       };
+      if (liveTest) {
+        try {
+          await ensureOffscreenDocument();
+          const reply = await chromeApis.runtime.sendMessage({
+            channel: OFFSCREEN_COMMAND_CHANNEL,
+            kind: "lease_start",
+            generation: record.generation,
+          });
+          if (!reply || typeof reply !== "object" || !("ok" in reply) || reply.ok !== true)
+            throw new Error("Capture lease unavailable");
+        } catch {
+          await teardown(record, "offscreen_failed");
+          sendResponse({ ok: false, reason: "offscreen_failed" });
+          return;
+        }
+      }
       await publish(armed);
       sendResponse({ ok: true, status: snapshotOf(armed) });
       return;
@@ -412,8 +429,8 @@ export function createCaptureController(
       return;
     }
     if (
-      message.kind === "track_ended" &&
-      (record.state === "starting" || record.state === "active")
+      (message.kind === "track_ended" || message.kind === "stopped") &&
+      (record.state === "armed" || record.state === "starting" || record.state === "active")
     ) {
       await teardown(record);
       return;
@@ -585,6 +602,7 @@ export function createCaptureController(
         return true; // Keep the channel open for the async sendResponse above.
       }
       if (isOffscreenToBackgroundMessage(message)) {
+        if (message.kind === "stopped") cancelledStarts.add(message.generation);
         resolveStatusWaiter(message);
         void serialize(() => handleOffscreenAck(message)).catch((error: unknown) =>
           logger.error(

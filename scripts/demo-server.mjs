@@ -60,6 +60,7 @@ export function demoConfiguration(args, environment = process.env, repository) {
       ...environment,
       ...activation,
       LIVELECTURE_DEMO_ENABLED: "true",
+      LIVELECTURE_LIVE_TEST: "",
       LIVE_SCRIBE_SPIKE_ENABLED: "",
       RUN_PAID_SCRIBE_SMOKE: "",
       LIVELECTURE_SPIKE_CAPABILITY: "",

@@ -5,6 +5,7 @@ import { TranscriptChunkSchema, type TranscriptChunk } from "./schemas/transcrip
 import { getCommittedChunksFromFixture } from "./simulation";
 
 const canonical = getCommittedChunksFromFixture();
+export const MAX_LECTURE_CHUNKS = 300;
 export const RECAP_WINDOW_MS = 120_000;
 export const LECTURE_TOOL_MESSAGE_LIMIT = 2_000;
 export const GEMINI_TOOL_FALLBACK =
@@ -31,7 +32,7 @@ const sequence = z
   .number()
   .int()
   .min(-1)
-  .max(canonical.length - 1);
+  .max(MAX_LECTURE_CHUNKS - 1);
 export const LectureToolRequestSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -62,7 +63,7 @@ export const LectureToolResponseSchema = z
           })
           .strict(),
       )
-      .max(canonical.length),
+      .max(MAX_LECTURE_CHUNKS),
   })
   .strict();
 export type LectureToolResponse = z.infer<typeof LectureToolResponseSchema>;
@@ -84,10 +85,14 @@ export function lectureToolSnapshot(
   sessionId: string,
   input: LectureToolRequest,
   chunks: readonly TranscriptChunk[],
+  sourceMode: "simulation" | "live" = "simulation",
 ) {
   StableIdSchema.parse(sessionId);
   const request = LectureToolRequestSchema.parse(input);
-  if (chunks.length > canonical.length || request.throughSequence >= chunks.length)
+  if (
+    chunks.length > (sourceMode === "simulation" ? canonical.length : MAX_LECTURE_CHUNKS) ||
+    request.throughSequence >= chunks.length
+  )
     throw new Error("The requested lecture snapshot is unavailable.");
   const checked = chunks
     .map((raw, index) => {
@@ -96,11 +101,14 @@ export function lectureToolSnapshot(
       if (
         chunk.sessionId !== sessionId ||
         chunk.sequence !== index ||
-        chunk.chunkId !== expected.chunkId ||
-        chunk.text !== expected.text ||
-        chunk.startMs !== expected.startMs ||
-        chunk.endMs !== expected.endMs ||
-        chunk.speakerLabel !== expected.speakerLabel
+        (sourceMode === "simulation" &&
+          (chunk.chunkId !== expected.chunkId ||
+            chunk.text !== expected.text ||
+            chunk.startMs !== expected.startMs ||
+            chunk.endMs !== expected.endMs ||
+            chunk.speakerLabel !== expected.speakerLabel)) ||
+        chunks.slice(0, index).some((prior) => prior.chunkId === chunk.chunkId) ||
+        (index > 0 && chunk.startMs < chunks[index - 1]!.endMs)
       )
         throw new Error("The lecture snapshot could not be verified.");
       return chunk;
@@ -123,15 +131,23 @@ export function buildLectureToolResponse(
   sessionId: string,
   input: LectureToolRequest,
   chunks: readonly TranscriptChunk[],
+  sourceMode: "simulation" | "live" = "simulation",
 ): LectureToolResponse {
-  const { request, anchorMs, checked, evidence } = lectureToolSnapshot(sessionId, input, chunks);
+  const { request, anchorMs, checked, evidence } = lectureToolSnapshot(
+    sessionId,
+    input,
+    chunks,
+    sourceMode,
+  );
   let selected: TranscriptChunk[] = [];
   let status: LectureToolResponse["status"] = "ready";
   let message = "Exact passages from the sample lecture, with source timestamps.";
   if (request.kind === "ask") {
-    const sample = SAMPLE_LECTURE_QUESTIONS.find(
-      (entry) => normalized(entry.question) === normalized(request.question),
-    );
+    const sample =
+      sourceMode === "simulation" &&
+      SAMPLE_LECTURE_QUESTIONS.find(
+        (entry) => normalized(entry.question) === normalized(request.question),
+      );
     if (!sample) {
       status = "unsupported_question";
       message =
@@ -177,6 +193,7 @@ export function validateLectureToolResponse(
   request: LectureToolRequest,
   chunks: readonly TranscriptChunk[],
   raw: unknown,
+  sourceMode: "simulation" | "live" = "simulation",
 ): LectureToolResponse {
   const incoming = LectureToolResponseSchema.parse(raw);
   const requested = LectureToolRequestSchema.parse(request);
@@ -185,12 +202,17 @@ export function validateLectureToolResponse(
   if (JSON.stringify(incoming.request) !== JSON.stringify(requested))
     throw new Error("This response does not match the requested prompt.");
   if (incoming.mode === "prewritten") {
-    const expected = buildLectureToolResponse(sessionId, requested, chunks);
+    const expected = buildLectureToolResponse(sessionId, requested, chunks, sourceMode);
     if (JSON.stringify(incoming) !== JSON.stringify(expected))
       throw new Error("This response did not match the requested lecture passages.");
     return incoming;
   }
-  const { evidence: allowedChunks, anchorMs } = lectureToolSnapshot(sessionId, requested, chunks);
+  const { evidence: allowedChunks, anchorMs } = lectureToolSnapshot(
+    sessionId,
+    requested,
+    chunks,
+    sourceMode,
+  );
   if (incoming.anchorMs !== anchorMs)
     throw new Error("This response does not match the requested anchor offset.");
   const chunkMap = new Map(allowedChunks.map((chunk) => [chunk.chunkId, chunk]));

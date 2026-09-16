@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createOffscreenCaptureHandler,
   type OffscreenChrome,
   type OffscreenMediaApis,
 } from "../src/offscreen";
 import { OFFSCREEN_ACK_CHANNEL, OFFSCREEN_COMMAND_CHANNEL } from "../src/capture-protocol";
+afterEach(() => vi.useRealTimers());
 
 function fakeTrack(): MediaStreamTrack {
   return { onended: null, stop: vi.fn() } as unknown as MediaStreamTrack;
@@ -40,6 +41,41 @@ function fakeChrome(): { chrome: OffscreenChrome; sent: unknown[]; deliver: (m: 
 }
 
 describe("offscreen capture handler (TASK-101)", () => {
+  it("expires the integrated panel lease during acquisition and stops late media without activating it", async () => {
+    vi.useFakeTimers();
+    const track = fakeTrack();
+    let resolve!: (stream: MediaStream) => void;
+    const getUserMedia = vi.fn(
+      () =>
+        new Promise<MediaStream>((done) => {
+          resolve = done;
+        }),
+    );
+    const { chrome, sent, deliver } = fakeChrome();
+    const handler = createOffscreenCaptureHandler(
+      chrome,
+      {
+        getUserMedia,
+        createAudioContext: vi.fn(() => {
+          throw new Error("Late media must never play");
+        }),
+      },
+      undefined,
+      true,
+    );
+    handler.attach();
+    deliver({ channel: OFFSCREEN_COMMAND_CHANNEL, kind: "lease_start", generation: 1 });
+    const acquiring = handler._internal.consumeStream(1, "pending-stream");
+    await vi.advanceTimersByTimeAsync(6000);
+    resolve(fakeStream([track]));
+    await acquiring;
+    expect(track.stop).toHaveBeenCalledOnce();
+    expect(sent).toContainEqual(expect.objectContaining({ kind: "stopped", generation: 1 }));
+    expect(sent).not.toContainEqual(expect.objectContaining({ kind: "track_active" }));
+    await handler._internal.consumeStream(1, "late-retry");
+    expect(getUserMedia).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it("cleans a track that ends while audio playback is still resuming", async () => {
     const track = fakeTrack();
     const close = vi.fn(async () => undefined);

@@ -8,9 +8,11 @@ test("normal launches strip inherited provider activation and never inspect cred
     LIVELECTURE_ASSISTANCE_PROVIDER: "gemini",
     LIVELECTURE_APP_EXECUTE: "approved-one-dollar-v1",
     LIVELECTURE_APP_TREE: "a".repeat(40),
+    LIVELECTURE_LIVE_TEST: "synthetic-90-seconds",
   });
   assert.equal(config.env.LIVELECTURE_ASSISTANCE_PROVIDER, "prewritten");
   assert.equal(config.env.LIVELECTURE_APP_EXECUTE, "");
+  assert.equal(config.env.LIVELECTURE_LIVE_TEST, "");
 });
 
 test("Gemini app runs require explicit cap, clean exact source, and no CI", () => {

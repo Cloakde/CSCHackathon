@@ -9,6 +9,9 @@ if (!rootElement) throw new Error("LiveLecture side-panel root was not found");
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App companionDestination="meltingpot" />
+    <App
+      companionDestination="meltingpot"
+      liveTestEnabled={import.meta.env?.VITE_LIVELECTURE_LIVE_TEST === "true"}
+    />
   </StrictMode>,
 );

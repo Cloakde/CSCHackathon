@@ -2,6 +2,8 @@
 
 **Status:** Active plan; calendar activation is required before Day 1
 
+**Execution update, 2026-09-15:** [TASK-308](tasks/TASK-308.md) authorizes the remaining roadmap implementation: the bounded live-test connection, Gemini-aware private MeltingPot review, bookmarks/source-linked notes, and release preparation. This supersedes the earlier implementation hold below. Default builds remain Simulation Mode. Feature implementation, offline checks, real provider evidence, human acceptance and submission are reported separately in [current evidence](evaluations/TASK-308/README.md). Richer study modes, durable storage and class sharing stay outside this scoped roadmap; they are not marked complete.
+
 **Companion to:** [MULTI_AGENT_WORKFLOW.md](MULTI_AGENT_WORKFLOW.md)
 
 The workflow document defines how contributors coordinate. This document defines what gets built, in what order, and what is cut when time runs out. If the documents conflict, the workflow controls.

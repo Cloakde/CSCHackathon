@@ -128,6 +128,11 @@ export type BackgroundToOffscreenMessage =
       streamId: string;
     }
   | { channel: typeof OFFSCREEN_COMMAND_CHANNEL; kind: "stop"; generation: number }
+  | {
+      channel: typeof OFFSCREEN_COMMAND_CHANNEL;
+      kind: "lease_start" | "lease_heartbeat";
+      generation: number;
+    }
   | { channel: typeof OFFSCREEN_COMMAND_CHANNEL; kind: "get_status"; generation: number };
 
 export function isBackgroundToOffscreenMessage(
@@ -137,7 +142,8 @@ export function isBackgroundToOffscreenMessage(
   const record = value as Record<string, unknown>;
   if (record.channel !== OFFSCREEN_COMMAND_CHANNEL) return false;
   if (!isPositiveInteger(record.generation)) return false;
-  if (record.kind === "stop" || record.kind === "get_status") return true;
+  if (["stop", "get_status", "lease_start", "lease_heartbeat"].includes(String(record.kind)))
+    return true;
   if (record.kind === "consume_stream")
     return typeof record.streamId === "string" && record.streamId.length > 0;
   return false;

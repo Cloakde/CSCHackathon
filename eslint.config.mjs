@@ -4,9 +4,27 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["**/node_modules/**", "**/.next/**", "**/dist/**", "**/coverage/**", "**/*.d.ts"],
+    ignores: [
+      "**/node_modules/**",
+      "**/.next/**",
+      "**/dist/**",
+      "**/dist-live-test/**",
+      "**/release/**",
+      "**/coverage/**",
+      "**/*.d.ts",
+    ],
   },
   eslint.configs.recommended,
+  {
+    files: ["extension/public/pcm-worklet.js"],
+    languageOptions: {
+      globals: {
+        AudioWorkletProcessor: "readonly",
+        registerProcessor: "readonly",
+        sampleRate: "readonly",
+      },
+    },
+  },
   ...tseslint.configs.recommended,
   {
     files: ["**/*.{js,mjs,cjs}"],

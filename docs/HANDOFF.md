@@ -1,5 +1,13 @@
 # LiveLecture AI — Current handoff
 
+## Remaining-milestone execution — IN PROGRESS, 2026-09-15
+
+- **Active AI:** Codex, assigned by the user: “Execute them all.”
+- **Starting source:** clean local/remote `0c14d8c57b31c386d5f141308a721461fffa638b` on `shared/livelecture`; isolated MeltingPot rework clean at `9244a641e0639982d4eece09b2274a05ee355096`.
+- **Current scope:** [TASK-308](tasks/TASK-308.md). The latest user request expands implementation beyond the earlier correction-only/copy-read-only scope: prepare TASK-307's live bridge, finish Gemini-aware private MeltingPot review, implement the prioritized study tools, and prepare release/rehearsal artifacts.
+- **Ownership:** Codex alone owns the LiveLecture extension/live bridge, required local-service integration and tests, study UI, packaging/rehearsal scripts and current coordination docs. In the separate MeltingPot copy, Codex owns only lecture components/client/relay/tests, canonical vendor helpers if required, and rework documentation. Original repositories/services remain forbidden.
+- **Acceptance:** implementation can advance under the latest user instruction, with unfinished live/provider/human/independent-review gates explicitly pending and live activation disabled. No self-approval or main merge. No concurrent AI workers or desktop control; provider execution requires the concrete capped run and session/credential setup. Do not interpret source preparation as PASS or submission.
+
 ## TASK-101/102 correction — complete, IN REVIEW, 2026-09-07
 
 - **Active AI:** none — Codex completed the user-requested correction and released the turn. A later user-started AI must independently review it; do not start another AI automatically.

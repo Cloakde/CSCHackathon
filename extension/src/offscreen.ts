@@ -4,6 +4,7 @@ import {
   type OffscreenAckKind,
   type CaptureErrorReason,
 } from "./capture-protocol";
+import { createLiveOffscreen } from "./live-offscreen";
 
 /** The narrow media/runtime surface this document needs, so tests inject fakes
  * instead of a real `navigator.mediaDevices` / `AudioContext` / `chrome`. */
@@ -54,6 +55,8 @@ function sendAck(
 export function createOffscreenCaptureHandler(
   chromeApis: OffscreenChrome,
   media: OffscreenMediaApis,
+  onStop: () => void = () => undefined,
+  requirePanelLease = false,
 ) {
   let currentGeneration = 0;
   let stream: MediaStream | undefined;
@@ -62,8 +65,12 @@ export function createOffscreenCaptureHandler(
     ReturnType<NonNullable<typeof audioContext>["createMediaStreamSource"]> | undefined;
   let acquiring = false;
   let operation = 0;
+  let lease: ReturnType<typeof setInterval> | undefined;
+  let lastSeen = 0;
 
   function stopEverything(): void {
+    clearInterval(lease);
+    lease = undefined;
     operation += 1;
     acquiring = false;
     stream?.getTracks().forEach((track) => {
@@ -71,6 +78,7 @@ export function createOffscreenCaptureHandler(
       track.stop();
     });
     stream = undefined;
+    onStop();
     sourceNode?.disconnect?.();
     sourceNode = undefined;
     void audioContext?.close().catch(() => undefined);
@@ -78,6 +86,14 @@ export function createOffscreenCaptureHandler(
   }
 
   async function consumeStream(generation: number, streamId: string): Promise<void> {
+    if (
+      requirePanelLease &&
+      (!lease || currentGeneration !== generation || Date.now() - lastSeen > 5_000)
+    ) {
+      if (currentGeneration === generation) stop(generation);
+      sendAck(chromeApis, "track_failed", generation, "unexpected");
+      return;
+    }
     if (stream || acquiring) {
       // The controller only ever hands out one active generation per profile.
       // Defensively refuse a second concurrent consume rather than doubling audio.
@@ -153,8 +169,34 @@ export function createOffscreenCaptureHandler(
   }
 
   function attach(): void {
-    chromeApis.runtime.onMessage.addListener((message) => {
+    chromeApis.runtime.onMessage.addListener((message, _sender, respond) => {
       if (!isBackgroundToOffscreenMessage(message)) return false;
+      if (message.kind === "lease_start" || message.kind === "lease_heartbeat") {
+        if (!requirePanelLease) {
+          respond({ ok: false });
+          return false;
+        }
+        if (message.kind === "lease_start") {
+          if (lease || acquiring || stream) {
+            respond({ ok: false });
+            return false;
+          }
+          currentGeneration = message.generation;
+          lastSeen = Date.now();
+          const generation = currentGeneration;
+          lease = setInterval(() => {
+            if (currentGeneration === generation && Date.now() - lastSeen > 5_000) stop(generation);
+          }, 1_000);
+        } else {
+          if (!lease || currentGeneration !== message.generation || Date.now() - lastSeen > 5_000) {
+            respond({ ok: false });
+            return false;
+          }
+          lastSeen = Date.now();
+        }
+        respond({ ok: true });
+        return false;
+      }
       if (message.kind === "consume_stream") {
         void consumeStream(message.generation, message.streamId);
       } else if (message.kind === "stop") {
@@ -166,14 +208,45 @@ export function createOffscreenCaptureHandler(
     });
   }
 
-  return { attach, _internal: { consumeStream, stop, getStatus } };
+  return {
+    attach,
+    _internal: {
+      consumeStream,
+      stop,
+      getStatus,
+      getMedia: (generation: number) =>
+        generation === currentGeneration && stream && audioContext && sourceNode
+          ? { context: audioContext, source: sourceNode }
+          : undefined,
+    },
+  };
 }
 
 declare const chrome: OffscreenChrome | undefined;
 
 if (typeof chrome !== "undefined") {
-  createOffscreenCaptureHandler(chrome, {
-    getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
-    createAudioContext: () => new AudioContext(),
-  }).attach();
+  let live: ReturnType<typeof createLiveOffscreen> | undefined;
+  const handler = createOffscreenCaptureHandler(
+    chrome,
+    {
+      getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+      createAudioContext: () => new AudioContext(),
+    },
+    () => live?.stop(),
+    import.meta.env?.VITE_LIVELECTURE_LIVE_TEST === "true",
+  );
+  handler.attach();
+  if (import.meta.env?.VITE_LIVELECTURE_LIVE_TEST === "true") {
+    live = createLiveOffscreen(
+      chrome,
+      {
+        get: (generation) =>
+          handler._internal.getMedia(generation) as
+            { context: AudioContext; source: MediaStreamAudioSourceNode } | undefined,
+        stop: handler._internal.stop,
+      },
+      "pcm-worklet.js",
+    );
+    live.attach();
+  }
 }

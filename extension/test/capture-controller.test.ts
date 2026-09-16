@@ -158,6 +158,45 @@ async function sendMessage(fake: FakeChrome, message: unknown): Promise<unknown>
 }
 
 describe("capture controller (TASK-101)", () => {
+  it("requires an acknowledged offscreen lease before arming the integrated live build", async () => {
+    const isolated = createFakeChrome();
+    const liveController = createCaptureController(
+      isolated.chromeApis,
+      console,
+      TEST_RECONCILE_TIMEOUT_MS,
+      true,
+      true,
+    );
+    liveController.attachListeners();
+    isolated.fireAction({ id: 7 } as chrome.tabs.Tab);
+    await flush();
+    const rejected = await sendMessage(isolated, {
+      channel: PANEL_CHANNEL,
+      kind: "consent",
+      generation: 1,
+    });
+    expect(rejected).toMatchObject({ ok: false });
+    expect(isolated.getMediaStreamId).not.toHaveBeenCalled();
+    isolated.chromeApis.runtime.onMessage.addListener((message, _sender, reply) => {
+      if ((message as { kind?: string }).kind === "lease_start") reply({ ok: true });
+      return false;
+    });
+    isolated.fireAction({ id: 7 } as chrome.tabs.Tab);
+    await flush();
+    expect(
+      await sendMessage(isolated, { channel: PANEL_CHANNEL, kind: "consent", generation: 2 }),
+    ).toMatchObject({ ok: true, status: { state: "armed" } });
+    expect(isolated.messagesOn(OFFSCREEN_COMMAND_CHANNEL)).toContainEqual(
+      expect.objectContaining({ kind: "lease_start", generation: 2 }),
+    );
+    await isolated.fireOffscreenAck({
+      channel: OFFSCREEN_ACK_CHANNEL,
+      kind: "stopped",
+      generation: 2,
+    });
+    await flush();
+    expect(isolated.session.get(CAPTURE_STORAGE_KEY)).toMatchObject({ state: "idle" });
+  });
   let fake: FakeChrome;
   let controller: ReturnType<typeof createCaptureController>;
   let panelStatuses: unknown[];
