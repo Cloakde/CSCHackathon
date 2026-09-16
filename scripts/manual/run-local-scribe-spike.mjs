@@ -190,7 +190,9 @@ export function verifyListener(port, pid) {
   const result = execFileSync(
     "powershell.exe",
     ["-NoProfile", "-NonInteractive", "-Command", script],
-    { encoding: "utf8", windowsHide: true, timeout: 5000 },
+    // Windows can take over five seconds to initialize the network cmdlet.
+    // Keep the exact address/PID check, within the smoke's overall deadline.
+    { encoding: "utf8", windowsHide: true, timeout: 15000 },
   );
   if (result.trim() !== "verified") throw new Error("The server listener could not be verified.");
   console.log("Verified this server's listener: 127.0.0.1:" + port);
