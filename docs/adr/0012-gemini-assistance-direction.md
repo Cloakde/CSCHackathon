@@ -12,7 +12,20 @@ The previous $1/32-attempt proposal was never spending permission. Keep the prop
 
 This direction covers text assistance and practice. Live audio/transcription remains a separate conditional decision; no Gemini transcription replacement, ElevenLabs removal, capture change, deployment, app activation or broader redesign is authorized here.
 
-## Current offline correction (Codex, 2026-09-06; IN REVIEW)
+## Current model compatibility update (Codex, 2026-09-15; IN REVIEW)
+
+The authorized September 15 request returned HTTP 404 / model unavailable for `gemini-2.5-flash-lite`. Use stable **`gemini-3.1-flash-lite`** at the direct `v1beta` generateContent endpoint for the next bounded synthetic test. No automatic fallback or transcription-provider change is added.
+
+- [Model card](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite), checked September 15: stable, structured output, 1,048,576 input and 65,536 output tokens.
+- [Thinking-level table](https://ai.google.dev/gemini-api/docs/generate-content/gemini-3): explicitly select `minimal`, with `includeThoughts:false`. Minimal does not guarantee zero thinking. Keep single-turn requests, `store:false`, strict schema/model validation, separate verification and the 10-second Help/4-second practice deadlines. No tools, explicit caching or retries.
+- [Standard text pricing](https://ai.google.dev/gemini-api/docs/pricing), checked September 15: **$0.25/M input and $1.50/M output including thinking**. Charge implicit cache tokens at full input rates. Keep the requested answer cap at 2,048, but conservatively reserve the full model output limit for thinking plus response. Reservation: `(1,048,576 × 25 + 65,536 × 150) / 100 = 360,448 microdollars` ($0.360448). Overall authorization remains **$1 / 32 attempts**.
+- [Usage reference](https://ai.google.dev/api/generate-content#UsageMetadata): validate total = input + candidate + thought tokens, bill candidate and thought tokens together, and reject tool-use tokens. Missing or malformed usage retains the full reservation. Provider data terms remain tier-dependent; this is not a zero-retention claim.
+
+The same plan ID and authoritative `ledger.jsonl` remain. Explicit reviewed offline maintenance may append a `rebind` record under the existing exclusive lock after checking the previous source, policy and full-ledger SHA-256. The record binds its complete prior prefix to the new source/policy. Replay retains historical prices, attempts and charges. It grants no additional allowance and never runs from normal startup. Pending, finished, locked, missing, tampered or stale ledgers are refused. A later source change also needs deliberate review before rebinding; do not manually rewrite a header to bypass this check.
+
+The current prior ledger contains attempt 1, uncertain charge 105,677 microdollars, and SHA-256 `cfd864f4b01ab6044d911b3c84c6356d3e8154c2cf1e5bdad058a6c8a41512b9`. Preserve its bytes plus an exclusive backup before transition. This is a conservative allowance debit, not a measured invoice charge. Exact verification and provider results belong in the current handoff/evidence.
+
+## Historical offline correction (Codex, 2026-09-06)
 
 Independent review of Claude's `e0da4df` found three defects: raw JSON Schema sent through `responseSchema`, implicit cache hits rejected, and unexpected tool-use usage accepted for settlement. The correction uses `responseJsonSchema`, validates cached tokens as a subset of the prompt while charging the full uncached prompt, and rejects nonzero tool-use tokens. Runtime output/identity checks, model, endpoint, no-thinking default, `store:false`, deadlines and spending caps stay unchanged. See [the review and regressions](../GEMINI_OFFLINE_REVIEW.md).
 

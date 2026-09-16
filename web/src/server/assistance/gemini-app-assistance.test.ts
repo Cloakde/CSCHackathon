@@ -13,7 +13,7 @@ const canonicalChunks = getCommittedChunksFromFixture().map((chunk) => ({
   sessionId: sid,
 }));
 
-function fakeGeminiResponse(payload: unknown, model = "gemini-2.5-flash-lite") {
+function fakeGeminiResponse(payload: unknown, model = "gemini-3.1-flash-lite") {
   return new Response(
     JSON.stringify({
       responseId: "resp_test_12345",

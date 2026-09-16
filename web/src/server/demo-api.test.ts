@@ -1069,7 +1069,7 @@ describe("local HTTP boundary", () => {
   });
 
   describe("gemini application assistance request routing and lifecycles", () => {
-    function fakeGeminiResponse(payload: unknown, model = "gemini-2.5-flash-lite") {
+    function fakeGeminiResponse(payload: unknown, model = "gemini-3.1-flash-lite") {
       return new Response(
         JSON.stringify({
           responseId: "resp_test_12345",
@@ -1142,7 +1142,7 @@ describe("local HTTP boundary", () => {
         const bodyStr = String(init?.body ?? "{}");
         const urlStr = String(info);
 
-        expect(urlStr).toContain("gemini-2.5-flash-lite:generateContent");
+        expect(urlStr).toContain("gemini-3.1-flash-lite:generateContent");
         const requestJson = JSON.parse(bodyStr);
         const inputData = JSON.parse(requestJson.contents[0].parts[0].text);
 

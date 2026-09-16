@@ -34,7 +34,7 @@ const goodAnswer = {
 function envelope(result: unknown) {
   return Response.json({
     responseId: "resp_offline_306",
-    modelVersion: "gemini-2.5-flash-lite",
+    modelVersion: "gemini-3.1-flash-lite",
     usageMetadata: { promptTokenCount: 150, candidatesTokenCount: 80, totalTokenCount: 230 },
     candidates: [
       {
@@ -268,12 +268,12 @@ describe("actual Gemini application runtime with offline transport and durable a
       expect(
         (await api.call(`${path}/lecture-tools`, { kind: "catch_up", throughSequence: 9 })).status,
       ).toBe(503);
-    expect(api.fetcher).toHaveBeenCalledTimes(9);
+    expect(api.fetcher).toHaveBeenCalledTimes(2);
     const settlements = api.ledger().filter((event) => event.event === "settle");
-    expect(settlements).toHaveLength(9);
+    expect(settlements).toHaveLength(2);
     expect(settlements.every((event) => !event.usage)).toBe(true);
-    expect(9 * TRIAL_RESERVE_MICRO_USD).toBeLessThan(1_000_000);
-    expect(10 * TRIAL_RESERVE_MICRO_USD).toBeGreaterThan(1_000_000);
+    expect(2 * TRIAL_RESERVE_MICRO_USD).toBeLessThan(1_000_000);
+    expect(3 * TRIAL_RESERVE_MICRO_USD).toBeGreaterThan(1_000_000);
   });
 
   it("prevents a second runtime from spending while one call owns the shared ledger", async () => {

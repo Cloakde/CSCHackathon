@@ -1,5 +1,11 @@
 # LiveLecture AI — Current handoff
 
+## Gemini model compatibility update — active, 2026-09-15
+
+- **Active AI:** Codex. The user replied Done to continue the saved-key/provider setup. Both encrypted entries remain readable. Continue the authorized synthetic Gemini test after replacing the unavailable model; no desktop, Scribe retry, original/isolated MeltingPot changes or live activation.
+- **Owned scope:** Gemini policy/transport/accounting, focused regression tests and affected model fixtures; explicit reviewed ledger migration tooling, external smoke helper, current ADR/runbook/coordination. Use stable `gemini-3.1-flash-lite`, minimal thinking, strict combined output usage and verified current text pricing. Preserve existing $1/32-attempt plan ID, failed attempt 1 and its $0.105677 uncertain debit. Ledger migration must append a source/policy binding, never erase/reprice previous spending or run automatically from normal app startup. Review and offline checks precede a single bounded continuation, which stops at failure.
+- **Verification/review:** full `npm run check` PASS: formatting, lint, secret scan, types, **574 tests (24 root + 73 shared + 315 web + 162 extension)**, production builds/default-off package and HTTP demo. Sequential read-only review found no P1/P2 in model/accounting changes or external maintenance/RunId 03 helpers. Approval is limited to one continuation after exact-source CI, helper rebuild and credential-free ledger transition; no main promotion or AI-quality acceptance.
+
 ## Gemini credential compatibility correction — complete; model blocked, 2026-09-15
 
 - **Active AI:** none — Codex completed the correction and bounded check, then released the turn. The user reported repeated rejection by the private key helper. This was an application/helper validation defect: the already-saved entry has Google's newer authorization-key format, including a dot. It is not evidence of a bad paste or invalid provider credential; no replacement is needed for this format issue.

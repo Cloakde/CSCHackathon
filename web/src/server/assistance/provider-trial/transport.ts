@@ -6,6 +6,8 @@ import {
   TRIAL_MODEL,
   TRIAL_MAX_INPUT_TOKENS,
   TRIAL_MAX_OUTPUT_TOKENS,
+  TRIAL_MAX_BILLABLE_OUTPUT_TOKENS,
+  TRIAL_THINKING_LEVEL,
   TRIAL_MAX_REQUEST_BYTES,
   TRIAL_MAX_RESPONSE_BYTES,
 } from "../../ai-evaluation/trial/policy";
@@ -26,8 +28,8 @@ const failed = (code: FailureCode) => new TrialProviderError(code);
 const safeId = z.string().regex(/^[A-Za-z0-9_-]{1,200}$/);
 // Implicit caching can occur without requesting cachedContent. Its tokens are a subset
 // of promptTokenCount; charging the full prompt at the uncached rate remains conservative.
-// Thinking and tool use are outside this trial's fixed configuration and must be zero.
-// https://ai.google.dev/api/generate-content#UsageMetadata (checked 2026-09-06).
+// Minimal thinking may be nonzero; bill it at output rates. Tool use remains off.
+// https://ai.google.dev/api/generate-content#UsageMetadata (checked 2026-09-15).
 const UsageMetadataSchema = z
   .object({
     promptTokenCount: z.number().int().min(0).max(TRIAL_MAX_INPUT_TOKENS),
@@ -36,12 +38,21 @@ const UsageMetadataSchema = z
       .number()
       .int()
       .min(0)
-      .max(TRIAL_MAX_INPUT_TOKENS + TRIAL_MAX_OUTPUT_TOKENS),
-    thoughtsTokenCount: z.number().int().min(0).max(0).optional(),
+      .max(TRIAL_MAX_INPUT_TOKENS + TRIAL_MAX_BILLABLE_OUTPUT_TOKENS),
+    thoughtsTokenCount: z.number().int().min(0).max(TRIAL_MAX_BILLABLE_OUTPUT_TOKENS).optional(),
     toolUsePromptTokenCount: z.number().int().min(0).max(0).optional(),
     cachedContentTokenCount: z.number().int().min(0).max(TRIAL_MAX_INPUT_TOKENS).optional(),
   })
-  .refine((usage) => usage.totalTokenCount === usage.promptTokenCount + usage.candidatesTokenCount)
+  .refine(
+    (usage) =>
+      usage.candidatesTokenCount + (usage.thoughtsTokenCount ?? 0) <=
+      TRIAL_MAX_BILLABLE_OUTPUT_TOKENS,
+  )
+  .refine(
+    (usage) =>
+      usage.totalTokenCount ===
+      usage.promptTokenCount + usage.candidatesTokenCount + (usage.thoughtsTokenCount ?? 0),
+  )
   .refine((usage) => (usage.cachedContentTokenCount ?? 0) <= usage.promptTokenCount);
 const UsageEnvelope = z.object({
   responseId: safeId,
@@ -170,6 +181,7 @@ export function createMeteredGeminiTransport({
           responseJsonSchema: specification.schema,
           maxOutputTokens: TRIAL_MAX_OUTPUT_TOKENS,
           candidateCount: 1,
+          thinkingConfig: { thinkingLevel: TRIAL_THINKING_LEVEL, includeThoughts: false },
         },
         store: false,
       });
@@ -252,7 +264,9 @@ export function createMeteredGeminiTransport({
       if (!billed.success) throw failed("response");
       usage = {
         inputTokens: billed.data.usageMetadata.promptTokenCount,
-        outputTokens: billed.data.usageMetadata.candidatesTokenCount,
+        outputTokens:
+          billed.data.usageMetadata.candidatesTokenCount +
+          (billed.data.usageMetadata.thoughtsTokenCount ?? 0),
         reportedModel: billed.data.modelVersion,
         responseId: billed.data.responseId,
       };

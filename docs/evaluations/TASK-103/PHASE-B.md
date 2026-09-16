@@ -1,5 +1,15 @@
 # TASK-103 Phase B trial runbook
 
+## Current compatibility update — 2026-09-15
+
+Use the [current handoff](../../HANDOFF.md), [provider evidence](../PROVIDER-2026-09-15/README.md), and [ADR 0012](../../adr/0012-gemini-assistance-direction.md) for authorization and exact source. The user authorized bounded synthetic provider checks; the frozen full quality trial has not passed. The September 6 proposal below is historical.
+
+The current replacement is stable `gemini-3.1-flash-lite` with explicit minimal thinking and `includeThoughts:false`. Keep 2,048 requested response tokens; conservatively reserve the model's full 65,536 output-token bound including thinking, plus its full 1,048,576-token input bound. Standard text rates are $0.25/M input and $1.50/M output including thinking: **360,448 microdollars per reservation**. The total remains $1/32 attempts, with the earlier uncertain **105,677 microdollars and attempt 1 retained**. Usage settlement includes thinking. Exact source review, offline checks and CI precede one continuation; stop on failure.
+
+The authoritative ledger file and plan ID stay unchanged. An explicit reviewed offline maintenance operation can append a hash-bound source/policy transition, preserving every prior byte and price. Normal application startup never performs this transition. Refuse mismatched hashes, active or finished runs, stale locks and missing ledgers. Do not manually edit headers, erase history or reset the cap. Credentials remain encrypted outside the repository and enter only the required child process.
+
+## Historical proposal — 2026-09-06
+
 **Gemini runbook, IN REVIEW.** Claude implemented this under [TASK-103C](../../tasks/TASK-103C.md) on 2026-09-06, replacing the earlier prepared-but-never-executed OpenAI trial (kept below as history). No independent review, credentials or spending approval have been recorded yet. **No real-model run is authorized.**
 
 The trial connection is prepared for independent review and integration. **No real-model run, spending approval or human acceptance is recorded.** The normal extension and companion continue using clearly labelled prewritten help and practice. This trial does not enable live audio or change the transcription provider.

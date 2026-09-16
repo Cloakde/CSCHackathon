@@ -9,6 +9,7 @@ import {
   TRIAL_MODEL,
   TRIAL_MAX_INPUT_TOKENS,
   TRIAL_MAX_OUTPUT_TOKENS,
+  TRIAL_MAX_BILLABLE_OUTPUT_TOKENS,
   TRIAL_MAX_REQUEST_BYTES,
   TRIAL_MAX_RESPONSE_BYTES,
 } from "../../ai-evaluation/trial/policy";
@@ -57,6 +58,32 @@ afterEach(() => {
 });
 
 describe("offline bounded generateContent transport", () => {
+  it("bills thinking together with candidate output even at minimal thinking", async () => {
+    const raw = envelope();
+    Object.assign(raw.usageMetadata, { thoughtsTokenCount: 17, totalTokenCount: 167 });
+    const { call, meter } = setup(vi.fn(async () => response(raw)));
+    await expect(call("help_generate", {}, signal(), parse)).resolves.toBe("safe synthetic answer");
+    expect(meter.settle).toHaveBeenCalledExactlyOnceWith(1, {
+      inputTokens: 120,
+      outputTokens: 47,
+      reportedModel: TRIAL_MODEL,
+      responseId: "resp_offline",
+    });
+  });
+
+  it("retains the full reservation when combined thinking and response exceed the model bound", async () => {
+    const raw = envelope();
+    Object.assign(raw.usageMetadata, {
+      thoughtsTokenCount: TRIAL_MAX_BILLABLE_OUTPUT_TOKENS,
+      totalTokenCount: 150 + TRIAL_MAX_BILLABLE_OUTPUT_TOKENS,
+    });
+    const { call, meter } = setup(vi.fn(async () => response(raw)));
+    await expect(call("help_generate", {}, signal(), parse)).rejects.toMatchObject({
+      code: "response",
+    });
+    expect(meter.settle).toHaveBeenCalledExactlyOnceWith(1, undefined);
+  });
+
   it.each([key, "AQ.offline-test-only_0123-xyz"])(
     "sends opaque credentials only in the auth header, including authorization keys (%s)",
     async (apiKey) => {
@@ -161,7 +188,10 @@ describe("offline bounded generateContent transport", () => {
         expect(body).not.toHaveProperty("cachedContent");
         expect(body).not.toHaveProperty("tools");
         expect(body).not.toHaveProperty("temperature");
-        expect(body.generationConfig).not.toHaveProperty("thinkingConfig");
+        expect(body.generationConfig.thinkingConfig).toEqual({
+          thinkingLevel: "minimal",
+          includeThoughts: false,
+        });
         expect(options!.body).not.toContain(key);
         expect(state.meter.reserve).toHaveBeenCalledWith({
           kind: "help_generate",

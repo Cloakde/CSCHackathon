@@ -9,7 +9,7 @@ import {
   TRIAL_CAP_MICRO_USD,
   TRIAL_MAX_ATTEMPTS,
   TRIAL_MAX_INPUT_TOKENS,
-  TRIAL_MAX_OUTPUT_TOKENS,
+  TRIAL_MAX_BILLABLE_OUTPUT_TOKENS,
   TRIAL_MAX_REQUEST_BYTES,
   TRIAL_MODEL,
   TRIAL_PLAN_ID,
@@ -127,9 +127,9 @@ function child(path: string, body: string) {
 describe("fixed trial policy", () => {
   it("reserves the rounded full-context cost and loads without application imports", () => {
     expect(TRIAL_RESERVE_MICRO_USD).toBe(
-      Math.ceil((TRIAL_MAX_INPUT_TOKENS * 1 + TRIAL_MAX_OUTPUT_TOKENS * 4) / 10),
+      Math.ceil((TRIAL_MAX_INPUT_TOKENS * 25 + TRIAL_MAX_BILLABLE_OUTPUT_TOKENS * 150) / 100),
     );
-    expect(TRIAL_RESERVE_MICRO_USD).toBe(105_677);
+    expect(TRIAL_RESERVE_MICRO_USD).toBe(360_448);
     expect(TRIAL_CAP_MICRO_USD).toBe(1_000_000);
     expect(TRIAL_MAX_ATTEMPTS).toBe(32);
     expect(TRIAL_POLICY_HASH).toMatch(/^[a-f0-9]{64}$/);
@@ -170,9 +170,9 @@ describe("durable trial accounting", () => {
     returned = true;
     expect(observedReserve).toBe(true);
     expect(ledger.snapshot()).toMatchObject({
-      reservedMicroUsd: 105_677,
+      reservedMicroUsd: 360_448,
       chargedMicroUsd: 0,
-      totalMicroUsd: 105_677,
+      totalMicroUsd: 360_448,
     });
   });
 
@@ -180,13 +180,13 @@ describe("durable trial accounting", () => {
     const ledger = open();
     ledger.settle(ledger.reserve(request()), usage({ inputTokens: 999, outputTokens: 222 }));
     expect(ledger.snapshot()).toMatchObject({
-      chargedMicroUsd: 189,
+      chargedMicroUsd: 583,
       reservedMicroUsd: 0,
-      totalMicroUsd: 189,
-      attempts: [{ status: "settled", chargedMicroUsd: 189, usage: { inputTokens: 999 } }],
+      totalMicroUsd: 583,
+      attempts: [{ status: "settled", chargedMicroUsd: 583, usage: { inputTokens: 999 } }],
     });
     ledger.settle(ledger.reserve(request()), usage({ inputTokens: 1, outputTokens: 0 }));
-    expect(ledger.snapshot().totalMicroUsd).toBe(190);
+    expect(ledger.snapshot().totalMicroUsd).toBe(584);
   });
 
   it("never permits an uncertain full-context charge that would exceed the one-dollar cap", () => {
@@ -227,7 +227,7 @@ describe("durable trial accounting", () => {
     expect(() => ledger.settle(first, usage())).toThrow("ALREADY_SETTLED");
     expect(ledger.snapshot()).toEqual(before);
     ledger.settle(second, usage());
-    expect(ledger.snapshot().totalMicroUsd).toBe(105_691);
+    expect(ledger.snapshot().totalMicroUsd).toBe(360_488);
     expect(() => ledger.settle(second, usage({ inputTokens: 0, outputTokens: 0 }))).toThrow(
       "ALREADY_SETTLED",
     );
@@ -241,7 +241,7 @@ describe("durable trial accounting", () => {
     expect(() => first.settle(1, usage())).toThrow("CLOSED");
     expect(first.snapshot().attempts[0]?.status).toBe("uncertain");
     const resumed = open(path);
-    expect(resumed.snapshot().totalMicroUsd).toBe(105_677);
+    expect(resumed.snapshot().totalMicroUsd).toBe(360_448);
     resumed.settle(resumed.reserve(request()), usage());
     resumed.finish();
     expect(resumed.snapshot().finished).toBe(true);
@@ -262,7 +262,7 @@ describe("durable trial accounting", () => {
     snapshot.attempts[0]!.reservedMicroUsd = 0;
     snapshot.totalMicroUsd = 0;
     expect(ledger.snapshot().attempts[0]?.requestBytes).toBe(128);
-    expect(ledger.snapshot().totalMicroUsd).toBe(105_677);
+    expect(ledger.snapshot().totalMicroUsd).toBe(360_448);
     expect(() => ledger.reserve(request())).toThrow("REQUEST_IN_FLIGHT");
   });
 });
@@ -294,7 +294,7 @@ describe("invalid or untrusted accounting input", () => {
     { inputTokens: Number.NaN },
     { inputTokens: Number.POSITIVE_INFINITY },
     { inputTokens: TRIAL_MAX_INPUT_TOKENS + 1 },
-    { outputTokens: TRIAL_MAX_OUTPUT_TOKENS + 1 },
+    { outputTokens: TRIAL_MAX_BILLABLE_OUTPUT_TOKENS + 1 },
     { outputTokens: -1 },
     { requestId: "provider body must not persist\n" },
     { responseId: "" },
@@ -307,7 +307,7 @@ describe("invalid or untrusted accounting input", () => {
     expect(() => ledger.settle(id, { ...usage(), ...patch })).toThrow("INVALID_USAGE");
     expect(ledger.snapshot()).toMatchObject({
       reservedMicroUsd: 0,
-      chargedMicroUsd: 105_677,
+      chargedMicroUsd: 360_448,
       attempts: [{ status: "uncertain" }],
     });
     expect(ledger.snapshot().attempts[0]).not.toHaveProperty("usage");
@@ -332,7 +332,7 @@ describe("invalid or untrusted accounting input", () => {
       openTrialLedger({ directory: path, sourceTree: SOURCE, policyHash: "b".repeat(64) }),
     ).toThrow("POLICY_MISMATCH");
     expect(fs.readFileSync(join(path, "ledger.jsonl"), "utf8")).toBe(before);
-    expect(open(path).snapshot().totalMicroUsd).toBe(105_677);
+    expect(open(path).snapshot().totalMicroUsd).toBe(360_448);
   });
 
   it.each([
@@ -390,7 +390,7 @@ describe("exclusive locks and persistence failures", () => {
        process.exit(0);`,
     );
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout.trim()).toBe("105677");
+    expect(result.stdout.trim()).toBe("360448");
     const ledgerDirectory = join(path, "ledger");
     const before = fs.readFileSync(join(ledgerDirectory, "ledger.jsonl"), "utf8");
     expect(() => open(ledgerDirectory)).toThrow("LOCKED");
@@ -399,9 +399,9 @@ describe("exclusive locks and persistence failures", () => {
     fs.unlinkSync(join(ledgerDirectory, "ledger.lock"));
     const recovered = open(ledgerDirectory);
     expect(recovered.snapshot()).toMatchObject({
-      totalMicroUsd: 105_677,
+      totalMicroUsd: 360_448,
       reservedMicroUsd: 0,
-      attempts: [{ status: "uncertain", chargedMicroUsd: 105_677 }],
+      attempts: [{ status: "uncertain", chargedMicroUsd: 360_448 }],
     });
     expect(() => recovered.settle(1, usage())).toThrow("ALREADY_SETTLED");
     expect(recovered.reserve(request())).toBe(2);
@@ -430,7 +430,7 @@ describe("exclusive locks and persistence failures", () => {
       throw new Error("disk unavailable");
     });
     expect(() => ledger.settle(attempt, usage())).toThrow("IO_FAILURE");
-    expect(ledger.snapshot().totalMicroUsd).toBe(105_677);
+    expect(ledger.snapshot().totalMicroUsd).toBe(360_448);
     expect(() => ledger.close()).toThrow("IO_FAILURE");
     expect(() => open(path)).toThrow("LOCKED");
   });
