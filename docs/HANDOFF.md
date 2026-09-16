@@ -1,5 +1,14 @@
 # LiveLecture AI — Current handoff
 
+## TASK-309 — MeltingPot study continuity, active, 2026-09-15
+
+- **Active AI:** Codex preparing scoped checkpoints and paired production verification. User requested autonomous MeltingPot continuation.
+- **Starting source:** clean primary `f35d475bdcebd39e3b1d763a2cd7ac798df40d9c`; clean isolated copy `4534dba6bb490d3a4c95bce499656aee5b8f4c52`.
+- **Scope/ownership:** [TASK-309](tasks/TASK-309.md), [ADR 0014](adr/0014-private-study-files.md): per-topic study continuity, source flashcards/review queue, explicit portable study files. Codex owns only copy lecture pages/components/libraries/tests/rework docs and primary coordination/paired checks/release preparation.
+- **Boundaries:** existing branches, one AI at a time; original MeltingPot untouched. No API/credentials/desktop/database/automatic persistence or main merge. Earlier implementation holds are superseded only for this bounded batch. Real-provider, human and release acceptance remain pending.
+- **Implementation/checks:** all three scoped study milestones implemented; copy guarded lint/types/383 tests/build PASS; primary full check/547 tests PASS; extended paired journey 2 PASS. Sequential review's import allocation P2 fixed and follow-up found no additional P1/P2. [Evidence and guide](evaluations/TASK-309/README.md). Exact source/package checkpoint follows after paired production verification.
+- **Copy checkpoint:** `24d83f9d2c2eb748b7ea2b48ef19fd82cb26d846`, clean, no remote, push guard retained.
+
 ## Remaining-milestone implementation — complete, IN REVIEW, 2026-09-15
 
 - **Active AI:** none — Codex completed the authorized implementation and verification, then released the turn. The user assigns the next session; one AI at a time.

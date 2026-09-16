@@ -4,6 +4,8 @@ LiveLecture AI connects a moment of confusion during a lecture to focused practi
 
 ## Current state
 
+**Private MeltingPot study tools:** topic switches preserve answers, source flashcards focus on confusing concepts, and a personal review queue tracks what you want to revisit. Explicit study-file download/import lets you reopen saved work after the lecture service stops. Nothing is saved automatically or shared with a class. See the [study guide](docs/evaluations/TASK-309/STUDY_GUIDE.md) and [current handoff](docs/HANDOFF.md) for the exact source pair and evidence. Original MeltingPot services remain untouched.
+
 The local learning demo connects a sample transcript, “I’m Lost” explanations, clickable lecture evidence, saved confusion moments, and matching post-class practice. It covers two distinct calculus concepts: identifying inner/outer functions and including the inner derivative.
 
 **Ask the Lecture** now answers four published sample questions by quoting the supporting passages already received. Open the suggested questions or type one of them; unsupported questions are clearly declined. **Catch Me Up** shows complete passages overlapping the latest two minutes, with clickable timestamps. These are recent excerpts, not a generated summary. Both tools appear in the extension's lecture screen and its browser rehearsal; they do not create confusion/practice records or store question history.
@@ -56,7 +58,7 @@ node scripts/rework-check.mjs
 node scripts/rework-preview.mjs
 ```
 
-Its preview launcher permits only the isolated synthetic build, rejects inherited service settings/local environment files, and binds to port 3111. Keep the LiveLecture service running on port 3000. After Finish, choose **Open in MeltingPot**, practice a confusing moment, compare your answer, and use the lecture citation and **Return to practice** link. Answers stay in the page and are never added to a shared Pot or class record. Deleting the sample lecture clears its transient service data.
+Its preview launcher permits only the isolated build, rejects inherited service settings/local environment files, and binds to port 3111. Keep the LiveLecture service running on port 3000 for the initial handoff. After Finish, choose **Open in MeltingPot**, practice a confusing moment, compare your answer, and use the lecture citation and **Return to practice** link. Answers stay in the page unless explicitly downloaded in a study file and are never added to a shared Pot or class record. Deleting the sample lecture clears its transient service data; downloaded files remain user-managed. Imported files work without the lecture service.
 
 The paired automated check requires the unpublished local rework copy, so it is a separate required integration command, alongside this repository's usual CI:
 

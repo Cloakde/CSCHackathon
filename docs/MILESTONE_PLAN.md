@@ -368,6 +368,8 @@ If M3 is not complete by the end of Day 13:
 
 ## 9. M4 — Prioritized Additions and Reuse, Days 14–15
 
+**Latest user amendment, 2026-09-15:** TASK-309 authorizes three further bounded implementation milestones in the private copy: retain topic practice, source-backed flashcards and personal review queue, and explicit portable study files. This supersedes the older feature hold for those additions only. Dates in this historical plan are not confirmed calendar commitments; provider, human and release acceptance remain pending.
+
 **Narrow user amendment:** TASK-305 permits offline sample Ask and recent-excerpt Catch Me Up now. It does not accept M3/M4 or activate the remaining list. Judge access, real AI quality, human checks and broader reuse remain unresolved.
 
 Add only the highest-value work after the connected M3 callback, learner demonstration, privacy checks, and approved submission scope are ready. Unresolved actual AI quality or judge-access blockers take priority. Broader MeltingPot redesign and unrelated screens wait until this gate. Inspect existing notes, flashcard, and practice components before building equivalents; reuse does not waive grounding, privacy, or acceptance checks, and existing features do not automatically enter scope.

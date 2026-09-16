@@ -5,7 +5,11 @@ import { SimulationTranscriptSource } from "@livelecture/shared";
 import { App } from "../extension/src/App";
 import { createDemoClient } from "../extension/src/demo-api";
 import { createDemoDispatcher, DEMO_ORIGIN } from "../web/src/server/demo-api";
-import { LectureReview } from "@meltingpot/components/lectures/lecture-review";
+import {
+  LectureReview,
+  ImportedLectureReview,
+} from "@meltingpot/components/lectures/lecture-review";
+import * as studyFiles from "@meltingpot/lib/lectures/study-pack";
 import { createLectureClient } from "@meltingpot/lib/lectures/client";
 import { createLectureRelay } from "@meltingpot/lib/lectures/relay";
 import type { ComponentProps } from "react";
@@ -37,7 +41,9 @@ it.each(["prewritten", "gemini"] as const)(
       assistanceProvider,
       now: () => Date.parse("2026-09-04T18:00:00.000Z"),
     });
+    let serviceCalls = 0;
     const upstream: typeof fetch = async (input, options) => {
+      serviceCalls += 1;
       const url = new URL(String(input), DEMO_ORIGIN);
       expect(url.origin).toBe(DEMO_ORIGIN);
       const headers = new Headers(options?.headers);
@@ -93,7 +99,7 @@ it.each(["prewritten", "gemini"] as const)(
     expect(target.pathname).toBe(`/lectures/${id}`);
     lecture.unmount();
     vi.useRealTimers();
-    render(<LectureReview sessionId={id} client={reviewClient} />);
+    const review = render(<LectureReview sessionId={id} client={reviewClient} />);
     await screen.findByRole("button", { name: /Practice Identifying inner and outer functions/ });
     expect(screen.getByLabelText("Assistance mode")).toHaveTextContent(
       assistanceProvider === "gemini" ? "Gemini assistance" : "Prewritten sample help",
@@ -118,6 +124,15 @@ it.each(["prewritten", "gemini"] as const)(
     expect(
       screen.getByText("The missing factor is 2. The derivative is 8(2x + 3)³."),
     ).toBeVisible();
+    const callsBeforeSwitch = serviceCalls;
+    await click(/Practice Identifying inner and outer functions/);
+    expect(screen.getByRole("textbox")).toHaveValue("Inside 2x + 3; outside fourth power.");
+    expect(serviceCalls).toBe(callsBeforeSwitch);
+    await click("Mark for review");
+    const download = vi.spyOn(studyFiles, "downloadStudyPack").mockImplementation(() => {});
+    await click("Download study file");
+    const pack = studyFiles.parseStudyPack(download.mock.calls[0]![0]);
+    expect(pack.practice).toHaveLength(2);
     const view = await reviewClient.getSession(id);
     expect(view.confusionEvents.map((event) => event.conceptId)).toEqual([
       "concept_inner_outer",
@@ -127,6 +142,21 @@ it.each(["prewritten", "gemini"] as const)(
     await click("Confirm deletion");
     expect(screen.getByRole("heading", { name: "Sample lecture deleted" })).toBeVisible();
     await expect(reviewClient.getSession(id)).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
+    review.unmount();
+    const callsAfterDeletion = serviceCalls;
+    render(<ImportedLectureReview pack={pack} onClose={vi.fn()} />);
+    await click(/Practice Remembering the inner derivative/);
+    expect(screen.getByRole("textbox")).toHaveValue("Multiply by 2.");
+    expect(screen.getByLabelText("Assistance mode")).toHaveTextContent(
+      "have not been independently verified",
+    );
+    await click("Show source passages");
+    expect(screen.getByLabelText("Flashcard source passages")).toHaveTextContent(
+      pack.view.committedChunks.find(
+        (chunk) => chunk.chunkId === pack.view.confusionEvents[0]!.evidenceChunkIds[0],
+      )!.text,
+    );
+    expect(serviceCalls).toBe(callsAfterDeletion);
     expect(globalThis.fetch).not.toHaveBeenCalled();
   },
 );
