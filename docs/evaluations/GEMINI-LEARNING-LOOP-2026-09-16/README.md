@@ -43,3 +43,25 @@ Sequential content review confirmed mathematical correctness, evidence support a
 The correction requires sample practice to preserve the complete server-supplied benchmark question verbatim. Both generation parsing and verification input reject shortened/changed questions before display/provider verification. Non-sample practice is instructed to be self-contained. The frozen questions and verifier are unchanged; no candidate is repaired after generation. Regression coverage checks the complete question, rejection of the observed truncation and zero verifier requests for that malformed candidate; normal non-sample practice remains supported.
 
 One targeted Run07 may use the last allowance for at most two calls, after exact-source CI and sequential review. It uses the hash-pinned synthetic completed view from Run06 with the actual application adapter, durable application meter/source guards and four-second combined operation deadline. It tests generation and verification of the corrected second exercise only; it does not claim to rerun the full HTTP/extension journey. No new lecture or persistent application session is created. A failed run stops; old evidence and debit remain intact.
+
+## Run07 and final status
+
+Final implementation `ded73736045daf7784863205f5a2d15e7829163b`, tree `4b4db2675c0be83beaaeceb5efa73d317d96d2c1`, passed 90 focused tests, all workspace types, sequential review and [full CI 35116913133](https://github.com/Cloakde/CSCHackathon/actions/runs/35116913133) verify/Gitleaks. Both helpers were rebuilt on clean reviewed source before the append-only transition and run.
+
+Run07 **PASS**: two HTTP 200 responses, complete benchmark question preserved, correct missing factor 2 and derivative `8(2x + 3)^3`, supported independent verdict, **3,843 ms** including both calls. The explanation correctly multiplies the outer derivative by the derivative of `2x + 3`. It used the prior synthetic view, not a new active session or a fresh full service journey.
+
+The final external UI replay combined the original Run06 responses with the corrected Run07 second drill. It passed extension citation focus, private MeltingPot handoff, both questions/answers, transcript navigation and answer retention; no network was used. See helper workspace `outputs/provider-session/gemini-ui-replay.test.tsx`, `ui-replay.config.mjs`, and `gemini-ui-replay-run07.txt`. The copy source is unchanged. This supplements the full source-pair offline tests and actual service runs; it does not establish installed-browser or real-clock playback behavior.
+
+Final cumulative accounting: **31 attempts, 480,630 microdollars ($0.480630) allowance debit**, with 519,370 microdollars remaining but only **one** attempt slot. The 105,677 and 360,448 uncertain debits are retained. No ledger lock remains; all created application sessions were deleted. Never treat remaining dollars as permission for extra attempts, clear the ledger, or launch an operation needing two calls when only one slot remains. Any future approved source/cap transition must preserve this history.
+
+| Gate                                                      | Current evidence                                                             |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Two-topic actual Gemini service path                      | PASS on Run06 source; final question correction separately verified in Run07 |
+| Complete sample question and correct answer               | PASS for targeted Run07; original Run06 defect retained in evidence          |
+| Unsupported question and instruction content              | PASS in Run06                                                                |
+| Extension/MeltingPot citation and practice UI             | PASS in captured-output offline replay                                       |
+| Normal-speed continued-ingestion provider timing          | Pending; these service runs appended frozen chunks directly                  |
+| Human subject/learner review and repeated-run reliability | Pending; AI review and one passing run do not substitute                     |
+| Real Chrome/live capture/Scribe/release                   | Pending; no desktop or Scribe use in this task                               |
+
+Safe raw synthetic reports remain immutable in the helper workspace. SHA-256: Run04 `fd158ad3393578cb3bdf14e1d739ce8f1501b0902283d24ab81e3a63dc9bc871`; Run05 `18888d24e244980410b66a10576e4c4ff78564082735072c40df9f51e8eec246`; Run06 `6684e4e1dad18df89aea4526010753c33f5f3dde75fd2f44ac9a3a08706add07`; Run07 `156e5b45cef6d2a5497d9c34411997fceb05a9e3974479e0d458ab1ebece9348`. No raw provider errors, credentials, real student content or recordings were saved.
