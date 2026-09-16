@@ -1,5 +1,13 @@
 # LiveLecture AI — Current handoff
 
+## Authorized provider test session — active, 2026-09-15
+
+- **Active AI:** Codex. The user saved both keys through the private PowerShell helper, requested another API attempt, and authorized takeover/testing for this session. Older no-provider/no-desktop statements describe past turns and do not forbid this session.
+- **Scope:** test existing Gemini and ElevenLabs connections with canonical synthetic text and the supplied synthetic speech only; preserve default Simulation Mode. First run short service checks, stopping on failures; do not claim a Chrome check from a command-line result. No original MeltingPot, real lecture data, new account/key, billing change, deployment or main merge.
+- **Limits:** use the existing shared Gemini ledger, at most $1/32 attempts, one active request, no automatic retry. Bound one Scribe smoke to 30 seconds audio/two tokens/two connections/one planned reconnect, with a $1 maximum allowance. Preserve reservations and failed evidence; no fresh ledger to retry. The headless Scribe harness uses a dedicated synthetic client origin, not an installed-extension identity or evidence of browser capture.
+- **Credentials:** both encrypted SecureString entries are saved/readable by this Windows account. Values remain outside chat/repositories and enter only necessary child environments. No credential validation or provider request has occurred at this checkpoint.
+- **Ownership:** current handoff/task-board and provider-test evidence; use existing application/runtime unchanged. External local runner helpers may safely load keys and capture redacted output. Real-provider results and any remaining blockers will be recorded before releasing the turn.
+
 ## TASK-309 — MeltingPot study continuity complete, IN REVIEW, 2026-09-15
 
 - **Active AI:** none — Codex completed the autonomous MeltingPot continuation and released the turn. One AI at a time.

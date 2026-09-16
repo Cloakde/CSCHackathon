@@ -6,6 +6,8 @@ The AI holding the active turn edits this file on behalf of the Coordinator. [HA
 
 ## Current execution — 2026-09-15
 
+**Active: Codex, authorized provider-test session.** The user saved both provider keys locally and asked to take over testing. See the current handoff for bounded synthetic-only execution and evidence. This supersedes the prior turn's no-API restriction for these tests; default Simulation Mode and original MeltingPot boundaries remain.
+
 **TASK-309 implementation complete, IN REVIEW; active AI none.** The user's autonomous MeltingPot continuation delivered study continuity, source flashcards/review queue and explicit portable study-file download/import. [Contract](tasks/TASK-309.md), [evidence](evaluations/TASK-309/README.md), [ADR 0014](adr/0014-private-study-files.md). Copy 383 tests/build, primary 547 tests/full check, paired component and production HTTP checks pass. Same branches, one AI at a time; no original services, provider calls or desktop use. Human/provider/release acceptance remains separate from implementation.
 
 The user assigned all remaining roadmap implementation to Codex under [TASK-308](tasks/TASK-308.md). Current implementation/check evidence: [TASK-308](evaluations/TASK-308/README.md). This explicitly supersedes the correction-only scope and earlier M4/copy-edit holds. TASK-307 now has a bounded opt-in implementation; ordinary builds remain simulation. No milestone is marked PASS based only on offline tests. No API/desktop use or original MeltingPot changes occurred.
