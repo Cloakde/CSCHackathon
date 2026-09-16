@@ -1,6 +1,6 @@
 # Bounded provider test — 2026-09-15 Pacific
 
-**Result: Gemini BLOCKED before provider use; Scribe FAIL after real provider use.** Neither result establishes live extension readiness. The user saved credentials privately and authorized testing for this session. Synthetic text/audio only; no browser capture, real classroom data, account changes, main merge or original/isolated MeltingPot edits.
+**Latest result: Gemini key-format bug fixed; real Google request blocked by model availability. Scribe FAIL after real provider use.** Neither result establishes live extension readiness. The user saved credentials privately and authorized testing for this session. Synthetic text/audio only; no browser capture, real classroom data, account changes, main merge or original/isolated MeltingPot edits.
 
 ## Gemini key-format diagnosis corrected
 
@@ -10,7 +10,17 @@ The correction permits dots while retaining length, whitespace/control-character
 
 The full offline `npm run check` subsequently passed: formatting, lint, secret scan, types, **559 tests (24 root + 73 shared + 300 web + 162 extension)**, production builds, ordinary extension-package verification and production HTTP demo. These checks made no provider calls.
 
-## Gemini
+## Gemini corrected-source real attempt
+
+Commit `467d12cfda0ca11434a20e311b33e053d1252e76`, tree `bac06573df39d121682343989ce4b08e09c0ccfe`, passed [CI verification and Gitleaks](https://github.com/Cloakde/CSCHackathon/actions/runs/35054244389). The exact-source external bundle was rebuilt without credentials before using the already-saved key for RunId 02.
+
+From **2026-09-16 04:06:50.142Z to 04:06:51.645Z**, the real production service created a synthetic session, appended its first topic, and made **one Google request**. Google returned **HTTP 404**, classified by the bounded diagnostic reader as `model_unavailable`, for the pinned `gemini-2.5-flash-lite` endpoint. The help route returned HTTP 503 / `gemini_failed`; the runner stopped and deleted its session. No verification/practice call, generated output, automatic model fallback or retry followed. This proves the key-format gate is fixed and the request reached Google; it does not establish full authentication, model quality or live extension acceptance.
+
+The existing shared ledger now contains open/reserve/settle records for attempt 1. Because the provider returned no validated usage, **105,677 microdollars ($0.105677)** remain counted as uncertain cost under the original $1/32-attempt cap. This is a conservative budget debit, not a measured account charge. No ledger lock remains. Preserve the ledger and its source/policy identity; a future model/settings update needs reviewed accounting continuity, never a new allowance obtained by deleting the old ledger.
+
+Safe artifacts outside Git: `outputs/provider-session/gemini-result-02.json` (SHA-256 `159ee80cc7d4be0cb927552f14869d70981d5de4c8a2671c6f8f25828c5e3274`) and `gemini-run-02.txt` under the helper workspace named below. No key replacement is required by this result. Next is a reviewed model/configuration compatibility update with current official pricing/settings and carried-forward prior spending. Scribe was not retried.
+
+## Gemini initial attempt — historical local rejection
 
 The production application service was exercised at commit `e1a942838e246618371b38c2958fb4f97094fe34`, tree `5f6fb20197f2f8e12eae68a0af3eb9ba90273a15`. Session creation, synthetic transcript append and cleanup succeeded. Help returned HTTP 503 with `gemini_blocked`: the saved Gemini entry failed the existing credential syntax validation. The diagnostic fetcher recorded **zero provider requests**, and the shared trial ledger did not exist after this attempt. No AI output or quality evidence was obtained.
 
@@ -52,4 +62,4 @@ The current [ElevenLabs commit guide](https://elevenlabs.io/docs/eleven-api/guid
 
 Before another paid Scribe run, prepare and offline-check a fixture with deliberate speech/pause boundaries within the same audio cap, including a final transmitted silence, and make safe failure summaries retain counters. Do not turn drafts into finalized transcript chunks or weaken timing/reconnect checks to obtain a pass. Retention remains a separate acceptance blocker; no real lecture content should be used based on this result.
 
-After the user replaces Gemini's entry, continue the existing source/policy-bound $1/32-attempt service check; preserve any created ledger. Human model-quality, real Chrome capture, live timestamp/reconnect behavior, provider retention and final release acceptance remain open. Default builds remain Simulation Mode.
+The corrected-source Gemini attempt above supersedes the initial request to replace its key. Preserve its now-existing ledger when preparing the model/settings update. Human model-quality, real Chrome capture, live timestamp/reconnect behavior, provider retention and final release acceptance remain open. Default builds remain Simulation Mode.
