@@ -27,9 +27,16 @@ if (
   throw new Error("Fixture must contain nonsilent mono PCM16 at 16 kHz.");
 const seconds = pcm.length / 32000;
 if (seconds < 10 || seconds > 90) throw new Error("Synthetic fixture exceeds the live test bound.");
-if (process.argv.length > 3 || (process.argv[2] && !process.argv[2].startsWith("--pcm-output=")))
+const option = process.argv[2];
+if (process.argv.length > 3 || (option && !/^--(?:pcm|smoke-pcm)-output=.+$/.test(option)))
   throw new Error("Unknown fixture verification option.");
-if (process.argv[2]) await writeFile(process.argv[2].slice(13), pcm, { flag: "wx" });
+const smokePcm = pcm.subarray(0, 30 * 32000);
+if (option)
+  await writeFile(
+    option.slice(option.indexOf("=") + 1),
+    option.startsWith("--smoke-") ? smokePcm : pcm,
+    { flag: "wx" },
+  );
 console.log(
   JSON.stringify(
     {
@@ -38,6 +45,8 @@ console.log(
       seconds,
       wavSha256: createHash("sha256").update(bytes).digest("hex"),
       pcmSha256: createHash("sha256").update(pcm).digest("hex"),
+      smokeSeconds: smokePcm.length / 32000,
+      smokePcmSha256: createHash("sha256").update(smokePcm).digest("hex"),
     },
     null,
     2,
