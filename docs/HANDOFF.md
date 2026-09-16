@@ -1,13 +1,15 @@
 # LiveLecture AI — Current handoff
 
-## TASK-309 — MeltingPot study continuity, active, 2026-09-15
+## TASK-309 — MeltingPot study continuity complete, IN REVIEW, 2026-09-15
 
-- **Active AI:** Codex preparing scoped checkpoints and paired production verification. User requested autonomous MeltingPot continuation.
+- **Active AI:** none — Codex completed the autonomous MeltingPot continuation and released the turn. One AI at a time.
 - **Starting source:** clean primary `f35d475bdcebd39e3b1d763a2cd7ac798df40d9c`; clean isolated copy `4534dba6bb490d3a4c95bce499656aee5b8f4c52`.
 - **Scope/ownership:** [TASK-309](tasks/TASK-309.md), [ADR 0014](adr/0014-private-study-files.md): per-topic study continuity, source flashcards/review queue, explicit portable study files. Codex owns only copy lecture pages/components/libraries/tests/rework docs and primary coordination/paired checks/release preparation.
 - **Boundaries:** existing branches, one AI at a time; original MeltingPot untouched. No API/credentials/desktop/database/automatic persistence or main merge. Earlier implementation holds are superseded only for this bounded batch. Real-provider, human and release acceptance remain pending.
-- **Implementation/checks:** all three scoped study milestones implemented; copy guarded lint/types/383 tests/build PASS; primary full check/547 tests PASS; extended paired journey 2 PASS. Sequential review's import allocation P2 fixed and follow-up found no additional P1/P2. [Evidence and guide](evaluations/TASK-309/README.md). Exact source/package checkpoint follows after paired production verification.
+- **Implementation/checks:** all three scoped study milestones implemented; copy guarded lint/types/383 tests/build PASS; primary full check/547 tests PASS; extended paired journey 2 PASS. Sequential review's import allocation P2 fixed and follow-up found no additional P1/P2. Paired production HTTP PASS at primary `28e943d184e48378f155fe778d4597e71a3af916` and copy `24d83f9d2c2eb748b7ea2b48ef19fd82cb26d846`; both owned rehearsal servers stopped. [Evidence and guide](evaluations/TASK-309/README.md).
 - **Copy checkpoint:** `24d83f9d2c2eb748b7ea2b48ef19fd82cb26d846`, clean, no remote, push guard retained.
+- **Delivery:** primary implementation/paired-test checkpoint `28e943d184e48378f155fe778d4597e71a3af916`; subsequent documentation checkpoint preserves runtime. Package with the existing release script; `release/<head12>/manifest.json` pins the exact source pair and hashes. Final shared-head CI is under PR #5; match its SHA. The local copy is not fetched by CI, so retain its separate checks above.
+- **Next:** no further implementation is needed for these three scoped milestones. Remaining acceptance is Chrome/visual/keyboard and learner/subject review, authorized capped real-provider runs, judge access and submission. Default demo remains simulation. Imported files work without the lecture service and cannot generate missing exercises; downloads are user-managed and not erased by session deletion.
 
 ## Remaining-milestone implementation — complete, IN REVIEW, 2026-09-15
 

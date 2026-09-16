@@ -1,7 +1,7 @@
 # TASK-309 — Continue private MeltingPot study
 
 **Assigned:** Codex, 2026-09-15. The user requested autonomous selection and execution of the next MeltingPot milestones. This extends TASK-308's implementation scope; it does not waive real-provider, Chrome, learner or release acceptance.
-**State:** IN REVIEW. Implementation and local checks complete; exact paired production/package checkpoint is being prepared. One AI at a time on the existing branches. Real-service and human acceptance remain pending.
+**State:** IN REVIEW. All three scoped implementation milestones, local checks and paired production verification complete. See [evidence](../evaluations/TASK-309/README.md) for exact sources and remaining acceptance. One AI at a time on the existing branches. Real-service and human acceptance remain pending.
 
 ## Deliverables
 
