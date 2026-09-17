@@ -20,7 +20,18 @@ node scripts/package-release.mjs --meltingpot-root=C:/Users/abuiz/Documents/Code
 
 The Windows packager requires clean repositories and the remote-free rework branch. It rebuilds the ordinary extension without inherited credentials, runs the packaged-worker verifier, and creates `release/<LiveLecture commit>/` without overwriting any previous candidate. Contents: extension ZIP, both exact source ZIPs, short setup note and SHA-256 manifest with both commits/trees. The live-test package is deliberately excluded. Packaging verifies build/source identity, not human installation or AI quality.
 
-Source archives contain the rework code and preserved license, not dependencies, local Git guards or production settings. When unpacking the MeltingPot archive, keep it separate from the original, initialize only a new local repo if needed, and follow `REWORK.md` to restore its push guard. Never attach an original remote or copy an old environment file. The package manifest identifies the source archive even before Git initialization.
+Source archives contain the rework code and preserved license, not dependencies, Git metadata or production settings. Keep the extracted MeltingPot archive separate from the original. Its guarded build needs a local Git repository to identify source files. From that fresh archive's root, run these setup commands before following the dependency-install instructions in `REWORK.md`:
+
+```powershell
+git init --initial-branch=rework/lecture-integration
+git config core.hooksPath .rework-hooks
+git config push.default nothing
+git config remote.pushDefault DISABLED
+```
+
+No remote or commit is needed to run the unpacked demo. Never attach an original remote or copy an old environment file. The package manifest identifies the archived source; a new local Git repository does not restore the original commit history.
+
+On Windows, extract the source archives into short local folder paths, such as `C:\ll\LiveLecture` and `C:\ll\MeltingPot-rework`. A fresh-install check with Node 24.14.0 reproduced a package-import failure when a nested dependency's `package.json` path reached 260 characters. The misleading error was `ERR_PACKAGE_IMPORT_NOT_DEFINED` for `#module-evaluator`. If that happens, use a fresh extraction in a shorter folder and reinstall the locked dependencies there; do not change dependency versions or copy service settings to work around it.
 
 ## Install and try
 
