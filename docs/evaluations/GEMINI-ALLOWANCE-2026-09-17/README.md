@@ -1,6 +1,6 @@
 # Gemini last-attempt guard — offline correction, 2026-09-17
 
-**State:** implemented; 152 focused application, transport, ledger and migration tests plus all workspace type checks passed. Sequential review and final-source CI pending. No provider requests or real ledger changes occurred.
+**State:** implemented at `2b96059f664a16e3f4a8fd4e3e27b5ef03d4bd05`. Sequential independent review found no P1/P2 and repeated all 25 application regression tests. The 152 focused application/transport/ledger/migration tests and all workspace types passed, followed by the full credential-free check: formatting, lint, secret scan, **585 tests (30 root + 73 shared + 320 web + 162 extension)**, builds, default-off package verification and production HTTP demo. Final-source CI remains pending. No provider requests or real ledger changes occurred.
 
 The application previously allowed generation with 31 of 32 attempts already spent. The generated answer then needed a separate verification call, which the existing cap correctly rejected. A new regression reproduced one unnecessary fake fetch and no usable answer. The failing evidence was retained outside Git before the correction.
 
