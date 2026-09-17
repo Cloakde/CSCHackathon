@@ -62,6 +62,13 @@ export function createApplicationMeter(
       const approved = applicationAuthorization(environment(), repository());
       const ledger = openTrialLedger(approved);
       try {
+        if (input.kind === "help_generate" || input.kind === "practice_generate") {
+          // App answers require a separate verifier. Check under the ledger lock
+          // before spending a slot that cannot possibly complete that pair.
+          const snapshot = ledger.snapshot();
+          if (snapshot.maxAttempts - snapshot.attempts.length < 2)
+            throw new Error("Too few attempts remain to generate and verify an answer.");
+        }
         const id = ledger.reserve(input);
         active = ledger;
         return id;

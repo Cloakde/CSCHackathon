@@ -14,8 +14,11 @@ import {
   TRIAL_PLAN_ID,
   TRIAL_POLICY_HASH,
   TRIAL_RESERVE_MICRO_USD,
+  TRIAL_MAX_ATTEMPTS,
+  TRIAL_MODEL,
 } from "../ai-evaluation/trial/policy";
-import { applicationAuthorization } from "./app-authorization";
+import { openTrialLedger } from "../ai-evaluation/trial/budget";
+import { applicationAuthorization, createApplicationMeter } from "./app-authorization";
 
 const tree = "a".repeat(40);
 const directories: string[] = [];
@@ -101,6 +104,23 @@ function fixture(
     return { session, chunks, path: `/api/sessions/${session.sessionId}` };
   };
   return { start, call, handle, ledger, fetcher, commonDir, environment, repository };
+}
+
+function leaveOneAttempt(api: ReturnType<typeof fixture>) {
+  const ledger = openTrialLedger(applicationAuthorization(api.environment, api.repository()));
+  try {
+    for (let i = 0; i < TRIAL_MAX_ATTEMPTS - 1; i++) {
+      const id = ledger.reserve({
+        kind: "help_generate",
+        scenarioId: "offline_allowance_boundary",
+        requestBytes: 128,
+        requestSha256: "a".repeat(64),
+      });
+      ledger.settle(id, { inputTokens: 1, outputTokens: 0, reportedModel: TRIAL_MODEL });
+    }
+  } finally {
+    ledger.close();
+  }
 }
 
 afterEach(() => {
@@ -257,6 +277,53 @@ describe("actual Gemini application runtime with offline transport and durable a
     expect((await restart.call(`${next.path}/lecture-tools`, input)).status).toBe(503);
     expect(restart.fetcher).not.toHaveBeenCalled();
     expect(restart.ledger().filter((event) => event.event === "reserve")).toHaveLength(32);
+  });
+
+  it.each(["help_generate", "practice_generate"] as const)(
+    "does not spend the last attempt on %s, while allowing an already-generated answer to be verified",
+    (kind) => {
+      const api = fixture();
+      leaveOneAttempt(api);
+      const before = api.ledger();
+      const meter = createApplicationMeter(() => api.environment, api.repository);
+      try {
+        const input = {
+          kind,
+          scenarioId: "offline_pair_boundary",
+          requestBytes: 128,
+          requestSha256: "b".repeat(64),
+        };
+        expect(() => meter.reserve(input)).toThrow();
+        expect(api.ledger()).toEqual(before);
+        const id = meter.reserve({
+          ...input,
+          kind: kind === "help_generate" ? "help_verify" : "practice_verify",
+        });
+        expect(id).toBe(TRIAL_MAX_ATTEMPTS);
+        meter.settle(id, { inputTokens: 1, outputTokens: 0, reportedModel: TRIAL_MODEL });
+      } finally {
+        meter.close();
+      }
+    },
+  );
+
+  it("blocks an app answer before fetch when only its generation slot remains, including after restart", async () => {
+    const api = fixture();
+    leaveOneAttempt(api);
+    const before = api.ledger();
+    const first = await api.start();
+    const input = { kind: "ask", question: "What is the chain rule?", throughSequence: 9 };
+    const response = await api.call(`${first.path}/lecture-tools`, input);
+    expect(response.status).toBe(503);
+    expect(response.headers.get("X-LiveLecture-Assistance")).toBe("gemini_failed");
+    expect(api.fetcher).not.toHaveBeenCalled();
+    expect(api.ledger()).toEqual(before);
+    api.handle.dispose();
+    const restarted = fixture(undefined, { directory: api.commonDir });
+    const second = await restarted.start();
+    expect((await restarted.call(`${second.path}/lecture-tools`, input)).status).toBe(503);
+    expect(restarted.fetcher).not.toHaveBeenCalled();
+    expect(restarted.ledger()).toEqual(before);
   });
 
   it("retains unknown usage and stops before the dollar ceiling", async () => {
