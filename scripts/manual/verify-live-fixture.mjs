@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { buildSmokeFixture, validateVadFixture } from "./scribe-fixture.mjs";
 const file = new URL("../../web/public/live-test-lecture.wav", import.meta.url);
 const bytes = await readFile(file);
 if (bytes.toString("ascii", 0, 4) !== "RIFF" || bytes.toString("ascii", 8, 12) !== "WAVE")
@@ -30,7 +31,7 @@ if (seconds < 10 || seconds > 90) throw new Error("Synthetic fixture exceeds the
 const option = process.argv[2];
 if (process.argv.length > 3 || (option && !/^--(?:pcm|smoke-pcm)-output=.+$/.test(option)))
   throw new Error("Unknown fixture verification option.");
-const smokePcm = pcm.subarray(0, 30 * 32000);
+const smokePcm = buildSmokeFixture(pcm);
 if (option)
   await writeFile(
     option.slice(option.indexOf("=") + 1),
@@ -47,6 +48,8 @@ console.log(
       pcmSha256: createHash("sha256").update(pcm).digest("hex"),
       smokeSeconds: smokePcm.length / 32000,
       smokePcmSha256: createHash("sha256").update(smokePcm).digest("hex"),
+      smokeLayout: "0-8.5s synthetic introduction, silence to 15s; repeat, silence to 30s",
+      smokePauses: validateVadFixture(smokePcm),
     },
     null,
     2,

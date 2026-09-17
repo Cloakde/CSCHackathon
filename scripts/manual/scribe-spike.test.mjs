@@ -9,7 +9,9 @@ import {
   main,
   COST_ACK,
 } from "./run-local-scribe-spike.mjs";
-import { validateFixture, runSmoke } from "./scribe-realtime-smoke.mjs";
+import { validateFixture, runSmoke, ScribeSmokeFailure } from "./scribe-realtime-smoke.mjs";
+import { buildSmokeFixture, validateVadFixture } from "./scribe-fixture.mjs";
+const pausedFixture = () => buildSmokeFixture(new Uint8Array(8.5 * 32000).fill(1));
 const tree = "a".repeat(40);
 const env = {
   RUN_PAID_SCRIBE_SMOKE: COST_ACK,
@@ -139,12 +141,49 @@ test("fixture gate rejects silence, alignment errors and over-budget audio", () 
   assert.throws(() => validateFixture(new Uint8Array(3201).fill(1)));
   validateFixture(new Uint8Array(3200).fill(1));
 });
+test("the paused fixture sends two separated speech sections and final silence within 30 seconds", () => {
+  const source = new Uint8Array(10 * 32000).fill(9);
+  const bytes = buildSmokeFixture(source);
+  assert.equal(bytes.length, 30 * 32000);
+  assert.equal(validateVadFixture(bytes).pauseBoundaries, 2);
+  assert.equal(validateVadFixture(bytes).trailingSilenceSeconds, 6.5);
+  assert.deepEqual(bytes.subarray(0, 8.5 * 32000), source.subarray(0, 8.5 * 32000));
+  assert.deepEqual(bytes.subarray(15 * 32000, 23.5 * 32000), bytes.subarray(0, 8.5 * 32000));
+  assert.equal(bytes.subarray(8.5 * 32000, 15 * 32000).some(Boolean), false);
+  assert.equal(bytes.subarray(23.5 * 32000).some(Boolean), false);
+  assert.equal(
+    source.every((value) => value === 9),
+    true,
+  );
+  assert.throws(() => buildSmokeFixture(source.subarray(0, 32000)), /too short/);
+  assert.throws(() => buildSmokeFixture(new Uint8Array(source.length)), /non-silent/);
+});
+test("missing internal or final silence is rejected before transport creation or token use", async () => {
+  const noFinalPause = pausedFixture();
+  noFinalPause.fill(1, 23.5 * 32000);
+  const onlyFinalPause = new Uint8Array(30 * 32000).fill(1);
+  onlyFinalPause.fill(0, 25 * 32000);
+  for (const bytes of [new Uint8Array(30 * 32000).fill(1), noFinalPause, onlyFinalPause]) {
+    let created = false;
+    await assert.rejects(
+      runSmoke({
+        bytes,
+        createTransport: () => {
+          created = true;
+        },
+      }),
+      /two speech sections/,
+    );
+    assert.equal(created, false);
+  }
+});
 test("a failed or silent transcription cannot produce a successful smoke report", async () => {
   let stopped = false,
     clock = 0;
+  const logged = [];
   await assert.rejects(
     runSmoke({
-      bytes: new Uint8Array(3200).fill(1),
+      bytes: pausedFixture(),
       createTransport: () => ({
         chunk() {},
         isReady: () => true,
@@ -157,11 +196,178 @@ test("a failed or silent transcription cannot produce a successful smoke report"
         clock += ms;
       },
       now: () => clock,
-      log() {},
+      log: (line) => logged.push(JSON.parse(line)),
     }),
-    /evidence is missing/,
+    (error) => {
+      assert.ok(error instanceof ScribeSmokeFailure);
+      assert.equal(error.summary.failureCode, "missing_transcription_or_reconnect_evidence");
+      assert.equal(error.summary.status, "fail");
+      assert.equal(error.summary.audioSecondsOffered, 30);
+      assert.equal(error.summary.audioSecondsSent, 0);
+      assert.equal(error.summary.tokenAttempts, 0);
+      assert.equal(error.summary.commits, 0);
+      return true;
+    },
   );
   assert.equal(stopped, true);
+  assert.equal(logged.length, 1);
+  assert.equal(logged[0].status, "fail");
+});
+test("failed token issuance reports attempted and successful calls separately without provider details", async () => {
+  let stopped = false,
+    clock = 0;
+  const logged = [];
+  await assert.rejects(
+    runSmoke({
+      bytes: pausedFixture(),
+      createTransport: (options) => {
+        options.onWarning("PRIVATE WARNING");
+        void options.mintToken().catch(() =>
+          options.onEvent({
+            type: "source.error",
+            sequence: 1,
+            error: { retryable: false, message: "PRIVATE ERROR" },
+          }),
+        );
+        return {
+          isReady: () => false,
+          stop: () => {
+            stopped = true;
+          },
+        };
+      },
+      mintToken: async () => {
+        throw new Error("PRIVATE KEY");
+      },
+      validateEvent: () => true,
+      wait: async (ms) => {
+        clock += ms;
+      },
+      now: () => clock,
+      log: (line) => logged.push(line),
+    }),
+    (error) => {
+      assert.equal(error.summary.failureCode, "source_error");
+      assert.equal(error.summary.tokenAttempts, 1);
+      assert.equal(error.summary.tokenIssuances, 0);
+      assert.equal(error.summary.connectionAttempts, 0);
+      assert.equal(error.summary.audioSecondsSent, 0);
+      assert.equal(error.summary.retention, "RETENTION_ACTIVE");
+      return true;
+    },
+  );
+  assert.equal(stopped, true);
+  assert.equal(logged.join("").includes("PRIVATE"), false);
+  assert.equal(logged.filter((line) => line.includes('"type":"scribe_smoke_result"')).length, 1);
+});
+test("a synchronous connection failure still produces a safe bounded summary", async () => {
+  const logged = [];
+  await assert.rejects(
+    runSmoke({
+      bytes: pausedFixture(),
+      createTransport: (options) => options.connect("PRIVATE TOKEN URL"),
+      connect: () => {
+        throw new Error("PRIVATE CONNECTION ERROR");
+      },
+      log: (line) => logged.push(line),
+    }),
+    (error) => {
+      assert.equal(error.summary.failureCode, "transport_failure");
+      assert.equal(error.summary.connectionAttempts, 1);
+      assert.equal(error.summary.connections, 0);
+      return true;
+    },
+  );
+  assert.equal(logged.join("").includes("PRIVATE"), false);
+});
+test("an invalid canonical event stops the run and is never logged", async () => {
+  let clock = 0,
+    stopped = false;
+  const logged = [];
+  await assert.rejects(
+    runSmoke({
+      bytes: pausedFixture(),
+      createTransport: (options) => ({
+        isReady: () => true,
+        chunk: () => {
+          options.onEvent({ type: "PRIVATE EVENT" });
+          return true;
+        },
+        stop: () => {
+          stopped = true;
+        },
+      }),
+      validateEvent: () => false,
+      now: () => clock,
+      wait: async (ms) => {
+        clock += ms;
+      },
+      log: (line) => logged.push(line),
+    }),
+    (error) => {
+      assert.equal(error.summary.failureCode, "invalid_canonical_event");
+      assert.equal(error.summary.canonicalValidation, false);
+      assert.equal(error.summary.audioSecondsSent, 0.1);
+      return true;
+    },
+  );
+  assert.equal(stopped, true);
+  assert.equal(logged.join("").includes("PRIVATE"), false);
+});
+test("a final commit from the closing socket cannot stand in for a post-reconnect commit", async () => {
+  let clock = 0,
+    options,
+    chunks = 0;
+  const committed = (startMs, endMs) =>
+    options.onEvent({
+      type: "transcript.committed",
+      sequence: chunks,
+      chunk: { startMs, endMs },
+    });
+  await assert.rejects(
+    runSmoke({
+      bytes: pausedFixture(),
+      createTransport: (value) => {
+        options = value;
+        void options.mintToken();
+        options.connect("synthetic");
+        return {
+          isReady: () => true,
+          chunk: () => {
+            chunks++;
+            if (chunks === 1) committed(0, 100);
+            if (chunks === 2) options.onEvent({ type: "transcript.partial", sequence: 2 });
+            return true;
+          },
+          stop() {},
+        };
+      },
+      mintToken: async () => ({ token: "synthetic" }),
+      connect: () => ({
+        close: () => {
+          committed(100, 200); // A queued first-socket commit arrives while closing.
+          options.onDiscardedGap({ startSample: 3200, endSample: 4800 });
+          void options.mintToken();
+          options.connect("synthetic-reconnect");
+        },
+      }),
+      validateEvent: () => true,
+      now: () => clock,
+      wait: async (ms) => {
+        clock += ms;
+      },
+      log() {},
+    }),
+    (error) => {
+      assert.equal(error.summary.failureCode, "missing_transcription_or_reconnect_evidence");
+      assert.equal(error.summary.connections, 2);
+      assert.equal(error.summary.tokenIssuances, 2);
+      assert.equal(error.summary.commits, 2);
+      assert.equal(error.summary.committedBeforeReconnect, 1);
+      assert.equal(error.summary.committedAfterReconnect, 0);
+      return true;
+    },
+  );
 });
 test("the exact bundled transport produces validated commits through the smoke runner offline", async () => {
   const { build } = await import("vite");
@@ -209,7 +415,7 @@ test("the exact bundled transport produces validated commits through the smoke r
     const result = await runSmoke({
       createTransport: transportFactory,
       validateEvent,
-      bytes: new Uint8Array(32000).fill(1),
+      bytes: pausedFixture(),
       now: () => clock,
       log() {},
       mintToken: async () => ({ token: "synthetic-token", expiresInSeconds: 900 }),
@@ -260,7 +466,15 @@ test("the exact bundled transport produces validated commits through the smoke r
       },
     });
     assert.equal(result.connections, 2);
+    assert.equal(result.tokenAttempts, 2);
+    assert.equal(result.tokenIssuances, 2);
     assert.equal(result.commits, 2);
+    assert.equal(result.committedBeforeReconnect, 1);
+    assert.equal(result.committedAfterReconnect, 1);
+    assert.equal(result.status, "pass");
+    assert.equal(result.audioSecondsOffered, 30);
+    assert.ok(result.audioSecondsSent < 30);
+    assert.ok(result.audioSecondsSent > 29);
     assert.equal(result.canonicalValidation, true);
     assert.equal(socket.onmessage, null);
     assert.equal(timers.size, 0);

@@ -1,5 +1,13 @@
 # LiveLecture AI — Current handoff
 
+## Autonomous readiness work — active, 2026-09-17
+
+- **Active AI:** Codex, continuing the user's request to plan and execute useful remaining work and wrap up around 08:30 Pacific. One AI works at a time on the existing shared branch.
+- **Starting source:** clean `efd2c45` on `shared/livelecture`; the isolated MeltingPot copy remains outside this first correction.
+- **Owned first step (TASK-308):** the Scribe smoke fixture builder/validator, safe smoke outcome reporting and focused offline tests under `scripts/manual`, plus their runbook/evidence and coordination. Correct the known inadequate pause coverage and missing failure counters before proposing any new paid run. Preserve production transport contracts, canonical timestamp/reconnect requirements and all previous failed evidence.
+- **Boundaries:** no additional provider calls, allowance reset, credential inspection, browser/desktop control, original MeltingPot changes, main merge or release claim. Session Chrome permission has been requested and is pending; continue independent offline work. The Gemini ledger retains 31 attempts/480,630 microdollars and only one unused slot, which cannot fund a complete verified answer. The spent Scribe reservation remains intact.
+- **Next:** inspect current official Scribe documentation, implement and test a deliberately paused synthetic fixture within 30 seconds and safe failure reporting, then obtain a sequential independent review. Actual Chrome/normal-speed/human, real Scribe/reconnect/retention and release acceptance remain open.
+
 ## Gemini learning-loop correction — implemented and tested, 2026-09-16
 
 - **Active AI:** none — Codex completed the scoped correction/tests and released the turn. The user said Execute on diagnosing the rejected explanation and proving two-topic explanation/citation/practice plus unsupported-question and instruction-text handling. Reviews were sequential.

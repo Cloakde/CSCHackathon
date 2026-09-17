@@ -75,6 +75,8 @@ Local raw-safe artifacts remain outside Git in `C:\Users\abuiz\Documents\Codex\2
 
 ## Diagnosis and next attempt
 
+**Offline follow-up, September 17:** the paused fixture, failure counters and stricter recovery check are now implemented; see [correction evidence and remaining gates](../SCRIBE-OFFLINE-2026-09-17/README.md). No new provider attempt occurred, and the original fixture/reservation/failure record remain unchanged. The historical diagnosis below explains why this work was needed.
+
 The production transport explicitly selects VAD and sends `commit: false`; finalization therefore depends on speech/silence segmentation. The smoke generator simply crops the first 30 seconds of the longer speech fixture. Offline measurement found a longest exact-zero interval of 745.125 ms; even at absolute PCM amplitude 512, the longest continuous quiet interval was 954.25 ms. The final drain waits without sending silence. This supports **insufficient silence as a likely cause**, but does not prove how the provider classified the audio or rule out other issues.
 
 The current [ElevenLabs commit guide](https://elevenlabs.io/docs/eleven-api/guides/how-to/speech-to-text/realtime/transcripts-and-commit-strategies) describes VAD commits after silence and illustrates a 1.5-second threshold. The [realtime reference](https://elevenlabs.io/docs/api-reference/speech-to-text/v-1-speech-to-text-realtime) defines delayed timestamps after commits and says a retention warning means zero retention was not applied. References checked September 15 Pacific. The implementation does not explicitly set a silence threshold, so the example is not evidence of the session's exact threshold.

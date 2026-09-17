@@ -4,7 +4,9 @@
 
 The AI holding the active turn edits this file on behalf of the Coordinator. [HANDOFF.md](HANDOFF.md) records the current turn and next step.
 
-## Current execution — 2026-09-16
+## Current execution — 2026-09-17
+
+**Codex active: remaining readiness work under TASK-308.** First correct the offline Scribe smoke fixture's pause coverage and preserve safe counters on failed runs. Scope and authorization boundaries are recorded at the top of [HANDOFF.md](HANDOFF.md). No new API spending or browser control is authorized by this step; existing failed evidence and allowances remain preserved. Whole-milestone acceptance is unchanged.
 
 **Gemini learning-loop correction implemented/tested; active AI none.** Run06 passed the real two-topic service flow, unsupported/instruction cases and deadlines; content review found an incomplete question, now rejected by the final correction at `ded7373`. Run07 verified the complete question in 3,843 ms, and combined actual-output extension/MeltingPot replay passed. Final source passed focused tests/types, sequential review and full CI; [evidence and limits](evaluations/GEMINI-LEARNING-LOOP-2026-09-16/README.md). The existing ledger retains 31 attempts/480,630 microdollars, including failures; one slot remains and cannot cover another verified answer. M1 human/normal-playback acceptance, Chrome/live audio and release remain open. No original MeltingPot change, Scribe retry or desktop use occurred.
 
