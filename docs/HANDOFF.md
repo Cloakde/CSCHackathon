@@ -1,5 +1,13 @@
 # LiveLecture AI — Current handoff
 
+## Overnight acceptance session — active, 2026-09-18
+
+- **Active AI:** Codex. The user gave full permission for this session's laptop control and necessary work while they sleep, with a target wrap-up around 08:30 Pacific. This supersedes the earlier pending Chrome/provider permission notes below. One AI at a time on the existing shared branch and isolated copy.
+- **Starting source:** clean `c6768b6537d7dda1dcdcea4c1147a57d396c79d0`; isolated copy `24d83f9d2c2eb748b7ea2b48ef19fd82cb26d846`. Previous exact-source CI and fresh-archive checks passed. Preserve all existing allowance/failure records.
+- **First execution:** the already reviewed 30-second paused Scribe test, at most $1 additional allowance, two tokens/connections and one reconnect. Refresh its prepared source binding after this coordination-only checkpoint and matching CI. Stop and diagnose any failure before another attempt; no automatic allowance reset.
+- **Owned work:** the existing TASK-308/309 acceptance sequence, scoped fixes and tests if evidence identifies defects, external bounded provider/browser helpers, release preparation and coordination. Chrome installation, normal-speed sample/citations/study handoff, lifecycle/keyboard checks and then eligible live integration are authorized for this session. Saved provider keys stay server-side and must never be displayed.
+- **Boundaries:** original MeltingPot repositories/services remain untouched. Only synthetic audio/content; no persistent recordings, account or billing changes, public deployment/submission or messages to others. Provider continuations need explicit local caps and preserved accounting under this session authorization. AI-operated checks cannot be labeled unaided human/learner acceptance. Ordinary Simulation Mode remains the fallback; report each live gate separately.
+
 ## Autonomous readiness checkpoint — acceptance pending, 2026-09-17
 
 - **Active AI:** none — Codex completed the available offline readiness work and released the scoped turn. The broader autonomous goal remains incomplete; the next product gates require the pending user permissions or human participation. One AI works at a time on the existing shared branch.
