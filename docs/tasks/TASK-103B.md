@@ -1,5 +1,7 @@
 # TASK-103 Phase B — A capped real-model trial
 
+> **Historical OpenAI implementation contract. Do not execute its provider proposal.** On 2026-09-06 the user selected Gemini and assigned Claude the migration in [TASK-103C](TASK-103C.md), followed by Gemini's sequential work. [ADR 0012](../adr/0012-gemini-assistance-direction.md) supersedes the provider choice below; keep its safety controls and historical evidence. The code still uses the inactive OpenAI trial until Claude completes that migration.
+
 **Tier:** 1
 
 **State:** Contract APPROVED; implementation IN REVIEW; no provider calls authorized yet

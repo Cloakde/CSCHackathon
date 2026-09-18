@@ -1,0 +1,169 @@
+# Authorized overnight acceptance — 2026-09-18
+
+The user authorized necessary laptop control and continued work for this session, with a target wrap-up around 08:30 Pacific. Earlier unanswered session-permission notes are superseded. Original MeltingPot repositories/services, permanent extension keys, real classroom data and automatic release claims remain excluded.
+
+**Latest checkpoint:** [rendered text contrast](CONTRAST.md) passes after two reviewed control-color corrections. Primary `c977921` (702 checks and CI `35348515987`) and copy `d03f99b` (387 tests/guarded build) form immutable candidate `release/c97792142b8b/`. Its artifact hashes and all ten extension files match the final audit. The [current human-review guide](HUMAN_REVIEW.md) now names this pair; actual human review remains pending.
+
+The preceding [actual transcript-overlap test](TRANSCRIPT_OVERLAP.md) passed at `d14293c`: a fresh verified Gemini answer arrived in **5,056 ms**, with three settled calls and terminal accounting/cleanup; independent AI result/content review passed. This resolves the timing case left open by the earlier two-topic application PASS at `7ba8880`/`d6bb1f9`. The unpublished provider-free demo draft still totals 93.84 seconds. Earlier preparation/failure/readiness statements below describe their original checkpoints. Native capture, retention, human/judge acceptance and release remain open.
+
+## Real Scribe paused-fixture test
+
+- Exact source: `9c251270d99eff91035abd147db0ef9b1355d029`, tree `324c18944f35fe1e75bb4224742c99ec31d458e9`; [CI 35321355454](https://github.com/Cloakde/CSCHackathon/actions/runs/35321355454) passed. Only coordination documents changed after the previously reviewed runtime.
+- The existing reviewed external helper and credential launcher matched their recorded hashes. Only the prepared proposal's source commit/tree were refreshed. Its six injected offline tests passed before execution.
+- One new $1 allowance was reserved exclusively, with caps of 30 seconds of synthetic PCM, 90 seconds of transport, two tokens/connections and one forced reconnect. Old reservations/failure evidence were preserved byte-for-byte. Saved credentials were decrypted only inside the server launcher and were not displayed.
+- Run: `2026-09-18T07:52:03.201Z` to `07:53:01.623Z`, including launcher work. Transport duration: **38,223 ms**. Paused-fixture SHA-256: `0dd2604c156933444bf362c59d82d84096d58ea28ab6d13e244f46a65df4869f`.
+- **Transport result: PASS.** Two token attempts/issuances, two connections, 17 partials and two canonical committed passages. One commit arrived before the forced disconnect (`160–8,080 ms`); one arrived on the new connection (`17,300–23,080 ms`). Thirty seconds were offered and **28.6 seconds sent**. Three discarded gaps were reported; this is not lossless capture evidence.
+- **Retention: unresolved.** Both connections reported `RETENTION_ACTIVE`; logging-disabled configuration did not establish zero provider retention. The test used only synthetic speech. Retention acceptance remains false, and actual account cost delta was not independently measured. The $1 is an authorization/reservation ceiling, not an invoice.
+- Cleanup: the helper exited successfully, and no listener remained on `127.0.0.1:3100`. There is no browser capture or integrated live-session PASS from this headless test.
+
+Safe local evidence in the task workspace: `outputs/provider-session/scribepaused-run-01.txt` (SHA-256 `cf41207bca73f5b2803e868c6c27bc9e17cb2a1bfb6df22ecb44859d021e28f3`) and `scribe-paused-result-01.json` (`fa2ee578771a97608b00bd7dfa6b11ce0fdb3381881d607d3eaaf87b24918a03`). The new `.git/livelecture-scribe-paused-allowance-v1.json` is preserved (`cefc7158348627b55fa2ea0d62d1980bd9ebabc4b41d1106c9ae2859131dfff3`). Do not delete/reuse it or replay run 01.
+
+## Chrome attempt and tool interruption
+
+**Later native refresh:** the same supported Computer Use tool could read the existing separate Chrome test window and open Load unpacked. The ordinary archive and all ten extracted files matched candidate `release/359988ddbf6e/manifest.json`; the extraction is preserved at external `outputs/acceptance-20260918/native-chrome-1789725487305/extension/dist`. The folder picker is part of the existing Chrome profile, not an isolated test profile.
+
+Installation did not happen. The returned Folder field failed with `element 202 is not available in cached app state for chrome.exe`. After a fresh screenshot, clicking that field failed with `point (729, 641) is over chrome.exe "", not target window chrome.exe "Extensions - Google Chrome"; activate the target or take a fresh screenshot before retrying`. One documented activation/refresh retry returned the same error. Native input then stopped; no other UI automation route was used. The folder picker remains open. No server, automated browser process, provider request, key access or audio capture was started. This is a tooling blocker, not a failed extension test, and does not satisfy native toolbar/capture acceptance. Safe facts are recorded in external `native-result.json` beside the extracted package; the tool transcript contains the returned states/errors.
+
+The desktop was available. A separate Chrome test window was opened without closing or modifying existing tabs. When navigating that window to extension management, Windows Computer Use returned: “Computer Use has been stopped for this turn because it could not determine the current browser URL on Windows with enough confidence to enforce policy.” No further UI input was issued. This is a tool interruption, not missing user permission or evidence that the extension failed.
+
+No extension installation, capture, keyboard/layout or connected-browser check was completed in this attempt. Do not retry the rejected UI action through another tool to bypass its enforcement. A later continuation should evaluate a supported test route and keep the browser acceptance gates open until actually exercised.
+
+## Isolated extension browser checks
+
+After the native UI interruption, the built extension was tested as software in a fresh, disposable headless Chromium profile using Playwright's documented extension support. This did not operate the interrupted Chrome window or reuse the user's browser profile. Every ordinary extension file was checked against candidate `release/bb39713efc57/manifest.json` before loading.
+
+- Source at execution: LiveLecture `616471a14d1677c8a2133d2ce3a12c3610c8511b`, isolated MeltingPot `24d83f9d2c2eb748b7ea2b48ef19fd82cb26d846`. Browser: Chromium `151.0.7922.34`; extension ID `alpdibjjhlhlhbhjkoeblmlfcgoocclk`.
+- **PASS at 12× and 1× playback**, pausing for help: two confusion moments, extension citation click/focus, finishing and opening private MeltingPot review, both targeted exercises, answer/feedback continuity, flashcard review, study-file download, session deletion and re-import. The imported file restored study progress with zero requests to the lecture API.
+- The extension and review fit a 380-pixel viewport without horizontal overflow. Screenshots of help, practice and imported study were inspected. A broken small MeltingPot logo remains a separate visual follow-up; this does not establish complete visual acceptance.
+- No JavaScript page errors or attempted external origins were recorded. Only synthetic, prewritten Simulation Mode was used; no provider credentials or calls. Both owned local servers stopped and ports 3000/3111 were verified free.
+- An initial attempt failed because the test used a label selector that did not find the speed control. Its screenshot showed a functioning control. Selecting its actual accessible combobox role fixed the test; no product change was made for that failure. Failed evidence remains preserved.
+
+External evidence under the task workspace's `outputs/acceptance-20260918/`: failed attempt `browser-run-1789718436354`, successful fast run `browser-run-1789718532688`, normal run `browser-run-1789718641701`, plus `extension-browser-check.mjs` and `extension-browser-check-normal.mjs`. The normal result records the harness SHA-256 `82a62f18fa2786937dfe20df4e03e3d43e54fe9bd7404544e5656235aa974479`.
+
+**Limits:** this opened the actual built `sidepanel.html` extension page, not Chrome's native toolbar side panel. It does not prove toolbar installation, Chrome's user-gesture capture permission, audio passthrough, live provider behavior, unaided learner usefulness, or judge access. Normal-speed prewritten playback is not actual-AI latency evidence. The ordinary artifact/source pair above predates the retention-message correction below.
+
+## Retention diagnosis and correction
+
+The [official realtime API documentation](https://elevenlabs.io/docs/api-reference/speech-to-text/v-1-speech-to-text-realtime), checked 2026-09-18, states that `enable_logging: false` requests zero-retention mode and that eligibility is restricted. The actual `RETENTION_ACTIVE` responses show that logging remained enabled in this account's test. The integrated extension continues to stop on that warning. No subscription, account setting, provider selection or spending allowance was changed to remove this gate.
+
+Sequential review identified a P2 in that stop path: media cleanup could make the panel show a generic setup error before it received the retention explanation. The correction adds an extension-private, strictly validated terminal reason and fixed local wording. Provider text is never forwarded. Provider transport, token work and the PCM tap stop immediately; media is released after notification settlement or at most 250 ms. Startup and heartbeat replies also carry the fixed reason when termination is in progress. Owner/session/generation checks protect replacement sessions, and the frozen shared transcript schema is unchanged.
+
+- **29 focused tests passed**, including asynchronous bridge-to-panel delivery, startup/heartbeat ordering, missing/rejected notification, synchronous warning during construction, stale acknowledgements, malformed messages and cleanup.
+- Sequential independent review repeated all 29 tests and reported no actionable P1/P2 findings. The reviewer made no edits or provider/browser calls.
+- Full credential-free check passed **594 tests** (30 scripts, 73 shared, 320 web, 171 extension), formatting, lint, secret scan, types, production builds, extension-package verification and production HTTP demo.
+- Logs: `outputs/acceptance-20260918/retention-focused.txt`, `retention-types.txt`, `retention-lint.txt`, `retention-full-check.txt`. The initial unsupported Vitest project-filter command is preserved as `retention-test-command-error.txt`; it ran no tests, and the corrected extension-root invocation passed.
+
+This correction improves the explanation and preserves the immediate provider stop. It does not establish provider-retention approval or actual Chrome timing. No paid test was repeated for it.
+
+## Refreshed paired candidate and browser follow-up
+
+- Retention correction: `365c70e9d7da7a9476c755d46fce60ea0dfbe177`, [CI 35324113373 PASS](https://github.com/Cloakde/CSCHackathon/actions/runs/35324113373).
+- Isolated copy: `d6bb1f9adac5a1ba2d61936033991de62f6e1376` permits exactly the existing `/brand/pot-logo.png` requested by the lecture shell. Other, suffixed and encoded image paths remain blocked; original mode/services are unchanged. Guarded lint/types, **387 tests in 27 files**, production build and sequential independent review passed. The copy remains remote-free with its push guard.
+- New immutable candidate: `release/365c70e9d7da/`, with both exact source ZIPs, ordinary extension ZIP and hash manifest. It remains prewritten Simulation Mode, live capture off.
+- The candidate's actual extension files passed the complete isolated browser journey again at 12×, plus Tab/Enter access to Start, Help, a transcript citation and targeted practice, image load verification, and closing/reopening the extension page without stale answers or handoff. The restored logo was visually confirmed. No failed HTTP responses, page errors or external-origin attempts were recorded. Both owned servers stopped; ports 3000/3111/3100 were free afterward.
+- External result: `outputs/acceptance-20260918/browser-run-1789720037719/result.json`; harness `extension-browser-check-followup.mjs`, SHA-256 `2bc0429bdcebaf4c1a954b2818cfe1f837036bfbe6e782d125d327ee3b94b092`. This automated software test retains the native-toolbar, audio-capture and human-acceptance limits above.
+
+## Continuation core preparation (before the first activation)
+
+At this checkpoint the application-only continuation core was implemented and checked, but **had not been activated**. Explicit maintenance can append one record binding the prior ledger bytes, old/new source, unchanged policy, exact previous attempts/debit, fixed purpose and expiry. It grants eight additional attempts and at most $1 beyond the validated prior debit; the reported 31-attempt/480,630-microdollar baseline becomes 39 attempts/1,480,630 microdollars. Old bytes, historical prices and uncertain charges are retained. No real ledger was opened or changed during this core preparation.
+
+Default/frozen-trial opening rejects an extended ledger. Application activation must carry the exact continuation ID and full record hash, including expiry. Default launches clear these new fields. Expiry stops new reservations while allowing existing usage to settle; terminal `finish` closes unused spending without implying a successful benchmark. The generation-plus-verification slot check remains enforced. The provider model/settings/prices/policy and frozen trial runner are unchanged; current [model limits](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite) and [standard text prices](https://ai.google.dev/gemini-api/docs/pricing) were rechecked on 2026-09-18.
+
+Sequential review found two defects in the first draft: the delivered dispatcher still rejected continuation activation, and activation did not bind expiration. Both were fixed. Dispatcher tests now cover complete Help/verification/practice with continuation accounting and invalidate the cached service when its grant identity changes. An expiration-only tampering test rejects the modified record. Follow-up review found no remaining actionable P1/P2 in the core. **103 focused tests and the full 615-test/build/package/HTTP check passed.** Logs are `continuation-focused-v2.txt` and `continuation-full-check-v2.txt` under the session output directory; earlier v1 logs remain preserved and are not the final review result.
+
+**Still required before paid use:** implement and independently review the external one-run helper with an exclusive durable claim, sealed proposal/source/CI checks before credential use, normal-speed browser flow, no retries, bounded server cleanup and spending closure. No old allowance, provider reservation, key or paid request was used by the core implementation/tests.
+
+Prepare a bounded actual-Gemini browser continuation: the remaining gap is the complete extension-to-review journey with the real provider at normal playback, rather than service-only checks or saved-output replay. Preserve the existing 31-attempt ledger and every old debit; no paid request until the continuation's accounting and source binding are reviewed. Native Chrome capture and provider-retention acceptance remain open. Human usefulness/content review, judge access, actual recording and final release/submission remain distinct unfinished requirements.
+
+## First browser activation: setup failure, zero provider requests
+
+The reviewed helper ran against `7e45b66c9f66992efc117849dc86dbf3c935004d`, exact-source CI `35326133742` PASS and copy `d6bb1f9`. It preserved a durable one-use claim and appended the authorized continuation. The browser child exited while importing nonexistent `shared/dist/index.js`, before starting Chromium or making any Gemini reservation. Cleanup verified no owned processes or listeners on ports 3000/3111, and terminal `finish` closed the allowance. Result: **FAIL, 0 new attempts, 0 new microdollars**; cumulative history remains 31 attempts/480,630 microdollars. This is a helper setup defect, not a measured provider/browser outcome.
+
+The original claim, full ledger and failure remain intact. All executed helper bytes and the sealed proposal were copied to `outputs/acceptance-20260918/gemini-browser-20260918-v1/reviewed-helper-snapshot/`; logs and failure are beside that directory. The claim's proposal hash is `ccf45198c7f68390f4e26df85650614491065e3da76e37c725e3f712ac45b5cc`. The corrected external bundle exports the canonical schemas directly, and `--check-runtime` loads schemas/Playwright and verifies the browser executable before claiming or reading a saved key. Sequential review independently reproduced this credential-free runtime check.
+
+## One zero-use recovery: implementation checkpoint
+
+The ongoing session authorizes necessary bounded testing. Sequential design review endorsed a single explicit recovery of this unused grant, preserving the same ceilings and deadline. The new maintenance-only `application_zero_use_recovery` event requires a finished application grant, zero new reservations (even zero-cost attempts disqualify it), no previous recovery, exact finished-history hash, original grant identity/hash/source, unchanged policy and new reviewed source/run identity. It inherits **39 total attempts, 1,480,630 microdollars and 2026-09-18 15:30Z expiry**. It appends to the existing ledger; nothing is deleted or refunded. Old/default activation and maintenance spending remain rejected. Recovery cannot repeat, and closing it remains terminal.
+
+Sequential implementation review found no actionable P1/P2. **106 focused tests, types and the full 631-test check passed**, including lint, secret scan, builds, ordinary extension packaging and production HTTP. Tests use temporary ledgers only. Logs: `zero-use-recovery-focused.txt`, `zero-use-recovery-types.txt`, `zero-use-recovery-full-check.txt`. At this preparation checkpoint the external helper still needed separate review and exact-source CI before activation. The later execution and final state follow.
+
+## Recovery execution: another setup failure, allowance closed
+
+Core source `359988ddbf6eecffda815780e58214d97fcb71e0` (tree `1fdce6516df135421fb7d5ebab6f02d0d26be4e9`) passed [CI 35329162954](https://github.com/Cloakde/CSCHackathon/actions/runs/35329162954). The separately reviewed helper preserved the original failure/history and used a new exclusive claim, original ceilings and expiry. Review also corrected a too-short wait for the second normal-speed topic. The sealed recovery proposal hash was `79477d503a07785f6f9d2df1b96cefdef5f45b8728b7df40097541ff2e9d229e`.
+
+The recovery launched the actual extension but failed before requesting Help because the sample defaults to 12× and the harness assumed 1×. This was another external test assumption, not a provider or product failure. The synthetic session was deleted, owned processes/ports were stopped, and the recovered ledger was terminally finished: **0 new reservations/0 new microdollars; cumulative 31 attempts/480,630 microdollars**. This one-time recovery is consumed and cannot be repeated or reopened. No old accounting or claim may be deleted/reset. Actual-Gemini browser acceptance remains **NOT PROVEN**.
+
+Evidence: `outputs/acceptance-20260918/gemini-browser-20260918-recovery-v1/`, including browser result, screenshots, safe server logs, failure and `reviewed-helper-snapshot/`. Both `.git/livelecture-gemini-browser-allowance-v1.jsonl` and `.git/livelecture-gemini-browser-recovery-v1.jsonl` retain their claim and terminal FAIL records. Historical Gemini service/output-replay evidence remains in the separate learning-loop record; these browser failures neither replace nor strengthen it.
+
+## Corrected provider-free normal-speed rehearsal: PASS
+
+The harness now selects 1× explicitly before Start and loads its real schema/browser dependencies before any possible allowance/key use. A full provider-free rehearsal then caught another selector assumption: the actual practice label prefixes the question with its number. That failed rehearsal remains in `gemini-browser-offline-1789723755339/`; its first and second Help/handoff passed, but it is not an overall PASS. The selector now validates the complete numbered label.
+
+Final run **`gemini-browser-offline-1789724237491` PASS** used the same exact source/copy pair packaged in `release/359988ddbf6e/`, the ordinary built extension, fresh isolated Chromium 151.0.7922.34 and **1× playback without pauses**. It completed two explanations and timestamp focus, finished/opened MeltingPot, generated both prewritten targeted exercises, verified complete questions and answer/explanation display, preserved topic answers, returned from citations, checked narrow layouts and deleted its synthetic session. No external-origin attempts, page errors or failed HTTP responses were recorded. Cleanup confirmed all 13 owned processes stopped and ports 3000/3111 closed. No provider, microphone, audio capture or user browser profile was used.
+
+Within that output folder, the saved result and executed helper copies have SHA-256:
+
+| File                       | SHA-256                                                            |
+| -------------------------- | ------------------------------------------------------------------ |
+| `browser-result.json`      | `e606bb42be07f05788854318359b1b94879023c61030978873018d96f733978f` |
+| `browser-helper.mjs`       | `2b11ed8263064845a1dd68b2e293ce89300cf5ebb45e05f66c0ddfb0a8eeac83` |
+| `rehearsal-controller.mjs` | `9866756a4cec3956bcc27e6644a3b7f259c1c441d734d9d573bc496fd9d775ff` |
+
+The test asks between canonical commits to fit the intended two-Help/two-practice allowance. It does **not** establish committed ingestion overlapping a real pending Gemini answer. Earlier injected component checks cover that retry path, but are not real-provider timing evidence. It also does not establish native toolbar/capture or uncoached human usefulness.
+
+## Readiness after this session
+
+TASK-308/309 implementation is complete within its assigned scope. Prewritten browser/study behavior, local builds and scoped independent reviews have evidence. Remaining gates are a separately valid reviewed provider execution/accounting path, supported native Chrome tooling, resolution of provider retention, human learner/content review, judge access, recording and final release/submission. No additional feature or repetition of established checks is required to fill time. Preserve this checkpoint and continue only with an eligible remaining gate.
+
+Sequential independent evidence review matched the exact source pair, all three pinned hashes, both zero-use terminal FAIL claims, the successful rehearsal/cleanup and the 631-test total. Its requested task-board divider now explicitly marks older permissions and remaining-slot statements as historical. No whole-release acceptance is implied.
+
+## Separate application acceptance allocation — preparation
+
+A later sequential decision review identified a valid preparation path under the user's standing overnight instruction: one new application acceptance allocation, with its own journal and explicit activation. This is not a second recovery, reopening of the old trial, or an accounting reset. The frozen trial and its terminal continuation/recovery remain unchanged. A pure inspection entry point reuses the original parser/accounting to validate the complete closed predecessor, including both historical uncertain charges.
+
+The fixed run `application-browser-20260918-v1` permits eight new attempts/$1 and enforces cumulative ceilings of 39 attempts/1,480,630 microdollars, starting from 31 attempts/480,630. It retains the original 15:30Z expiration. Its opening record binds the complete predecessor hash, reviewed source/copy/package/helper hashes, provider policy and session authorization reference. Exclusive creation/locking, a verifier slot and budget, fail-closed disk uncertainty, exact activation and terminal closure prevent silent retries or renewal. Ordinary demo startup strips the new activation. No provider/model, prompt, verification, extension, shared contract or MeltingPot implementation was changed.
+
+Verification: 96 focused tests and the full **665 tests** (30 scripts, 73 shared, 391 web, 171 extension), formatting/lint/secret scan/types/build/package/HTTP passed. The first focused run exposed a test-only ESM filesystem-mock error, preserved in `application-run-focused-initial.txt`; the corrected run is `application-run-focused.txt`. Sequential independent review found no P1 accounting/activation/isolation issue and one P2 unintended build-tracing boundary. Scoped runtime-path annotations corrected that finding. The subsequent build has no dynamic filesystem warnings; all seven session-route traces contain 101 files each and zero ledger/journal/Git/environment/release entries. Logs are `application-run-full-check.txt`, `application-run-build-clean.txt` and `application-run-traces.json` in the external session evidence folder.
+
+The separate external controller passed ten injected offline checks; its browser dependency/schema import check and PowerShell syntax check also passed. The browser flow retains the corrected normal-1×, two-topic rehearsal behavior. The external launcher, sealed plan and exact-source CI still require review/verification before execution. No real application journal/claim, credential access or new provider request has occurred during this preparation. Neither past failed claim is changed. [Official Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing) was rechecked on September 18: standard `gemini-3.1-flash-lite` text pricing remains $0.25/M input and $1.50/M output including thinking; the existing conservative policy is unchanged.
+
+## Actual Gemini application run and independent content review: PASS
+
+After the preparation above, the external helpers passed their separate sequential review with no actionable P1/P2. Source `7ba88800b22861c8336f77904454d96f584bc63e`, tree `3944eebd614f07cfce4bd1022b1d662f6aed819f`, passed [exact-source CI 35334899186](https://github.com/Cloakde/CSCHackathon/actions/runs/35334899186). The clean isolated copy remained `d6bb1f9adac5a1ba2d61936033991de62f6e1376`. Candidate `release/7ba88800b228/` binds that pair. The reviewed plan was sealed and its source/helpers/old histories/runtime/ports were checked again before private credential access.
+
+The single **`application-browser-20260918-v1` run passed** in isolated Chromium 151.0.7922.34 using the actual ordinary extension page, explicit normal **1× playback without pauses**, and actual Gemini generation plus separate verification. Both Help operations returned grounded responses and working timestamp links. They took **3.385 and 3.437 seconds**. Finish opened the isolated MeltingPot companion; both practice exercises matched their distinct recorded confusion events. Complete question labels, answer/explanation display, answer preservation across topic changes, citation/return focus, narrow layouts and deletion passed. No external-origin browser request, failed HTTP response or page error was recorded. The Gemini service used its reviewed server-side transport; the browser/copy did not receive the key.
+
+Exactly **eight calls settled**, in the required two-Help/two-practice generation/verification order. New validated-usage debit was **4,270 microdollars ($0.004270)**. Cumulative accounting is **39 attempts/484,900 microdollars**, retaining both historical uncertain charges. These are token-accounting figures rather than an invoice. The new journal is terminal and locks absent. Complete predecessor and old claim hashes remain unchanged. The run deleted its synthetic session, stopped all **11 owned processes** and closed ports 3000/3111. No automatic retry followed; this new one-use claim is also consumed.
+
+Sequential independent AI review replayed the accounting, checked old hashes/terminal state/closed ports, read the actual outputs against the canonical fixture and inspected screenshots. **No meaningful P1/P2 findings; content PASS for these two examples.** Both explanations follow their cited passages, with matching timestamps. The first exercise correctly identifies `g(x) = 2x + 3` and `f(u) = u⁴`; the second correctly supplies the missing factor `2` and derivative `8(2x + 3)³`. This is AI review of limited synthetic examples, not uncoached learner/subject acceptance or evidence of broad reliability.
+
+External evidence is `outputs/acceptance-20260918/application-browser-20260918-v1/` under the session workspace, including the immutable executed helper/plan snapshot, actual responses, screenshots, safe logs and accounting/cleanup. Hashes:
+
+| Record                       | SHA-256                                                            |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `browser-result.json`        | `382ecbda882e6a6eddc180bbf172669988bf2ee3cd82361bdd9be70c4d396ceb` |
+| `accounting.json`            | `a48da5585de38b4b70a605bc22f28f1e78335d057b5c2635c8afb2e323980db8` |
+| Full sealed plan file        | `ea8321f8889086c238414ccf029650b46fadf59e9f048b79124e79d3706ae663` |
+| Canonical core plan identity | `2633326a4d919b86eaea52a86cbb53af2abdb12210b661882f3943de132bd9b6` |
+
+The core identity and full-file hash intentionally cover different representations. The full plan additionally records helper/old-claim/CI evidence. Preserve all old failed runs and the finished new allocation.
+
+**Limits:** no canonical passage happened to commit while either real answer was pending, so `continuedIngestion` is false and that overlap case remains unproven. The run did not operate native Chrome's toolbar, capture audio or use a human learner. Native tool targeting, Scribe retention, human review, judge access and final release remain separate gates. Default Simulation Mode is unchanged.
+
+## Unpublished provider-free demo recording
+
+The standing session authorization also covered recording the isolated synthetic demo. Selected draft: **`demo-recording-1789729138351`**, in the external session evidence folder. Open its `preview.html` for two actual unedited, silent WebM clips: **54.32 seconds** of the extension and **39.52 seconds** of MeltingPot, **93.84 seconds total**. The page and the actual application disclose Simulation Mode and prewritten assistance; the preview also explains the visible 12× sample speed, presentation pauses and isolated extension-page surface. The recording is not evidence of native Chrome installation or actual Gemini output. An optional narration draft is beside the clips; no voiceover, publication or submission occurred.
+
+The recorded journey checks both explanations/citations, distinct confusion events, the actual Finish handoff, both targeted exercises, complete question/answer display and preservation of the first answer across a source visit. The sample session was deleted afterward. No provider key, API call, microphone or original MeltingPot service was used. All 11 owned processes stopped, ports 3000/3111 closed, and the completed Gemini journal hash was unchanged. Runtime remained `7ba8880` paired with `d6bb1f9`; `source-state.json` explicitly records the three pending evidence-document edits during the final recording. No runtime or build file changed.
+
+The clips decode as 1280×900 VP8. Both loaded and played in the local preview with matching durations and no page error or external request. Decoded frames were inspected for readable explanations, source links, disclosures, handoff and practice. This is draft technical/visual review, not final human presentation approval.
+
+| File                    | SHA-256                                                            |
+| ----------------------- | ------------------------------------------------------------------ |
+| `01-extension.webm`     | `7b63bfe45ded294641a1b219766770af703230a8511f7073735b007cb6b5a10a` |
+| `02-meltingpot.webm`    | `783393c8083defe7a89da1bdfd3002c31ef92b4e5b5b4d8c8720da0876d20954` |
+| `recording-result.json` | `b5a196cd60872efab4d43fc0dd02598f8268843996164e879a1e3ae8028e274e` |
+
+Earlier artifacts remain preserved: `demo-recording-1789728725442` failed because the external helper expected an assistance label before Start; `demo-recording-1789728792181` passed its journey but video review found shrinkage during full-page screenshots. The selected recording corrects only those helper assumptions and uses viewport screenshots. No application defect or new provider use was inferred from either recording issue. `media-manifest.json`, `preview-check.json`, safe logs, helper snapshots and cleanup evidence accompany the selected clips.
+
+Final sequential read-only review checked all ten decoded frames, labels, durations, source state, cleanup and the documentation diff. Its one P2 was a mislabeled core-plan hash: the text had used the compact full-envelope hash instead. The table now matches the canonical parser and durable claim. The other six quoted artifact hashes matched; no other meaningful P1/P2 remained. This review supports saving the evidence checkpoint, not final human/release approval. Local scoped Markdown formatting and `git diff --check` passed; no runtime source changed after the reviewed provider/recording runs.

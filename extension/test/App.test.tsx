@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiContracts,
@@ -11,6 +11,8 @@ import {
   type TranscriptChunk,
 } from "@livelecture/shared";
 import { App } from "../src/App";
+import type { CaptureClient } from "../src/capture-client";
+import { IDLE_STATUS, type CaptureStatusSnapshot } from "../src/capture-protocol";
 import { createDemoClient, DEMO_ORIGIN, type DemoFetch } from "../src/demo-api";
 import { MELTINGPOT_ORIGIN } from "../src/demo-handoff";
 
@@ -45,7 +47,7 @@ function harness() {
       const input = ApiContracts.startSession.request.parse(body);
       session = {
         ...input,
-        sourceMode: "simulation",
+        sourceMode: input.sourceMode,
         status: "active",
         sessionId: `session_demo_${++counter}`,
         startedAt: "2026-09-05T08:00:00.000Z",
@@ -272,7 +274,7 @@ describe("local learning demo", () => {
     const h = harness();
     const navigate = vi.fn();
     render(<App source={h.source} client={h.client} navigate={navigate} />);
-    expect(screen.getByText("PREWRITTEN DEMO HELP")).toBeVisible();
+    expect(screen.getByText("Assistance mode has not been confirmed.")).toBeVisible();
     expect(screen.getByLabelText("SIMULATION source disclosure")).toHaveTextContent(
       "no audio is being captured",
     );
@@ -662,5 +664,132 @@ describe("local learning demo", () => {
     expect(h.getUploaded().every((chunk) => chunk.sessionId === "session_demo_2")).toBe(true);
     rendered.unmount();
     expect(replacement.getSnapshot().status).toBe("stopped");
+  });
+});
+
+function fakeCaptureClient(initial: CaptureStatusSnapshot = IDLE_STATUS): CaptureClient & {
+  emit: (status: CaptureStatusSnapshot) => void;
+  consentCalls: number[];
+  stopCalls: number[];
+} {
+  const listeners = new Set<(status: CaptureStatusSnapshot) => void>();
+  const consentCalls: number[] = [];
+  const stopCalls: number[] = [];
+  return {
+    consentCalls,
+    stopCalls,
+    getStatus: async () => initial,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    consent: async (generation) => {
+      consentCalls.push(generation);
+      return { state: "armed", generation };
+    },
+    stop: async (generation) => {
+      stopCalls.push(generation);
+      return IDLE_STATUS;
+    },
+    emit: (status) => listeners.forEach((listener) => listener(status)),
+  };
+}
+
+describe("experimental tab-audio capture panel (TASK-101)", () => {
+  it("defaults to simulation and requires explicit live selection and consent; a live error never substitutes sample text", async () => {
+    const h = harness();
+    const capture = fakeCaptureClient({ state: "awaiting_consent", generation: 6, tabId: 7 });
+    const listeners = new Set<(raw: unknown) => void>();
+    vi.stubGlobal("chrome", {
+      runtime: {
+        sendMessage: vi.fn(async () => ({ ok: false })),
+        onMessage: {
+          addListener: (f: (raw: unknown) => void) => listeners.add(f),
+          removeListener: (f: (raw: unknown) => void) => listeners.delete(f),
+        },
+      },
+    });
+    const rendered = render(<App client={h.client} captureClient={capture} liveTestEnabled />);
+    expect(screen.getByLabelText("SIMULATION source disclosure")).toBeVisible();
+    fireEvent.click(screen.getByRole("radio", { name: /Live test/ }));
+    expect(screen.getByLabelText("LIVE TEST source disclosure")).toHaveTextContent("ElevenLabs");
+    fireEvent.change(screen.getByLabelText(/Temporary live-test code/), {
+      target: { value: "a".repeat(32) },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "I consent — prepare live transcription" }),
+      ).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "I consent — prepare live transcription" }));
+    await waitFor(() => expect(capture.consentCalls).toEqual([6]));
+    await act(async () => capture.emit({ state: "active", generation: 6, tabId: 7 }));
+    expect(await screen.findByText(/Live transcription stopped/)).toBeVisible();
+    expect(screen.queryByLabelText("SIMULATION source disclosure")).not.toBeInTheDocument();
+    expect(capture.stopCalls).toContain(6);
+    rendered.unmount();
+  });
+  it("stays hidden while capture is idle", () => {
+    const h = harness();
+    render(<App source={h.source} client={h.client} captureClient={fakeCaptureClient()} />);
+    expect(screen.queryByLabelText("Experimental tab-audio capture")).not.toBeInTheDocument();
+  });
+
+  it("shows the disclosure during awaiting_consent and requests consent with the current generation", async () => {
+    const h = harness();
+    const capture = fakeCaptureClient();
+    render(<App source={h.source} client={h.client} captureClient={capture} />);
+    await act(async () => capture.emit({ state: "awaiting_consent", generation: 3, tabId: 7 }));
+    expect(screen.getByText(/capture only this browser tab/i)).toBeVisible();
+    await act(async () => {
+      screen.getByRole("button", { name: /I consent/i }).click();
+    });
+    expect(capture.consentCalls).toEqual([3]);
+  });
+
+  it("shows Stop while active and calls stop with the current generation", async () => {
+    const h = harness();
+    const capture = fakeCaptureClient();
+    render(<App source={h.source} client={h.client} captureClient={capture} />);
+    await act(async () => capture.emit({ state: "active", generation: 3, tabId: 7 }));
+    expect(screen.getByText(/Capturing this tab/i)).toBeVisible();
+    expect(screen.getByLabelText("SIMULATION source disclosure")).toHaveTextContent(
+      "does not supply this transcript",
+    );
+    expect(screen.queryByText(/no audio is being captured/i)).not.toBeInTheDocument();
+    await act(async () => {
+      screen.getByRole("button", { name: "Stop capture" }).click();
+    });
+    expect(capture.stopCalls).toEqual([3]);
+  });
+
+  it("can cancel a pending capture from the panel", async () => {
+    const h = harness();
+    const capture = fakeCaptureClient();
+    render(<App source={h.source} client={h.client} captureClient={capture} />);
+    await act(async () => capture.emit({ state: "starting", generation: 4, tabId: 7 }));
+    await act(async () => screen.getByRole("button", { name: "Cancel capture" }).click());
+    expect(capture.stopCalls).toEqual([4]);
+    expect(screen.queryByLabelText("Experimental tab-audio capture")).not.toBeInTheDocument();
+  });
+
+  it("shows a safe, non-technical message for an error state", async () => {
+    const h = harness();
+    const capture = fakeCaptureClient();
+    render(<App source={h.source} client={h.client} captureClient={capture} />);
+    await act(async () =>
+      capture.emit({ state: "error", generation: 3, reason: "getusermedia_failed" }),
+    );
+    expect(screen.getByText(/Chrome could not start listening/i)).toBeVisible();
+  });
+
+  it("unsubscribes from capture status when the component unmounts", async () => {
+    const h = harness();
+    const capture = fakeCaptureClient();
+    const rendered = render(<App source={h.source} client={h.client} captureClient={capture} />);
+    rendered.unmount();
+    await act(async () => capture.emit({ state: "active", generation: 1, tabId: 1 }));
+    // No assertion needed beyond "this does not throw": the unmounted component
+    // must not attempt a state update after unsubscribing.
   });
 });

@@ -267,9 +267,10 @@ async function page(pathname) {
   const csp = response.headers.get("content-security-policy") ?? "";
   assert.match(csp, /(?:^|;)\s*connect-src 'self'(?:;|$)/);
   assert.doesNotMatch(csp, /https?:|wss?:|\*/);
-  assert.match(text, /Simulation Mode/i);
-  assert.match(text, /practice are prewritten/i);
-  assert.match(text, /Private local demo/i);
+  assert.match(text, /Local lecture review/i);
+  assert.match(text, /labels sample lectures and live tests separately/i);
+  assert.match(text, /identifies whether assistance is prewritten or comes from Gemini/i);
+  assert.match(text, /Nothing is shared with a class or teacher/i);
   return text;
 }
 

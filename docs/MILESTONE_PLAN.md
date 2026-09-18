@@ -2,11 +2,17 @@
 
 **Status:** Active plan; calendar activation is required before Day 1
 
+**Execution update, 2026-09-15:** [TASK-308](tasks/TASK-308.md) authorizes the remaining roadmap implementation: the bounded live-test connection, Gemini-aware private MeltingPot review, bookmarks/source-linked notes, and release preparation. This supersedes the earlier implementation hold below. Default builds remain Simulation Mode. Feature implementation, offline checks, real provider evidence, human acceptance and submission are reported separately in [current evidence](evaluations/TASK-308/README.md). Richer study modes, durable storage and class sharing stay outside this scoped roadmap; they are not marked complete.
+
 **Companion to:** [MULTI_AGENT_WORKFLOW.md](MULTI_AGENT_WORKFLOW.md)
 
 The workflow document defines how contributors coordinate. This document defines what gets built, in what order, and what is cut when time runs out. If the documents conflict, the workflow controls.
 
-The approved product direction is **the extension during class, MeltingPot afterward**, as recorded in [ADR 0007](adr/0007-meltingpot-rework-direction.md). M0 is complete. M2's local prototype is implemented, with acceptance evidence still pending. M3 is the next build milestone. Milestone numbers and historical task records are retained; working-day ranges remain provisional and do not activate calendar dates.
+**Execution mode, updated 2026-09-06:** AIs take turns in the same checkout on `shared/livelecture`. Lane names below describe areas of responsibility and priority, not simultaneous AI assignments. Sequence the work and review according to the current handoff. This changes collaboration only; milestone scope, acceptance, provider-spending and human-verification gates remain in force. See [ADR 0011](adr/0011-sequential-shared-branch.md).
+
+The approved product direction is **the extension during class, MeltingPot afterward**, as recorded in [ADR 0007](adr/0007-meltingpot-rework-direction.md). M0 is complete. M2's local prototype and M3's synthetic MeltingPot connection are implemented, with human, actual AI and judge-access acceptance evidence still pending. Milestone numbers and historical task records are retained; working-day ranges remain provisional and do not activate calendar dates.
+
+**Current work order (2026-09-07):** The user assigned Codex to fix the defects found in Claude's TASK-101/102 capture and transcription submission at `8336516`. This bounded offline correction covers consent and cleanup, default-off capture, documented ElevenLabs messages and transcript timing, bounded token requests, and the deferred manual smoke launcher. See [correction evidence](evaluations/TASK-101-102/README.md) and [the current handoff](HANDOFF.md). A later user-started AI must independently review Codex's corrections. TASK-307 remains unstarted; manual Chrome and paid provider evidence are still required by TASK-101/102. TASK-306 and earlier review obligations remain separate. One AI, same branch; no API use, credential inspection, desktop control, MeltingPot edits, main merge or broader milestone work.
 
 ---
 
@@ -361,6 +367,10 @@ If M3 is not complete by the end of Day 13:
 ---
 
 ## 9. M4 — Prioritized Additions and Reuse, Days 14–15
+
+**Latest user amendment, 2026-09-15:** TASK-309 authorizes three further bounded implementation milestones in the private copy: retain topic practice, source-backed flashcards and personal review queue, and explicit portable study files. This supersedes the older feature hold for those additions only. Dates in this historical plan are not confirmed calendar commitments; provider, human and release acceptance remain pending.
+
+**Narrow user amendment:** TASK-305 permits offline sample Ask and recent-excerpt Catch Me Up now. It does not accept M3/M4 or activate the remaining list. Judge access, real AI quality, human checks and broader reuse remain unresolved.
 
 Add only the highest-value work after the connected M3 callback, learner demonstration, privacy checks, and approved submission scope are ready. Unresolved actual AI quality or judge-access blockers take priority. Broader MeltingPot redesign and unrelated screens wait until this gate. Inspect existing notes, flashcard, and practice components before building equivalents; reuse does not waive grounding, privacy, or acceptance checks, and existing features do not automatically enter scope.
 

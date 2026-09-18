@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import {
   ApiContracts,
+  ASSISTANCE_STATUS_HEADER,
+  type AssistanceStatus,
+  LectureToolRequestSchema,
+  LectureToolEnvelopeSchema,
+  buildLectureToolResponse,
   ApiErrorSchema,
   CompletedSessionViewSchema,
   InMemorySessionStore,
@@ -18,13 +23,29 @@ import {
   type ErrorCode,
   type GroundingContextSnapshot,
   type GroundingSupportCandidate,
+  type LectureToolRequest,
+  type LectureToolResponse,
   type ModelImLostOutput,
+  type TranscriptChunk,
   type WeakAreaDrillResponse,
 } from "@livelecture/shared";
 import { generateScriptedHelp } from "./scripted-help";
+import {
+  applicationAuthorization,
+  applicationExecutionSelected,
+  createApplicationMeter,
+  readApplicationRepository,
+  type ApplicationRepository,
+  type ApplicationEnvironment,
+} from "./assistance/app-authorization";
+import { TrialProviderError } from "./assistance/provider-trial/transport";
 import { generateScriptedPractice } from "./scripted-practice";
 import { verifyScriptedHelp } from "./scripted-verifier";
 import { verifyScriptedPractice } from "./scripted-practice-verifier";
+import {
+  createGeminiAppAssistance,
+  LECTURE_TOOL_DEADLINE_MS,
+} from "./assistance/gemini-app-assistance";
 import {
   AssistanceAbortedError,
   createAssistanceOperation,
@@ -51,6 +72,9 @@ export const DEMO_LIMITS = {
 } as const;
 
 export interface DemoDispatcherOptions {
+  /** Explicit local rehearsal gate; ordinary demo deployments reject live sessions. */
+  liveEnabled?: boolean;
+  assistanceProvider?: "prewritten" | "gemini" | "blocked";
   enabled?: boolean;
   extensionId?: string;
   now?: () => number;
@@ -73,9 +97,17 @@ export interface DemoDispatcherOptions {
     candidate: PracticeVerificationCandidate,
     signal: AbortSignal,
   ) => unknown | Promise<unknown>;
+  handleLectureTool?: (
+    sessionId: string,
+    input: LectureToolRequest,
+    chunks: readonly TranscriptChunk[],
+    signal: AbortSignal,
+    sourceMode?: "simulation" | "live",
+  ) => LectureToolResponse | Promise<LectureToolResponse>;
 }
 
 interface SessionEntry {
+  assistanceStatus: AssistanceStatus;
   // A store per session lets deletion release its tombstones and all private records.
   // Fresh random IDs prevent reuse across store incarnations.
   store: InMemorySessionStore;
@@ -83,7 +115,7 @@ interface SessionEntry {
   helps: number;
   rate: { start: number; count: number };
   drills: Map<string, WeakAreaDrillResponse>;
-  operations: Partial<Record<"help" | "practice", AssistanceOperation>>;
+  operations: Partial<Record<"help" | "practice" | "lecture-tools", AssistanceOperation>>;
 }
 
 class DemoError extends Error {
@@ -209,6 +241,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
       if (entry.expiresAt <= now()) {
         entry.operations.help?.abort("expired");
         entry.operations.practice?.abort("expired");
+        entry.operations["lecture-tools"]?.abort("expired");
         sessions.delete(sessionId);
         void entry.store.deleteSession(sessionId);
         entry.drills.clear();
@@ -219,6 +252,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
     for (const [sessionId, entry] of sessions) {
       entry.operations.help?.abort("deleted");
       entry.operations.practice?.abort("deleted");
+      entry.operations["lecture-tools"]?.abort("deleted");
       void entry.store.deleteSession(sessionId);
       entry.drills.clear();
     }
@@ -235,7 +269,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
   async function withOperation<T>(
     sessionId: string,
     entry: SessionEntry,
-    kind: "help" | "practice",
+    kind: "help" | "practice" | "lecture-tools",
     request: Request,
     work: (operation: AssistanceOperation) => Promise<T>,
   ): Promise<T> {
@@ -245,9 +279,15 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         "PROVIDER_UNAVAILABLE",
         "An assistance request is already running. Try again when it finishes.",
       );
+    const deadlineMs =
+      kind === "help"
+        ? HELP_DEADLINE_MS
+        : kind === "practice"
+          ? PRACTICE_DEADLINE_MS
+          : LECTURE_TOOL_DEADLINE_MS;
     const operation = createAssistanceOperation({
       requestSignal: request.signal,
-      deadlineMs: kind === "help" ? HELP_DEADLINE_MS : PRACTICE_DEADLINE_MS,
+      deadlineMs,
       expiresAt: entry.expiresAt,
       now,
     });
@@ -269,7 +309,16 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
     if (bucket.count > maximum) throw limited();
   }
   const dispatch = async (request: Request): Promise<Response> => {
+    const initialStatus =
+      options.assistanceProvider === "gemini"
+        ? "gemini_pending"
+        : options.assistanceProvider === "blocked"
+          ? "gemini_blocked"
+          : "prewritten";
+    let assistanceEntry: SessionEntry | undefined;
     const headers = new Headers({
+      [ASSISTANCE_STATUS_HEADER]: initialStatus,
+      "Access-Control-Expose-Headers": ASSISTANCE_STATUS_HEADER,
       "Cache-Control": "no-store",
       Vary: "Origin",
       "X-Content-Type-Options": "nosniff",
@@ -291,7 +340,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
       if (origin) headers.set("Access-Control-Allow-Origin", origin);
       if (url.search || url.hash) throw invalid();
       const match =
-        /^\/api\/sessions(?:\/([^/]+)(?:\/(chunks|im-lost|end|weak-area-drills))?)?$/.exec(
+        /^\/api\/sessions(?:\/([^/]+)(?:\/(chunks|im-lost|end|weak-area-drills|lecture-tools))?)?$/.exec(
           url.pathname,
         );
       if (!match) throw invalid();
@@ -338,9 +387,10 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
       if (!sessionId) {
         const input = parse(ApiContracts.startSession.request, body);
         if (
-          input.sourceMode !== "simulation" ||
-          (input.title !== undefined && input.title !== simulationFixture.session.title) ||
-          (input.subject !== undefined && input.subject !== simulationFixture.session.subject)
+          input.sourceMode === "live"
+            ? !options.liveEnabled
+            : (input.title !== undefined && input.title !== simulationFixture.session.title) ||
+              (input.subject !== undefined && input.subject !== simulationFixture.session.subject)
         )
           throw invalid();
         if (sessions.size >= limits.sessions) throw limited();
@@ -348,6 +398,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         if (sessions.has(freshId)) throw invalid();
         const store = new InMemorySessionStore();
         const entry: SessionEntry = {
+          assistanceStatus: initialStatus,
           store,
           expiresAt: now() + limits.sessionLifetimeMs,
           helps: 0,
@@ -359,9 +410,10 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         try {
           const session = await store.createSession({
             sessionId: freshId,
-            title: simulationFixture.session.title,
-            subject: simulationFixture.session.subject,
-            sourceMode: "simulation",
+            title: input.sourceMode === "live" ? input.title : simulationFixture.session.title,
+            subject:
+              input.sourceMode === "live" ? input.subject : simulationFixture.session.subject,
+            sourceMode: input.sourceMode,
             status: "active",
             startedAt: new Date(now()).toISOString(),
           });
@@ -374,6 +426,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         const entry = sessions.get(sessionId);
         entry?.operations.help?.abort("deleted");
         entry?.operations.practice?.abort("deleted");
+        entry?.operations["lecture-tools"]?.abort("deleted");
         sessions.delete(sessionId);
         entry?.drills.clear();
         const deleted = entry ? await entry.store.deleteSession(sessionId) : false;
@@ -381,11 +434,48 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
       } else {
         const entry = sessions.get(sessionId);
         if (!entry) throw unavailable();
+        headers.set(ASSISTANCE_STATUS_HEADER, entry.assistanceStatus);
+        if (["im-lost", "weak-area-drills", "lecture-tools"].includes(action ?? "")) {
+          assistanceEntry = entry;
+          if (options.assistanceProvider === "blocked")
+            throw new DemoError(
+              503,
+              "PROVIDER_UNAVAILABLE",
+              "Gemini requires an authorized, capped application run.",
+            );
+        }
         rateCheck(entry.rate, limits.sessionRequestsPerMinute);
         const view = await entry.store.getSession(sessionId);
         if (!view) throw unavailable();
         if (request.method === "GET") {
           result = ApiContracts.getSession.response.parse({ ok: true, data: view });
+        } else if (action === "lecture-tools") {
+          if (view.session.status !== "active") throw inactive();
+          const input = parse(LectureToolRequestSchema, body);
+          if (input.throughSequence >= view.committedChunks.length) throw invalid();
+          if (request.signal.aborted) throw new AssistanceAbortedError("cancelled");
+          const toolResponse = options.handleLectureTool
+            ? await withOperation(sessionId, entry, "lecture-tools", request, (operation) =>
+                operation.run(() =>
+                  options.handleLectureTool!(
+                    sessionId,
+                    input,
+                    view.committedChunks,
+                    operation.signal,
+                    view.session.sourceMode,
+                  ),
+                ),
+              )
+            : buildLectureToolResponse(
+                sessionId,
+                input,
+                view.committedChunks,
+                view.session.sourceMode,
+              );
+          result = LectureToolEnvelopeSchema.parse({
+            ok: true,
+            data: toolResponse,
+          });
         } else if (action === "chunks") {
           const input = parse(ApiContracts.appendCommittedChunks.input, {
             params: { sessionId },
@@ -398,8 +488,12 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
             const canonical = fixture[chunk.sequence];
             const rawChunk = (body as { chunks: unknown[] }).chunks[index];
             if (
-              !canonical ||
-              !exactObject(rawChunk, { ...canonical, sessionId }) ||
+              (view.session.sourceMode === "simulation"
+                ? !canonical || !exactObject(rawChunk, { ...canonical, sessionId })
+                : !exactObject(rawChunk, chunk) ||
+                  chunk.sessionId !== sessionId ||
+                  chunk.sequence >= 300 ||
+                  chunk.endMs > 90_000) ||
               chunk.sequence > next
             )
               throw invalid();
@@ -498,6 +592,7 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
           if (input.body.endedAt !== expectedEnd) throw invalid();
           const session = await entry.store.completeSession(sessionId, input.body.endedAt);
           entry.operations.help?.abort("ended");
+          entry.operations["lecture-tools"]?.abort("ended");
           result = ApiContracts.endSession.response.parse({
             ok: true,
             data: { session, handoff: { sessionId, companionRoute: `/sessions/${sessionId}` } },
@@ -594,29 +689,49 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
         sweep();
         if (!sessions.has(sessionId)) throw unavailable();
       }
+      if (assistanceEntry && options.assistanceProvider === "gemini") {
+        const data = (result as { data: { status?: string; groundingStatus?: string } }).data;
+        assistanceEntry.assistanceStatus =
+          data.status === "insufficient_evidence" ||
+          data.status === "unsupported_question" ||
+          data.groundingStatus === "insufficient_evidence"
+            ? "gemini_failed"
+            : "gemini_ready";
+        headers.set(ASSISTANCE_STATUS_HEADER, assistanceEntry.assistanceStatus);
+      }
       return Response.json(result, { status: 200, headers });
     } catch (error) {
+      if (assistanceEntry && options.assistanceProvider === "gemini") {
+        assistanceEntry.assistanceStatus = "gemini_failed";
+        headers.set(ASSISTANCE_STATUS_HEADER, "gemini_failed");
+      }
       const interruption = error instanceof AssistanceAbortedError ? error.cause : undefined;
       const safe =
         error instanceof DemoError
           ? error
-          : interruption === "deleted" || interruption === "expired"
-            ? unavailable()
-            : interruption === "ended"
-              ? inactive()
-              : interruption === "deadline"
-                ? new DemoError(
-                    504,
-                    "PROVIDER_UNAVAILABLE",
-                    "The assistance request took too long. Try again.",
-                  )
-                : interruption === "cancelled"
-                  ? new DemoError(499, "INVALID_REQUEST", "The assistance request was cancelled.")
-                  : new DemoError(
-                      500,
-                      "INTERNAL_ERROR",
-                      "The local demo could not complete this request.",
-                    );
+          : error instanceof TrialProviderError
+            ? new DemoError(
+                503,
+                "PROVIDER_UNAVAILABLE",
+                "Gemini assistance could not be completed safely.",
+              )
+            : interruption === "deleted" || interruption === "expired"
+              ? unavailable()
+              : interruption === "ended"
+                ? inactive()
+                : interruption === "deadline"
+                  ? new DemoError(
+                      504,
+                      "PROVIDER_UNAVAILABLE",
+                      "The assistance request took too long. Try again.",
+                    )
+                  : interruption === "cancelled"
+                    ? new DemoError(499, "INVALID_REQUEST", "The assistance request was cancelled.")
+                    : new DemoError(
+                        500,
+                        "INTERNAL_ERROR",
+                        "The local demo could not complete this request.",
+                      );
       if (safe.status === 429) headers.set("Retry-After", "60");
       return Response.json(
         ApiErrorSchema.parse({
@@ -634,33 +749,92 @@ export function createDemoDispatcher(options: DemoDispatcherOptions = {}) {
   return Object.assign(dispatch, { sweep, dispose });
 }
 
-// Next bundles routes independently; keep the actual service on globalThis.
-type Runtime = {
-  dispatch: ReturnType<typeof createDemoDispatcher>;
-  timer: ReturnType<typeof setInterval>;
-  config: string;
-};
-const runtimeGlobal = globalThis as typeof globalThis & { __livelectureScriptedDemoV1?: Runtime };
-
-export function handleDemoRequest(request: Request): Promise<Response> {
-  const config = JSON.stringify([
-    process.env.LIVELECTURE_DEMO_ENABLED,
-    process.env.LIVELECTURE_EXTENSION_ID,
-  ]);
-  let runtime = runtimeGlobal.__livelectureScriptedDemoV1;
-  if (!runtime || runtime.config !== config) {
-    if (runtime) {
-      clearInterval(runtime.timer);
-      runtime.dispatch.dispose();
+// The default and injected offline handlers use the same authorization, routing and lifecycle.
+export function createDemoRequestHandler(
+  dependencies: {
+    environment?: () => ApplicationEnvironment;
+    repository?: () => ApplicationRepository;
+    fetcher?: typeof fetch;
+  } = {},
+) {
+  const environment = dependencies.environment ?? (() => process.env);
+  const repository = dependencies.repository ?? readApplicationRepository;
+  let runtime:
+    | {
+        config: string;
+        dispatch: ReturnType<typeof createDemoDispatcher>;
+        timer: ReturnType<typeof setInterval>;
+        closeMeter?: () => void;
+      }
+    | undefined;
+  const dispose = () => {
+    if (!runtime) return;
+    clearInterval(runtime.timer);
+    runtime.dispatch.dispose();
+    runtime.closeMeter?.();
+    runtime = undefined;
+  };
+  const handle = (request: Request): Promise<Response> => {
+    const env = environment();
+    const config = JSON.stringify([
+      env.LIVELECTURE_DEMO_ENABLED,
+      env.LIVELECTURE_LIVE_TEST,
+      env.LIVELECTURE_EXTENSION_ID,
+      env.LIVELECTURE_ASSISTANCE_PROVIDER,
+      env.LIVELECTURE_APP_EXECUTE,
+      env.LIVELECTURE_APP_TREE,
+      env.LIVELECTURE_APP_POLICY,
+      env.LIVELECTURE_APP_CONTINUATION_ID,
+      env.LIVELECTURE_APP_CONTINUATION_HASH,
+      env.LIVELECTURE_APP_RUN_HASH,
+      env.CI,
+    ]);
+    if (!runtime || runtime.config !== config) {
+      dispose();
+      let hooks: Partial<DemoDispatcherOptions> = {};
+      let closeMeter: (() => void) | undefined;
+      if (
+        env.LIVELECTURE_ASSISTANCE_PROVIDER &&
+        env.LIVELECTURE_ASSISTANCE_PROVIDER !== "prewritten"
+      ) {
+        hooks = { assistanceProvider: "blocked" };
+        // Do not inspect credentials, Git or ledger state until an explicit run is selected.
+        if (env.LIVELECTURE_ASSISTANCE_PROVIDER === "gemini" && applicationExecutionSelected(env)) {
+          try {
+            applicationAuthorization(env, repository());
+            const meter = createApplicationMeter(environment, repository);
+            closeMeter = () => meter.close();
+            hooks = createGeminiAppAssistance({
+              apiKey: env.GEMINI_API_KEY ?? "",
+              meter,
+              fetcher: dependencies.fetcher,
+            });
+          } catch {
+            closeMeter?.();
+            closeMeter = undefined;
+          }
+        }
+      }
+      const dispatch = createDemoDispatcher({
+        enabled: env.LIVELECTURE_DEMO_ENABLED === "true",
+        liveEnabled: env.LIVELECTURE_LIVE_TEST === "synthetic-90-seconds" && !env.CI,
+        extensionId: env.LIVELECTURE_EXTENSION_ID,
+        ...hooks,
+      });
+      const timer = setInterval(dispatch.sweep, 60_000);
+      timer.unref();
+      runtime = { config, dispatch, timer, closeMeter };
     }
-    const dispatch = createDemoDispatcher({
-      enabled: process.env.LIVELECTURE_DEMO_ENABLED === "true",
-      extensionId: process.env.LIVELECTURE_EXTENSION_ID,
-    });
-    const timer = setInterval(dispatch.sweep, 60_000);
-    timer.unref();
-    runtime = { dispatch, timer, config };
-    runtimeGlobal.__livelectureScriptedDemoV1 = runtime;
-  }
-  return runtime.dispatch(request);
+    return runtime.dispatch(request);
+  };
+  return Object.assign(handle, { dispose });
+}
+
+// Next bundles routes independently; keep the actual service on globalThis.
+const runtimeGlobal = globalThis as typeof globalThis & {
+  __livelectureApplicationV2?: ReturnType<typeof createDemoRequestHandler>;
+};
+export function handleDemoRequest(request: Request): Promise<Response> {
+  runtimeGlobal.__livelectureApplicationV2 ??= createDemoRequestHandler();
+  return runtimeGlobal.__livelectureApplicationV2(request);
 }

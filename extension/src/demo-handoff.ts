@@ -9,6 +9,7 @@ export function demoHandoffUrl(
   destination: CompanionDestination,
   expectedSessionId: string,
   response: unknown,
+  expectedMode: "simulation" | "live" = "simulation",
 ): string {
   const expected = StableIdSchema.safeParse(expectedSessionId);
   const completed = EndSessionResponseSchema.safeParse(response);
@@ -16,7 +17,7 @@ export function demoHandoffUrl(
     !expected.success ||
     !completed.success ||
     completed.data.session.sessionId !== expected.data ||
-    completed.data.session.sourceMode !== "simulation"
+    completed.data.session.sourceMode !== expectedMode
   ) {
     throw new Error("The finished lecture did not match this sample session. Please try again.");
   }
