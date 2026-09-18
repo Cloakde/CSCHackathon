@@ -46,6 +46,7 @@ export interface TrialLedgerSnapshot {
     previousLedgerSha256: string;
     grantSha256: string;
     expiresAt: number;
+    zeroUseRecovered?: true;
   };
 }
 

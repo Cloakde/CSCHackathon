@@ -73,11 +73,29 @@ export type ApplicationContinuationGrant = Omit<
   "event" | "purpose" | "sourceTree" | "policyHash" | "additionalAttempts" | "additionalMicroUsd"
 >;
 
+interface ApplicationZeroUseRecoveryEvent {
+  event: "application_zero_use_recovery";
+  id: string;
+  previousLedgerSha256: string;
+  previousSourceTree: string;
+  previousContinuationId: string;
+  previousGrantSha256: string;
+  sourceTree: string;
+  policyHash: string;
+  expiresAt: number;
+}
+
+export type ApplicationZeroUseRecoveryGrant = Omit<
+  ApplicationZeroUseRecoveryEvent,
+  "event" | "sourceTree" | "policyHash" | "expiresAt"
+>;
+
 type LedgerEvent =
   | { event: "reserve"; attemptId: number; input: TrialAttemptInput }
   | { event: "settle"; attemptId: number; usage?: TrialUsage }
   | { event: "finish" }
   | ApplicationContinuationEvent
+  | ApplicationZeroUseRecoveryEvent
   | { event: "rebind"; previousLedgerSha256: string; sourceTree: string; policyHash: string };
 
 // Historical accounting is immutable when replaying the same append-only ledger.
@@ -228,8 +246,40 @@ function validContinuation(value: unknown): value is ApplicationContinuationEven
   );
 }
 
+function validZeroUseRecovery(value: unknown): value is ApplicationZeroUseRecoveryEvent {
+  return (
+    record(value) &&
+    keys(value, [
+      "event",
+      "id",
+      "previousLedgerSha256",
+      "previousSourceTree",
+      "previousContinuationId",
+      "previousGrantSha256",
+      "sourceTree",
+      "policyHash",
+      "expiresAt",
+    ]) &&
+    value.event === "application_zero_use_recovery" &&
+    typeof value.id === "string" &&
+    SCENARIO.test(value.id) &&
+    typeof value.previousContinuationId === "string" &&
+    SCENARIO.test(value.previousContinuationId) &&
+    typeof value.previousLedgerSha256 === "string" &&
+    SHA256.test(value.previousLedgerSha256) &&
+    typeof value.previousGrantSha256 === "string" &&
+    SHA256.test(value.previousGrantSha256) &&
+    typeof value.previousSourceTree === "string" &&
+    SOURCE_TREE.test(value.previousSourceTree) &&
+    typeof value.sourceTree === "string" &&
+    SOURCE_TREE.test(value.sourceTree) &&
+    value.policyHash === TRIAL_POLICY_HASH &&
+    integer(value.expiresAt, Number.MAX_SAFE_INTEGER, 1)
+  );
+}
+
 function applyEvent(state: TrialLedgerSnapshot, event: LedgerEvent): TrialLedgerSnapshot {
-  if (state.finished) fail("FINISHED");
+  if (state.finished && event.event !== "application_zero_use_recovery") fail("FINISHED");
   const next = structuredClone(state);
   const policy = accounting(state.policyHash);
   const active = next.attempts.find((attempt) => attempt.status === "reserved");
@@ -276,6 +326,34 @@ function applyEvent(state: TrialLedgerSnapshot, event: LedgerEvent): TrialLedger
       previousLedgerSha256: event.previousLedgerSha256,
       grantSha256: digest(JSON.stringify(event)),
       expiresAt: event.expiresAt,
+    };
+  } else if (event.event === "application_zero_use_recovery") {
+    const grant = state.applicationContinuation;
+    if (
+      !validZeroUseRecovery(event) ||
+      !state.finished ||
+      active ||
+      !grant ||
+      grant.zeroUseRecovered ||
+      state.attempts.length !== state.maxAttempts - 8 ||
+      state.totalMicroUsd !== state.capMicroUsd - 1_000_000 ||
+      event.previousSourceTree !== state.sourceTree ||
+      state.policyHash !== TRIAL_POLICY_HASH ||
+      event.previousContinuationId !== grant.id ||
+      event.previousGrantSha256 !== grant.grantSha256 ||
+      event.id === grant.id ||
+      event.expiresAt !== grant.expiresAt
+    )
+      fail("INVALID_LEDGER");
+    // Transfer the unused allowance once. No history, ceiling or deadline is reset.
+    next.sourceTree = event.sourceTree;
+    next.finished = false;
+    next.applicationContinuation = {
+      id: event.id,
+      previousLedgerSha256: event.previousLedgerSha256,
+      grantSha256: digest(JSON.stringify(event)),
+      expiresAt: grant.expiresAt,
+      zeroUseRecovered: true,
     };
   } else if (event.event === "rebind") {
     if (active) fail("REQUEST_IN_FLIGHT");
@@ -346,7 +424,10 @@ function parseLedger(contents: string, expected: Header): TrialLedgerSnapshot {
           attemptId: entry.attemptId,
           ...(entry.usage === undefined ? {} : { usage: entry.usage as TrialUsage }),
         });
-      } else if (entry.event === "application_continuation" && validContinuation(entry)) {
+      } else if (
+        (entry.event === "application_continuation" && validContinuation(entry)) ||
+        (entry.event === "application_zero_use_recovery" && validZeroUseRecovery(entry))
+      ) {
         const prefix =
           contents
             .split("\n")
@@ -414,12 +495,19 @@ export function openTrialLedger(options: {
   };
   /** Explicit offline maintenance only; never inferred from ordinary startup. */
   continuation?: ApplicationContinuationGrant;
+  /** One reviewed recovery of a finished grant that reserved zero new attempts. */
+  zeroUseRecovery?: ApplicationZeroUseRecoveryGrant;
   /** Application-only activation. The frozen trial runner never supplies this. */
   applicationContinuation?: { id: string; grantSha256: string };
 }): TrialLedger {
   if (options.policyHash !== TRIAL_POLICY_HASH) fail("POLICY_MISMATCH");
   if (!SOURCE_TREE.test(options.sourceTree)) fail("SOURCE_MISMATCH");
-  if (options.continuation && (options.migration || options.applicationContinuation))
+  const maintenanceCount = [
+    options.migration,
+    options.continuation,
+    options.zeroUseRecovery,
+  ].filter(Boolean).length;
+  if (maintenanceCount > 1 || (maintenanceCount > 0 && options.applicationContinuation))
     fail("INVALID_LEDGER");
   const directory = resolve(options.directory);
   const lockPath = join(directory, "ledger.lock");
@@ -517,7 +605,8 @@ export function openTrialLedger(options: {
       const contents = fs.readFileSync(ledgerPath, "utf8");
       const migration = options.migration;
       const continuation = options.continuation;
-      const maintenance = migration ?? continuation;
+      const zeroUseRecovery = options.zeroUseRecovery;
+      const maintenance = migration ?? continuation ?? zeroUseRecovery;
       if (
         maintenance &&
         (!SHA256.test(maintenance.previousLedgerSha256) ||
@@ -535,12 +624,14 @@ export function openTrialLedger(options: {
           : header,
       );
       expectedBytes = Buffer.byteLength(contents);
-      if (state.finished) fail("FINISHED");
+      if (state.finished && !zeroUseRecovery) fail("FINISHED");
       if (state.applicationContinuation) {
         if (
-          maintenance ||
-          options.applicationContinuation?.id !== state.applicationContinuation.id ||
-          options.applicationContinuation?.grantSha256 !== state.applicationContinuation.grantSha256
+          !zeroUseRecovery &&
+          (maintenance ||
+            options.applicationContinuation?.id !== state.applicationContinuation.id ||
+            options.applicationContinuation?.grantSha256 !==
+              state.applicationContinuation.grantSha256)
         )
           fail("CONTINUATION_REQUIRED");
       } else if (options.applicationContinuation) fail("CONTINUATION_REQUIRED");
@@ -551,7 +642,20 @@ export function openTrialLedger(options: {
           continuation.expiresAt > Date.now() + 86_400_000)
       )
         fail("CONTINUATION_EXPIRED");
+      if (
+        zeroUseRecovery &&
+        (!state.applicationContinuation || state.applicationContinuation.expiresAt <= Date.now())
+      )
+        fail("CONTINUATION_EXPIRED");
       ledgerFd = fs.openSync(ledgerPath, "a", 0o600);
+      if (zeroUseRecovery)
+        persist({
+          ...zeroUseRecovery,
+          event: "application_zero_use_recovery",
+          sourceTree: header.sourceTree,
+          policyHash: header.policyHash,
+          expiresAt: state.applicationContinuation!.expiresAt,
+        });
       if (continuation)
         persist({
           ...continuation,
@@ -570,7 +674,12 @@ export function openTrialLedger(options: {
           policyHash: header.policyHash,
         });
     } else {
-      if (options.migration || options.continuation || options.applicationContinuation)
+      if (
+        options.migration ||
+        options.continuation ||
+        options.zeroUseRecovery ||
+        options.applicationContinuation
+      )
         fail("INVALID_LEDGER");
       ledgerFd = fs.openSync(ledgerPath, "ax", 0o600);
       try {

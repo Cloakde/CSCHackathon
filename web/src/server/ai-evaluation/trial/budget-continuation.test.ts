@@ -267,3 +267,182 @@ it("requires separate app activation and preserves the generation-verification s
   meter.settle(39, usage);
   meter.close();
 });
+
+function finishedUnused() {
+  const f = fixture(),
+    approved = grant(f),
+    ledger = open(approved);
+  const before = ledger.snapshot();
+  ledger.finish();
+  ledger.close();
+  const finishedBytes = readFileSync(f.file, "utf8");
+  const recovery = {
+    id: "offline-browser-recovery",
+    previousLedgerSha256: sha(finishedBytes),
+    previousSourceTree: newTree,
+    previousContinuationId: f.activation.id,
+    previousGrantSha256: f.activation.grantSha256,
+  };
+  const options = { ...f.options, sourceTree: "3".repeat(40), zeroUseRecovery: recovery };
+  return { ...f, approved, before, finishedBytes, recovery, recoveryOptions: options };
+}
+
+it("recovers a zero-use setup failure once without changing prior bytes, charges, ceilings or expiry", () => {
+  const f = finishedUnused(),
+    maintenance = open(f.recoveryOptions);
+  const snapshot = maintenance.snapshot(),
+    grant = snapshot.applicationContinuation!;
+  expect(snapshot).toMatchObject({
+    finished: false,
+    sourceTree: "3".repeat(40),
+    maxAttempts: 39,
+    capMicroUsd: 1480630,
+    totalMicroUsd: 480630,
+    applicationContinuation: {
+      id: f.recovery.id,
+      zeroUseRecovered: true,
+      expiresAt: f.continuation.expiresAt,
+    },
+  });
+  expect(snapshot.attempts).toEqual(f.before.attempts);
+  expect(readFileSync(f.file, "utf8").startsWith(f.finishedBytes)).toBe(true);
+  expect(grant.grantSha256).not.toBe(f.activation.grantSha256);
+  expect(() => maintenance.reserve(input)).toThrow("CONTINUATION_REQUIRED");
+  maintenance.close();
+  const activation = { id: grant.id, grantSha256: grant.grantSha256 };
+  const options = {
+    ...f.options,
+    sourceTree: snapshot.sourceTree,
+    applicationContinuation: activation,
+  };
+  expect(() => open({ ...f.options, sourceTree: snapshot.sourceTree })).toThrow(
+    "CONTINUATION_REQUIRED",
+  );
+  expect(() => open({ ...options, applicationContinuation: f.activation })).toThrow(
+    "CONTINUATION_REQUIRED",
+  );
+  expect(() => open(f.approved)).toThrow("SOURCE_MISMATCH");
+  const ledger = open(options);
+  for (let id = 32; id <= 39; id++) {
+    expect(ledger.reserve(input)).toBe(id);
+    ledger.settle(id, usage);
+  }
+  expect(() => ledger.reserve(input)).toThrow("ATTEMPTS_EXHAUSTED");
+  ledger.finish();
+  ledger.close();
+  expect(() => open(options)).toThrow("FINISHED");
+});
+
+it.each([
+  "hash",
+  "source",
+  "grant",
+  "id",
+  "same_id",
+  "policy",
+  "extra_field",
+  "locked",
+  "not_finished",
+  "expired",
+])("rejects zero-use recovery with %s mismatch without changing bytes", (kind) => {
+  const f = finishedUnused(),
+    recovery = { ...f.recovery };
+  let options = { ...f.recoveryOptions, zeroUseRecovery: recovery };
+  if (kind === "hash") recovery.previousLedgerSha256 = "0".repeat(64);
+  if (kind === "source") recovery.previousSourceTree = oldTree;
+  if (kind === "grant") recovery.previousGrantSha256 = "0".repeat(64);
+  if (kind === "id") recovery.previousContinuationId = "incorrect";
+  if (kind === "same_id") recovery.id = f.activation.id;
+  if (kind === "policy") options = { ...options, policyHash: LEGACY_POLICY_HASH };
+  if (kind === "extra_field") Object.assign(recovery, { additionalAttempts: 8 });
+  if (kind === "locked") writeFileSync(join(f.options.directory, "ledger.lock"), "active owner");
+  if (kind === "not_finished") {
+    writeFileSync(f.file, f.finishedBytes.slice(0, -'{"event":"finish"}\n'.length));
+    recovery.previousLedgerSha256 = sha(readFileSync(f.file, "utf8"));
+  }
+  if (kind === "expired") {
+    vi.useFakeTimers();
+    vi.setSystemTime(f.continuation.expiresAt);
+  }
+  const before = readFileSync(f.file, "utf8");
+  expect(() => open(options)).toThrow();
+  expect(readFileSync(f.file, "utf8")).toBe(before);
+});
+
+it.each(["zero_cost", "uncertain", "active"])(
+  "rejects recovery after one %s reservation",
+  (kind) => {
+    const f = fixture(),
+      approved = grant(f),
+      ledger = open(approved);
+    const id = ledger.reserve(input);
+    if (kind === "zero_cost") ledger.settle(id, { ...usage, inputTokens: 0 });
+    if (kind === "uncertain") ledger.settle(id);
+    if (kind !== "active") {
+      ledger.finish();
+      ledger.close();
+    }
+    const before = readFileSync(f.file, "utf8");
+    expect(() =>
+      open({
+        ...f.options,
+        sourceTree: "3".repeat(40),
+        zeroUseRecovery: {
+          id: "forbidden-recovery",
+          previousLedgerSha256: sha(before),
+          previousSourceTree: newTree,
+          previousContinuationId: f.activation.id,
+          previousGrantSha256: f.activation.grantSha256,
+        },
+      }),
+    ).toThrow();
+    expect(readFileSync(f.file, "utf8")).toBe(before);
+  },
+);
+
+it("cannot repeat zero-use recovery even when the recovered run also spends nothing", () => {
+  const f = finishedUnused(),
+    ledger = open(f.recoveryOptions),
+    snapshot = ledger.snapshot();
+  ledger.finish();
+  ledger.close();
+  const before = readFileSync(f.file, "utf8"),
+    grant = snapshot.applicationContinuation!;
+  expect(() =>
+    open({
+      ...f.options,
+      sourceTree: "4".repeat(40),
+      zeroUseRecovery: {
+        id: "forbidden-second-recovery",
+        previousLedgerSha256: sha(before),
+        previousSourceTree: snapshot.sourceTree,
+        previousContinuationId: grant.id,
+        previousGrantSha256: grant.grantSha256,
+      },
+    }),
+  ).toThrow();
+  expect(readFileSync(f.file, "utf8")).toBe(before);
+});
+
+it("keeps the recovered expiry and unknown-charge budget effective", () => {
+  vi.useFakeTimers();
+  const f = finishedUnused(),
+    maintenance = open(f.recoveryOptions),
+    snapshot = maintenance.snapshot();
+  const grant = snapshot.applicationContinuation!;
+  maintenance.close();
+  const ledger = open({
+    ...f.options,
+    sourceTree: snapshot.sourceTree,
+    applicationContinuation: { id: grant.id, grantSha256: grant.grantSha256 },
+  });
+  for (const expected of [32, 33]) {
+    expect(ledger.reserve(input)).toBe(expected);
+    ledger.settle(expected);
+  }
+  expect(() => ledger.reserve(input)).toThrow("BUDGET_EXHAUSTED");
+  vi.setSystemTime(f.continuation.expiresAt);
+  expect(() => ledger.reserve(input)).toThrow("CONTINUATION_EXPIRED");
+  ledger.finish();
+  ledger.close();
+});
