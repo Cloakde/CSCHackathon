@@ -2,6 +2,8 @@
 
 The user authorized necessary laptop control and continued work for this session, with a target wrap-up around 08:30 Pacific. Earlier unanswered session-permission notes are superseded. Original MeltingPot repositories/services, permanent extension keys, real classroom data and automatic release claims remain excluded.
 
+**Latest checkpoint:** the actual Gemini two-topic application journey passed at `7ba8880`/`d6bb1f9`, with eight settled calls, reviewed content, terminal accounting and verified cleanup. An unpublished provider-free demo draft totals 93.84 seconds. The final two sections contain those results; earlier preparation/failure/readiness statements below describe their original checkpoints. Native capture, retention, human/judge acceptance and release remain open.
+
 ## Real Scribe paused-fixture test
 
 - Exact source: `9c251270d99eff91035abd147db0ef9b1355d029`, tree `324c18944f35fe1e75bb4224742c99ec31d458e9`; [CI 35321355454](https://github.com/Cloakde/CSCHackathon/actions/runs/35321355454) passed. Only coordination documents changed after the previously reviewed runtime.
@@ -122,3 +124,44 @@ The fixed run `application-browser-20260918-v1` permits eight new attempts/$1 an
 Verification: 96 focused tests and the full **665 tests** (30 scripts, 73 shared, 391 web, 171 extension), formatting/lint/secret scan/types/build/package/HTTP passed. The first focused run exposed a test-only ESM filesystem-mock error, preserved in `application-run-focused-initial.txt`; the corrected run is `application-run-focused.txt`. Sequential independent review found no P1 accounting/activation/isolation issue and one P2 unintended build-tracing boundary. Scoped runtime-path annotations corrected that finding. The subsequent build has no dynamic filesystem warnings; all seven session-route traces contain 101 files each and zero ledger/journal/Git/environment/release entries. Logs are `application-run-full-check.txt`, `application-run-build-clean.txt` and `application-run-traces.json` in the external session evidence folder.
 
 The separate external controller passed ten injected offline checks; its browser dependency/schema import check and PowerShell syntax check also passed. The browser flow retains the corrected normal-1×, two-topic rehearsal behavior. The external launcher, sealed plan and exact-source CI still require review/verification before execution. No real application journal/claim, credential access or new provider request has occurred during this preparation. Neither past failed claim is changed. [Official Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing) was rechecked on September 18: standard `gemini-3.1-flash-lite` text pricing remains $0.25/M input and $1.50/M output including thinking; the existing conservative policy is unchanged.
+
+## Actual Gemini application run and independent content review: PASS
+
+After the preparation above, the external helpers passed their separate sequential review with no actionable P1/P2. Source `7ba88800b22861c8336f77904454d96f584bc63e`, tree `3944eebd614f07cfce4bd1022b1d662f6aed819f`, passed [exact-source CI 35334899186](https://github.com/Cloakde/CSCHackathon/actions/runs/35334899186). The clean isolated copy remained `d6bb1f9adac5a1ba2d61936033991de62f6e1376`. Candidate `release/7ba88800b228/` binds that pair. The reviewed plan was sealed and its source/helpers/old histories/runtime/ports were checked again before private credential access.
+
+The single **`application-browser-20260918-v1` run passed** in isolated Chromium 151.0.7922.34 using the actual ordinary extension page, explicit normal **1× playback without pauses**, and actual Gemini generation plus separate verification. Both Help operations returned grounded responses and working timestamp links. They took **3.385 and 3.437 seconds**. Finish opened the isolated MeltingPot companion; both practice exercises matched their distinct recorded confusion events. Complete question labels, answer/explanation display, answer preservation across topic changes, citation/return focus, narrow layouts and deletion passed. No external-origin browser request, failed HTTP response or page error was recorded. The Gemini service used its reviewed server-side transport; the browser/copy did not receive the key.
+
+Exactly **eight calls settled**, in the required two-Help/two-practice generation/verification order. New validated-usage debit was **4,270 microdollars ($0.004270)**. Cumulative accounting is **39 attempts/484,900 microdollars**, retaining both historical uncertain charges. These are token-accounting figures rather than an invoice. The new journal is terminal and locks absent. Complete predecessor and old claim hashes remain unchanged. The run deleted its synthetic session, stopped all **11 owned processes** and closed ports 3000/3111. No automatic retry followed; this new one-use claim is also consumed.
+
+Sequential independent AI review replayed the accounting, checked old hashes/terminal state/closed ports, read the actual outputs against the canonical fixture and inspected screenshots. **No meaningful P1/P2 findings; content PASS for these two examples.** Both explanations follow their cited passages, with matching timestamps. The first exercise correctly identifies `g(x) = 2x + 3` and `f(u) = u⁴`; the second correctly supplies the missing factor `2` and derivative `8(2x + 3)³`. This is AI review of limited synthetic examples, not uncoached learner/subject acceptance or evidence of broad reliability.
+
+External evidence is `outputs/acceptance-20260918/application-browser-20260918-v1/` under the session workspace, including the immutable executed helper/plan snapshot, actual responses, screenshots, safe logs and accounting/cleanup. Hashes:
+
+| Record                       | SHA-256                                                            |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `browser-result.json`        | `382ecbda882e6a6eddc180bbf172669988bf2ee3cd82361bdd9be70c4d396ceb` |
+| `accounting.json`            | `a48da5585de38b4b70a605bc22f28f1e78335d057b5c2635c8afb2e323980db8` |
+| Full sealed plan file        | `ea8321f8889086c238414ccf029650b46fadf59e9f048b79124e79d3706ae663` |
+| Canonical core plan identity | `2633326a4d919b86eaea52a86cbb53af2abdb12210b661882f3943de132bd9b6` |
+
+The core identity and full-file hash intentionally cover different representations. The full plan additionally records helper/old-claim/CI evidence. Preserve all old failed runs and the finished new allocation.
+
+**Limits:** no canonical passage happened to commit while either real answer was pending, so `continuedIngestion` is false and that overlap case remains unproven. The run did not operate native Chrome's toolbar, capture audio or use a human learner. Native tool targeting, Scribe retention, human review, judge access and final release remain separate gates. Default Simulation Mode is unchanged.
+
+## Unpublished provider-free demo recording
+
+The standing session authorization also covered recording the isolated synthetic demo. Selected draft: **`demo-recording-1789729138351`**, in the external session evidence folder. Open its `preview.html` for two actual unedited, silent WebM clips: **54.32 seconds** of the extension and **39.52 seconds** of MeltingPot, **93.84 seconds total**. The page and the actual application disclose Simulation Mode and prewritten assistance; the preview also explains the visible 12× sample speed, presentation pauses and isolated extension-page surface. The recording is not evidence of native Chrome installation or actual Gemini output. An optional narration draft is beside the clips; no voiceover, publication or submission occurred.
+
+The recorded journey checks both explanations/citations, distinct confusion events, the actual Finish handoff, both targeted exercises, complete question/answer display and preservation of the first answer across a source visit. The sample session was deleted afterward. No provider key, API call, microphone or original MeltingPot service was used. All 11 owned processes stopped, ports 3000/3111 closed, and the completed Gemini journal hash was unchanged. Runtime remained `7ba8880` paired with `d6bb1f9`; `source-state.json` explicitly records the three pending evidence-document edits during the final recording. No runtime or build file changed.
+
+The clips decode as 1280×900 VP8. Both loaded and played in the local preview with matching durations and no page error or external request. Decoded frames were inspected for readable explanations, source links, disclosures, handoff and practice. This is draft technical/visual review, not final human presentation approval.
+
+| File                    | SHA-256                                                            |
+| ----------------------- | ------------------------------------------------------------------ |
+| `01-extension.webm`     | `7b63bfe45ded294641a1b219766770af703230a8511f7073735b007cb6b5a10a` |
+| `02-meltingpot.webm`    | `783393c8083defe7a89da1bdfd3002c31ef92b4e5b5b4d8c8720da0876d20954` |
+| `recording-result.json` | `b5a196cd60872efab4d43fc0dd02598f8268843996164e879a1e3ae8028e274e` |
+
+Earlier artifacts remain preserved: `demo-recording-1789728725442` failed because the external helper expected an assistance label before Start; `demo-recording-1789728792181` passed its journey but video review found shrinkage during full-page screenshots. The selected recording corrects only those helper assumptions and uses viewport screenshots. No application defect or new provider use was inferred from either recording issue. `media-manifest.json`, `preview-check.json`, safe logs, helper snapshots and cleanup evidence accompany the selected clips.
+
+Final sequential read-only review checked all ten decoded frames, labels, durations, source state, cleanup and the documentation diff. Its one P2 was a mislabeled core-plan hash: the text had used the compact full-envelope hash instead. The table now matches the canonical parser and durable claim. The other six quoted artifact hashes matched; no other meaningful P1/P2 remained. This review supports saving the evidence checkpoint, not final human/release approval. Local scoped Markdown formatting and `git diff --check` passed; no runtime source changed after the reviewed provider/recording runs.

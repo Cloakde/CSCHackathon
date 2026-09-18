@@ -8,7 +8,7 @@ When a student loses track during a lecture, a generic summary afterward does no
 
 LiveLecture AI is a Chrome extension with a private MeltingPot study companion. The extension displays a timestamped lecture transcript, explains a confusing moment with clickable source passages, and remembers that difficulty. After class, the student opens practice chosen for those recorded moments, checks the supporting lecture evidence, and keeps source notes and bookmarks.
 
-The differentiator is the connection between confusion during class and targeted practice afterward. The current working demonstration uses a clearly labeled sample transcript and prewritten assistance. Gemini assistance and a separate bounded ElevenLabs live-transcription build are implemented candidates; their real-service and human acceptance tests are pending. Do not remove that qualification until evidence exists.
+The differentiator is the connection between confusion during class and targeted practice afterward. The ordinary working demonstration uses a clearly labeled sample transcript and prewritten assistance. A separate bounded test passed the actual Gemini explanation-to-practice journey for two synthetic topics, followed by AI content review. This limited result is not human acceptance or evidence of broad reliability. ElevenLabs transport produced finalized text across a reconnect, but live audio remains conditional because provider retention and native Chrome capture are unresolved. [Exact September 18 evidence and limits](../ACCEPTANCE-2026-09-18/README.md).
 
 ## Tools and prior work to disclose
 
@@ -20,7 +20,7 @@ The MeltingPot companion starts from a pre-existing project, copied from `Rayray
 
 - Final approved project/source or demo link; the current development repository is [Cloakde/CSCHackathon](https://github.com/Cloakde/CSCHackathon). The local rework ZIP is not automatically public.
 - Team/member names and user-reviewed contribution wording.
-- Actual screenshots and optional one-to-two-minute recording following the release guide; none is represented as recorded yet.
+- Approve/select public screenshots and recording. Actual local screenshots and two silent clips totaling 93.84 seconds are prepared, clearly labeled Simulation Mode/prewritten help. They remain unpublished drafts; optional narration is not recorded.
 - Final tested feature list and limitations; provider/human evidence if those features are advertised.
 - Product Owner choice about award consideration/promotional terms. This draft does not opt the team in.
 

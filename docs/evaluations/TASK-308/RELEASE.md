@@ -2,6 +2,8 @@
 
 This is an extension used during class and a private MeltingPot review afterward. The package is prepared for review; it is not a hosted app, Chrome Web Store listing, human-accepted release or competition submission.
 
+**September 18 checkpoint:** the actual extension-page → Gemini help → MeltingPot practice journey passed for two synthetic topics at normal playback, with sequential AI content/evidence review. A separate 94-second silent Simulation/prewritten draft recording is prepared locally. [Exact results, artifact locations and limitations](../ACCEPTANCE-2026-09-18/README.md) distinguish those checks from still-pending native capture, human and judge acceptance. The ordinary no-key demo remains prewritten.
+
 ## Reproduce the ordinary package
 
 Use Node 24 and the locked dependencies. In LiveLecture: `npm ci`, then `npm run check`. In the isolated MeltingPot copy, follow `REWORK.md` (pnpm 10.33.0) and run `node scripts/rework-check.mjs`. No keys or original MeltingPot services are needed. The fixture uses only synthesized speech; ordinary operation never captures it.
@@ -51,6 +53,6 @@ For Gemini or live audio, use the separate approved runbooks. A mock labeled Gem
 - 0:15–0:40: Show the extension beside the sample lecture. State clearly that its transcript and help are prewritten in this no-key demonstration.
 - 0:40–1:05: Press I’m Lost, show the explanation and its clickable lecture passage; show a second distinct difficulty.
 - 1:05–1:40: Finish and open private MeltingPot practice. Show that the exercises target those two moments, preserve an answer across a citation visit, and include source notes/bookmarks.
-- 1:40–2:00: Explain the differentiator and what remains conditional: Gemini and live audio have implementation candidates but need real-service and human proof before being advertised as working.
+- 1:40–2:00: Explain the differentiator and the evidence limits: Gemini completed a separate bounded two-topic test; this recording uses prewritten help. Live audio, human usefulness and final release acceptance remain pending.
 
-Record only after permission to control/record the session. No video or screenshots are fabricated by this task. The separate learner task remains [the earlier unaided task card](../TASK-304/MANUAL_CHECK.md); repeat it with current source labels and the notes addition. A subject reviewer must check the explanations/questions. Confirm the final judge access route, public assets and AI/pre-existing-work disclosures before submission.
+The authorized September 18 session produced two actual silent draft clips, local screenshots, a labeled preview and optional narration wording. They remain unpublished and need human presentation approval; the recording uses an accelerated synthetic sample, prewritten help and the actual built extension page in an isolated test browser. It does not show native Chrome toolbar installation. The separate learner task remains [the earlier unaided task card](../TASK-304/MANUAL_CHECK.md); repeat it with current source labels and the notes addition. A subject reviewer must check the explanations/questions. Confirm the final judge access route, public assets and AI/pre-existing-work disclosures before submission.
