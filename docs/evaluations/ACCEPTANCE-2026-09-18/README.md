@@ -73,8 +73,38 @@ The reviewed helper ran against `7e45b66c9f66992efc117849dc86dbf3c935004d`, exac
 
 The original claim, full ledger and failure remain intact. All executed helper bytes and the sealed proposal were copied to `outputs/acceptance-20260918/gemini-browser-20260918-v1/reviewed-helper-snapshot/`; logs and failure are beside that directory. The claim's proposal hash is `ccf45198c7f68390f4e26df85650614491065e3da76e37c725e3f712ac45b5cc`. The corrected external bundle exports the canonical schemas directly, and `--check-runtime` loads schemas/Playwright and verifies the browser executable before claiming or reading a saved key. Sequential review independently reproduced this credential-free runtime check.
 
-## One zero-use recovery: implemented, not activated
+## One zero-use recovery: implementation checkpoint
 
 The ongoing session authorizes necessary bounded testing. Sequential design review endorsed a single explicit recovery of this unused grant, preserving the same ceilings and deadline. The new maintenance-only `application_zero_use_recovery` event requires a finished application grant, zero new reservations (even zero-cost attempts disqualify it), no previous recovery, exact finished-history hash, original grant identity/hash/source, unchanged policy and new reviewed source/run identity. It inherits **39 total attempts, 1,480,630 microdollars and 2026-09-18 15:30Z expiry**. It appends to the existing ledger; nothing is deleted or refunded. Old/default activation and maintenance spending remain rejected. Recovery cannot repeat, and closing it remains terminal.
 
-Sequential implementation review found no actionable P1/P2. **106 focused tests, types and the full 631-test check passed**, including lint, secret scan, builds, ordinary extension packaging and production HTTP. Tests use temporary ledgers only. Logs: `zero-use-recovery-focused.txt`, `zero-use-recovery-types.txt`, `zero-use-recovery-full-check.txt`. The external recovery helper still needs separate review and exact-source CI/source binding before activation. No recovery record or new provider reservation has been written.
+Sequential implementation review found no actionable P1/P2. **106 focused tests, types and the full 631-test check passed**, including lint, secret scan, builds, ordinary extension packaging and production HTTP. Tests use temporary ledgers only. Logs: `zero-use-recovery-focused.txt`, `zero-use-recovery-types.txt`, `zero-use-recovery-full-check.txt`. At this preparation checkpoint the external helper still needed separate review and exact-source CI before activation. The later execution and final state follow.
+
+## Recovery execution: another setup failure, allowance closed
+
+Core source `359988ddbf6eecffda815780e58214d97fcb71e0` (tree `1fdce6516df135421fb7d5ebab6f02d0d26be4e9`) passed [CI 35329162954](https://github.com/Cloakde/CSCHackathon/actions/runs/35329162954). The separately reviewed helper preserved the original failure/history and used a new exclusive claim, original ceilings and expiry. Review also corrected a too-short wait for the second normal-speed topic. The sealed recovery proposal hash was `79477d503a07785f6f9d2df1b96cefdef5f45b8728b7df40097541ff2e9d229e`.
+
+The recovery launched the actual extension but failed before requesting Help because the sample defaults to 12× and the harness assumed 1×. This was another external test assumption, not a provider or product failure. The synthetic session was deleted, owned processes/ports were stopped, and the recovered ledger was terminally finished: **0 new reservations/0 new microdollars; cumulative 31 attempts/480,630 microdollars**. This one-time recovery is consumed and cannot be repeated or reopened. No old accounting or claim may be deleted/reset. Actual-Gemini browser acceptance remains **NOT PROVEN**.
+
+Evidence: `outputs/acceptance-20260918/gemini-browser-20260918-recovery-v1/`, including browser result, screenshots, safe server logs, failure and `reviewed-helper-snapshot/`. Both `.git/livelecture-gemini-browser-allowance-v1.jsonl` and `.git/livelecture-gemini-browser-recovery-v1.jsonl` retain their claim and terminal FAIL records. Historical Gemini service/output-replay evidence remains in the separate learning-loop record; these browser failures neither replace nor strengthen it.
+
+## Corrected provider-free normal-speed rehearsal: PASS
+
+The harness now selects 1× explicitly before Start and loads its real schema/browser dependencies before any possible allowance/key use. A full provider-free rehearsal then caught another selector assumption: the actual practice label prefixes the question with its number. That failed rehearsal remains in `gemini-browser-offline-1789723755339/`; its first and second Help/handoff passed, but it is not an overall PASS. The selector now validates the complete numbered label.
+
+Final run **`gemini-browser-offline-1789724237491` PASS** used the same exact source/copy pair packaged in `release/359988ddbf6e/`, the ordinary built extension, fresh isolated Chromium 151.0.7922.34 and **1× playback without pauses**. It completed two explanations and timestamp focus, finished/opened MeltingPot, generated both prewritten targeted exercises, verified complete questions and answer/explanation display, preserved topic answers, returned from citations, checked narrow layouts and deleted its synthetic session. No external-origin attempts, page errors or failed HTTP responses were recorded. Cleanup confirmed all 13 owned processes stopped and ports 3000/3111 closed. No provider, microphone, audio capture or user browser profile was used.
+
+Within that output folder, the saved result and executed helper copies have SHA-256:
+
+| File                       | SHA-256                                                            |
+| -------------------------- | ------------------------------------------------------------------ |
+| `browser-result.json`      | `e606bb42be07f05788854318359b1b94879023c61030978873018d96f733978f` |
+| `browser-helper.mjs`       | `2b11ed8263064845a1dd68b2e293ce89300cf5ebb45e05f66c0ddfb0a8eeac83` |
+| `rehearsal-controller.mjs` | `9866756a4cec3956bcc27e6644a3b7f259c1c441d734d9d573bc496fd9d775ff` |
+
+The test asks between canonical commits to fit the intended two-Help/two-practice allowance. It does **not** establish committed ingestion overlapping a real pending Gemini answer. Earlier injected component checks cover that retry path, but are not real-provider timing evidence. It also does not establish native toolbar/capture or uncoached human usefulness.
+
+## Readiness after this session
+
+TASK-308/309 implementation is complete within its assigned scope. Prewritten browser/study behavior, local builds and scoped independent reviews have evidence. Remaining gates are a separately valid reviewed provider execution/accounting path, supported native Chrome tooling, resolution of provider retention, human learner/content review, judge access, recording and final release/submission. No additional feature or repetition of established checks is required to fill time. Preserve this checkpoint and continue only with an eligible remaining gate.
+
+Sequential independent evidence review matched the exact source pair, all three pinned hashes, both zero-use terminal FAIL claims, the successful rehearsal/cleanup and the 631-test total. Its requested task-board divider now explicitly marks older permissions and remaining-slot statements as historical. No whole-release acceptance is implied.
