@@ -1,5 +1,11 @@
 # LiveLecture AI — Current handoff
 
+## Current human-review packet — prepared and reviewed, 2026-09-18
+
+- **Active AI:** none — Codex completed the documentation checkpoint and released the turn. The September 6 manual card now points to a [current operator/learner guide](evaluations/ACCEPTANCE-2026-09-18/HUMAN_REVIEW.md). A separate [recorded-answer packet](evaluations/ACCEPTANCE-2026-09-18/RECORDED_ANSWERS.md) contains three actual saved Gemini explanations, two matching practice questions and six canonical source passages. Setup names the tested primary/copy pair and ordinary no-key launchers. No runtime, copy, credential, provider, desktop input or original-service changes.
+- **Review/checks:** sequential independent review found no actionable P1/P2. Both result-file hashes match; all 26 quoted diagnosis/practice/source strings and their citation timings match the preserved evidence exactly. The guide keeps the unaided prewritten-demo learner exercise separate from subject review of actual saved Gemini outputs. Scoped Markdown formatting and diff checks passed. This approves the packet's accuracy, not human acceptance.
+- **Boundary:** this prepares human review; it cannot perform or approve it. Preserve all completed evidence and terminal allowances. The latest overlap/source checkpoint below remains valid. A read-only native-tool refresh still found the parent disabled behind the same folder dialog, with no separately targetable modal; no input was issued. External note `native-readonly-refresh-20260918-1220.json` records that unchanged blocker.
+
 ## Actual Gemini transcript overlap — PASS, 2026-09-18
 
 - **Active AI:** none — Codex completed the reviewed overlap evidence checkpoint and released the turn. Changed files are this handoff, task board, session evidence and release guide. The runtime/copy and all closed provider histories are unchanged during this checkpoint.

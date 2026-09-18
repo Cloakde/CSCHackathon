@@ -1,5 +1,7 @@
 # Sample lecture: setup and later human check
 
+**Historical September 6 card.** Its copy revision, labels and provider-status notes describe that checkpoint. Use the [current human-review guide and recorded Gemini answers](../ACCEPTANCE-2026-09-18/HUMAN_REVIEW.md) for the current source pair and remaining acceptance work. This original card is preserved as history.
+
 Prepared 2026-09-06. **This check has not been performed.** The product is a Chrome side panel during class and private MeltingPot practice afterward. This version uses a sample transcript and prewritten help; it does not listen to audio or call Gemini.
 
 ## Operator setup, before inviting a learner
