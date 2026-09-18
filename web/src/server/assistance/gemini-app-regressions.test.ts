@@ -489,6 +489,7 @@ describe("actual Gemini application runtime with offline transport and durable a
     ).toThrow();
   });
 
+  // This test performs 32 durable offline reservations; allow for slower CI disks.
   it("stops at 32 attempts and preserves exhaustion across a runtime restart", async () => {
     const api = fixture();
     const { path } = await api.start();
@@ -503,7 +504,7 @@ describe("actual Gemini application runtime with offline transport and durable a
     expect((await restart.call(`${next.path}/lecture-tools`, input)).status).toBe(503);
     expect(restart.fetcher).not.toHaveBeenCalled();
     expect(restart.ledger().filter((event) => event.event === "reserve")).toHaveLength(32);
-  });
+  }, 15_000);
 
   it.each(["help_generate", "practice_generate"] as const)(
     "does not spend the last attempt on %s, while allowing an already-generated answer to be verified",

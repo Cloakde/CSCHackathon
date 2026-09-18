@@ -1,5 +1,11 @@
 # LiveLecture AI — Current handoff
 
+## Current CI timeout correction — reviewed, 2026-09-18
+
+- **Active AI:** none — Codex completed the narrow test correction and released the turn. Documentation commit `32d5d22` passed secret scanning, but CI `35345088804` failed the existing 32-attempt exhaustion/restart regression at its five-second harness timeout (5,345 ms). The 425 other web tests and all extension tests passed. That failed checkpoint remains preserved.
+- **Correction/checks:** only this disk-heavy test's harness timeout is now 15 seconds. All 32 fake calls, reservation counts, restart exhaustion and zero-fetch assertions remain intact; product deadlines, runtime, real provider histories and copy are unchanged. All 36 focused tests and scoped formatting/diff checks passed. Sequential independent review found no actionable P1/P2. Corrected-commit CI is the next verification; no full CI PASS is claimed yet.
+- **Next:** the final milestone review identified one further eligible M5 gap: rendered text contrast in the ordinary extension and isolated companion. Human/native/provider-retention/judge gates remain external and open.
+
 ## Current human-review packet — prepared and reviewed, 2026-09-18
 
 - **Active AI:** none — Codex completed the documentation checkpoint and released the turn. The September 6 manual card now points to a [current operator/learner guide](evaluations/ACCEPTANCE-2026-09-18/HUMAN_REVIEW.md). A separate [recorded-answer packet](evaluations/ACCEPTANCE-2026-09-18/RECORDED_ANSWERS.md) contains three actual saved Gemini explanations, two matching practice questions and six canonical source passages. Setup names the tested primary/copy pair and ordinary no-key launchers. No runtime, copy, credential, provider, desktop input or original-service changes.
