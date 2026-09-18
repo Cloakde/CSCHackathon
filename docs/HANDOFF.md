@@ -1,6 +1,16 @@
 # LiveLecture AI — Current handoff
 
-## Transcript-overlap acceptance — preparation, 2026-09-18
+## Actual Gemini transcript overlap — PASS, 2026-09-18
+
+- **Active AI:** none — Codex completed the reviewed overlap evidence checkpoint and released the turn. Changed files are this handoff, task board, session evidence and release guide. The runtime/copy and all closed provider histories are unchanged during this checkpoint.
+- **Verified source:** `d14293cc125eeeaffb83d023fe567fb7c7193f4a`, tree `7b4dcb4a7acfd3144f1994770880aaa5c6d2bc21`; exact-source CI `35341591390` PASS and full 702-test/build/package/HTTP checks. Candidate `release/d14293cc125e/` pairs it with unchanged private copy `d6bb1f9`. Core and external-helper reviews found no actionable P1/P2 before sealing/preflight/private credential access.
+- **Actual result:** at explicit 1× without pauses or provider delays, chunk 004 was acknowledged during one pending Help request. The app discarded stale generation, generated against the fresh snapshot and independently verified it. The answer became usable in **5,056 ms**; chunk-004 anchor and citations were correct, one confusion event was saved, its citation worked and the synthetic session was deleted. This establishes the measured overlap case, not broad reliability, human usefulness or native capture.
+- **Accounting/cleanup:** three settled calls (generate→generate→verify), **1,686 new microdollars ($0.001686)**; cumulative **42 attempts/486,586 microdollars**, preserving uncertain historical debits. These are token-accounting estimates, not an invoice. The fixed overlap claim and journal are terminal; unused capacity is closed, locks absent, prior histories/claims unchanged, all six owned processes stopped and port 3000 closed. No automatic retry or renewal; no MeltingPot server, original service or real audio used.
+- **Review/next:** independent AI result/content review passed with no meaningful P1/P2; saved hashes, timing, canonical support and accounting/cleanup match. Scoped formatting/diff checks passed. Native toolbar/capture, account-specific retention acceptance, uncoached learner/subject review, judge access and final presentation/submission remain open. Current provider-retention limitations and the existing unpublished 93.84-second prewritten demo draft remain unchanged. [Exact overlap evidence](evaluations/ACCEPTANCE-2026-09-18/TRANSCRIPT_OVERLAP.md).
+
+The following entries preserve their original checkpoint status; the latest result above supersedes their pending overlap instructions.
+
+## Transcript-overlap acceptance — preparation history, 2026-09-18
 
 - **Active AI:** Codex, preparing full verification and external helpers after sequential core review. Under the continuing overnight authorization, decision review identified one distinct unfinished M1 case: a committed transcript passage arriving during a real Gemini Help request. The completed application run remains terminal; this is not its retry or renewal.
 - **Owned scope:** new fixed `overlap-run.ts` meter, synthetic test fixture/tests, explicit application activation and default-launch regression tests, external one-use overlap helpers/evidence, and coordination. Finished `application-run.ts`, original trial execution, model/prompt/policy, transcript fixture, grounding/deadlines, extension and isolated copy behavior stay unchanged.

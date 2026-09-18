@@ -4,6 +4,8 @@ This is an extension used during class and a private MeltingPot review afterward
 
 **September 18 checkpoint:** the actual extension-page → Gemini help → MeltingPot practice journey passed for two synthetic topics at normal playback, with sequential AI content/evidence review. A separate 94-second silent Simulation/prewritten draft recording is prepared locally. [Exact results, artifact locations and limitations](../ACCEPTANCE-2026-09-18/README.md) distinguish those checks from still-pending native capture, human and judge acceptance. The ordinary no-key demo remains prewritten.
 
+The subsequent [transcript-overlap check](../ACCEPTANCE-2026-09-18/TRANSCRIPT_OVERLAP.md) passed at source `d14293c` (702 checks and exact-source CI): the transcript advanced during Help, and bounded recovery delivered a fresh verified answer in **5,056 ms**. Candidate `release/d14293cc125e/` preserves the updated source and unchanged isolated copy. Its paid allowance is closed; the ordinary package still runs without keys using prewritten help. Independent AI result/content review passed. The separate human/native/retention/judge gates remain open.
+
 ## Reproduce the ordinary package
 
 Use Node 24 and the locked dependencies. In LiveLecture: `npm ci`, then `npm run check`. In the isolated MeltingPot copy, follow `REWORK.md` (pnpm 10.33.0) and run `node scripts/rework-check.mjs`. No keys or original MeltingPot services are needed. The fixture uses only synthesized speech; ordinary operation never captures it.
