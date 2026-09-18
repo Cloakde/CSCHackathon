@@ -47,6 +47,8 @@ The ordinary demo stores sessions only in the local service's memory; they expir
 
 For Gemini or live audio, use the separate approved runbooks. A mock labeled Gemini in a test is not evidence that the real model works. A webpage rehearsal also does not prove a Chrome installation.
 
+Provider retention is separate from local session deletion. Google's published abuse-monitoring period is 55 days, despite ordinary request logging being disabled; this project's billing/data-sharing settings remain unverified. The real ElevenLabs test reported active retention and live acceptance remains blocked. Use the [current provider-data record](../ACCEPTANCE-2026-09-18/PROVIDER_RETENTION.md) for verified settings, official sources and remaining account-specific unknowns. Keep this delivered demo synthetic; deleting a local lecture does not erase provider-held records.
+
 ## Two-minute presentation draft
 
 - 0:00–0:15: Explain the problem: students lose track during class and forget exactly what confused them afterward.

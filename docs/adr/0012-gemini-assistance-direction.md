@@ -12,6 +12,12 @@ The previous $1/32-attempt proposal was never spending permission. Keep the prop
 
 This direction covers text assistance and practice. Live audio/transcription remains a separate conditional decision; no Gemini transcription replacement, ElevenLabs removal, capture change, deployment, app activation or broader redesign is authorized here.
 
+## Current retention disclosure correction (Codex, 2026-09-18)
+
+Google's current [abuse-monitoring policy](https://ai.google.dev/gemini-api/docs/usage-policies) specifies **55 days** for prompts, context and responses. This supersedes the historical report's word "undisclosed" below. The existing `generateContent` request still sends `store:false`; the flag controls ordinary project logging and does not establish zero provider retention. Paid-service data-use terms depend on the API project's actual billing status, which has not been independently verified. Published paid-price accounting is not proof of that status. [Current terms](https://ai.google.dev/gemini-api/terms), [request logging](https://ai.google.dev/gemini-api/docs/logs-datasets), [complete provider-data record](../evaluations/ACCEPTANCE-2026-09-18/PROVIDER_RETENTION.md).
+
+No model, transport, price, policy hash, allowance or account setting changes. This is a disclosure correction for the existing synthetic-only scope, not approval for real lecture data or further API calls. Closed trial/application claims remain closed; current execution evidence and limits are in the handoff.
+
 ## Current model compatibility update (Codex, 2026-09-15; IN REVIEW)
 
 The authorized September 15 request returned HTTP 404 / model unavailable for `gemini-2.5-flash-lite`. Use stable **`gemini-3.1-flash-lite`** at the direct `v1beta` generateContent endpoint for the next bounded synthetic test. No automatic fallback or transcription-provider change is added.

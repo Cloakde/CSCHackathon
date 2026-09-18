@@ -1,5 +1,11 @@
 # LiveLecture AI — Current handoff
 
+## Provider retention disclosure — recorded and reviewed, 2026-09-18
+
+- **Active AI:** none — Codex completed the scoped M5 documentation correction and released the turn. Changed files: this handoff, task board, ADR 0012, the release guide and the new session `PROVIDER_RETENTION.md`. No runtime/copy, credential, account setting, provider call, spending grant or native UI action.
+- **Finding:** Google's current abuse-monitoring page specifies 55 days for prompts, context and responses; the historical report called this period undisclosed. The actual transport sends `store:false`, which controls ordinary request logging and does not establish zero external retention. Actual project billing/data-sharing settings remain unverified. ElevenLabs' documented warning still agrees with the observed `RETENTION_ACTIVE`; zero retention is not established there either.
+- **Review/next:** sequential independent public-source/code review found no actionable P1/P2; scoped Markdown formatting and diff checks passed. The M5 requirement to record provider settings/limitations now has current evidence, while account-specific privacy acceptance remains open. Existing functional PASS results, closed spending claims, synthetic-only demo boundary and remaining human/native/provider-retention/judge gates are unchanged. [Current provider-data record](evaluations/ACCEPTANCE-2026-09-18/PROVIDER_RETENTION.md).
+
 ## Actual Gemini application journey — PASS, 2026-09-18
 
 - **Active AI:** none — Codex completed the scoped evidence/release-preparation checkpoint and released the turn. One AI at a time; application implementation and the isolated copy are unchanged. This checkpoint owns only the handoff, task board, session evidence, release/submission wording and external draft-recording helpers/artifacts.
