@@ -1,5 +1,11 @@
 # LiveLecture AI — Current handoff
 
+## Rendered text contrast — reviewed, packaging pending, 2026-09-18
+
+- **Active AI:** Codex, completing the paired package/current-human-guide refresh after independent review. Scope remains the two demonstrated lecture-control color corrections, external contrast evidence and paired coordination. No feature, provider, native-input or original-service changes.
+- **Result:** the extension question field improves from 1.12:1 to 15.31:1. The isolated copy's confirmation button improves from 4.02:1 to 6.33:1 at rest/focus, 8:1 on hover and 9.86:1 when pressed. The final provider-free audit covers 52 page/theme/width combinations and 16 confirmation states with zero violations. All 450 checker-inconclusive gradient observations have separate conservative bounds above 6.09:1. Finite transitions are finished only in disposable test pages; this establishes sampled steady-state text contrast, not full accessibility or human/native acceptance.
+- **Checks/review:** primary 702 tests/full checks and copy 387 tests/guarded checks/build pass. Sequential independent review found no actionable P1/P2, independently recalculated every gradient bound and confirmed hashes/state coverage. All 11 owned processes stopped, ports 3000/3111 closed, synthetic session deleted; earlier failures are preserved. The timeout-only correction at `6710694` passed CI `35345564402`. [Exact contrast evidence](evaluations/ACCEPTANCE-2026-09-18/CONTRAST.md). Corrected source commits/CI, immutable paired packaging and the human guide's source refresh are next.
+
 ## Current CI timeout correction — reviewed, 2026-09-18
 
 - **Active AI:** none — Codex completed the narrow test correction and released the turn. Documentation commit `32d5d22` passed secret scanning, but CI `35345088804` failed the existing 32-attempt exhaustion/restart regression at its five-second harness timeout (5,345 ms). The 425 other web tests and all extension tests passed. That failed checkpoint remains preserved.
