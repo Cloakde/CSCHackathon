@@ -21,6 +21,20 @@ test("normal launches strip inherited provider activation and never inspect cred
   assert.equal(config.env.LIVELECTURE_APP_RUN_HASH, "");
 });
 
+for (const mode of ["approved-application-run-v1", "approved-overlap-run-v1"]) {
+  test(`normal launch strips ${mode} without accessing a run`, () => {
+    const config = demoConfiguration([], {
+      GEMINI_API_KEY: "offline-fake-key",
+      LIVELECTURE_ASSISTANCE_PROVIDER: "gemini",
+      LIVELECTURE_APP_EXECUTE: mode,
+      LIVELECTURE_APP_RUN_HASH: "c".repeat(64),
+    });
+    assert.equal(config.env.LIVELECTURE_ASSISTANCE_PROVIDER, "prewritten");
+    assert.equal(config.env.LIVELECTURE_APP_EXECUTE, "");
+    assert.equal(config.env.LIVELECTURE_APP_RUN_HASH, "");
+  });
+}
+
 test("Gemini app runs require explicit cap, clean exact source, and no CI", () => {
   const tree = "a".repeat(40);
   const repository = {

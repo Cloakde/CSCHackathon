@@ -4,6 +4,7 @@ import { openTrialLedger } from "../ai-evaluation/trial/budget";
 import { TRIAL_PLAN_ID, TRIAL_POLICY_HASH } from "../ai-evaluation/trial/policy";
 import type { TrialLedger, TrialMeter } from "../ai-evaluation/trial/types";
 import { openApplicationRun } from "./application-run";
+import { openOverlapRun } from "./overlap-run";
 
 export type ApplicationEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -14,6 +15,7 @@ export function applicationExecutionSelected(environment: ApplicationEnvironment
       "approved-one-dollar-v1",
       "approved-browser-continuation-v1",
       "approved-application-run-v1",
+      "approved-overlap-run-v1",
     ].includes(environment.LIVELECTURE_APP_EXECUTE ?? "")
   );
 }
@@ -48,10 +50,11 @@ export function applicationAuthorization(
   const continuationId = environment.LIVELECTURE_APP_CONTINUATION_ID ?? "";
   const continuationHash = environment.LIVELECTURE_APP_CONTINUATION_HASH ?? "";
   const separateRun = environment.LIVELECTURE_APP_EXECUTE === "approved-application-run-v1";
+  const overlapRun = environment.LIVELECTURE_APP_EXECUTE === "approved-overlap-run-v1";
   const runHash = environment.LIVELECTURE_APP_RUN_HASH ?? "";
   if (
     environment.CI ||
-    (separateRun
+    (separateRun || overlapRun
       ? !/^[a-f0-9]{64}$/.test(runHash) || Boolean(continuationId || continuationHash)
       : Boolean(runHash) ||
         (continuation
@@ -79,6 +82,15 @@ export function applicationAuthorization(
           },
         }
       : {}),
+    ...(overlapRun
+      ? {
+          overlapRun: {
+            commonDir: repository.commonDir,
+            sourceTree: repository.sourceTree,
+            planHash: runHash,
+          },
+        }
+      : {}),
     ...(continuation
       ? { applicationContinuation: { id: continuationId, grantSha256: continuationHash } }
       : {}),
@@ -98,7 +110,9 @@ export function createApplicationMeter(
       const approved = applicationAuthorization(environment(), repository());
       const ledger = approved.applicationRun
         ? openApplicationRun(approved.applicationRun)
-        : openTrialLedger(approved);
+        : approved.overlapRun
+          ? openOverlapRun(approved.overlapRun)
+          : openTrialLedger(approved);
       try {
         if (input.kind === "help_generate" || input.kind === "practice_generate") {
           // App answers require a separate verifier. Check under the ledger lock

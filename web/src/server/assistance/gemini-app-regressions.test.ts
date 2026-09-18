@@ -9,6 +9,7 @@ import {
   getCommittedChunksFromFixture,
   validateLectureToolResponse,
   type LectureToolRequest,
+  type GroundingContextSnapshot,
 } from "@livelecture/shared";
 import { createDemoRequestHandler, DEMO_ORIGIN } from "../demo-api";
 import {
@@ -28,6 +29,13 @@ import {
   APPLICATION_RUN_EXPIRES_AT,
 } from "./application-run";
 import { seedClosedApplicationHistory } from "./application-run.test-fixture";
+import { seedClosedOverlapHistory } from "./overlap-run.test-fixture";
+import {
+  initializeOverlapRun,
+  inspectOverlapRun,
+  overlapRunPaths,
+  overlapRunPlanHash,
+} from "./overlap-run";
 
 const tree = "a".repeat(40);
 const directories: string[] = [];
@@ -103,13 +111,15 @@ function fixture(
     readFileSync(
       environment.LIVELECTURE_APP_EXECUTE === "approved-application-run-v1"
         ? applicationRunPaths(commonDir).journal
-        : join(commonDir, "livelecture-ai-trial", TRIAL_PLAN_ID, "ledger.jsonl"),
+        : environment.LIVELECTURE_APP_EXECUTE === "approved-overlap-run-v1"
+          ? overlapRunPaths(commonDir).journal
+          : join(commonDir, "livelecture-ai-trial", TRIAL_PLAN_ID, "ledger.jsonl"),
       "utf8",
     )
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
-  const start = async () => {
+  const start = async (chunkCount?: number) => {
     const response = await call("/api/sessions", { sourceMode: "simulation" });
     expect(response.status).toBe(200);
     const session = (await response.json()).data.session;
@@ -117,7 +127,13 @@ function fixture(
       ...chunk,
       sessionId: session.sessionId,
     }));
-    expect((await call(`/api/sessions/${session.sessionId}/chunks`, { chunks })).status).toBe(200);
+    expect(
+      (
+        await call(`/api/sessions/${session.sessionId}/chunks`, {
+          chunks: chunks.slice(0, chunkCount),
+        })
+      ).status,
+    ).toBe(200);
     return { session, chunks, path: `/api/sessions/${session.sessionId}` };
   };
   return { start, call, handle, ledger, fetcher, commonDir, environment, repository };
@@ -185,6 +201,116 @@ afterEach(() => {
 });
 
 describe("actual Gemini application runtime with offline transport and durable allowance", () => {
+  it.each(["generation", "verification"])(
+    "uses the overlap allowance to replace stale %s output with one freshly verified answer",
+    async (phase) => {
+      let release!: () => void, entered!: () => void;
+      const waiting = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let blocked = false;
+      const contexts: GroundingContextSnapshot[] = [];
+      const api = fixture(async (payload) => {
+        const context = payload.context as GroundingContextSnapshot | undefined;
+        if (context) contexts.push(context);
+        if (
+          !blocked &&
+          ((phase === "generation" && context) || (phase === "verification" && payload.candidate))
+        ) {
+          blocked = true;
+          entered();
+          await gate;
+        }
+        if (!context)
+          return envelope({
+            verdict: "supported",
+            supportedClaims: [
+              "what_just_happened",
+              "main_idea",
+              "simple_explanation",
+              "important_prerequisite",
+              "concept",
+            ],
+          });
+        const fresh = context.reference.anchorMs === 200000;
+        return envelope({
+          groundingStatus: "grounded",
+          context: context.reference,
+          diagnosis: {
+            whatJustHappened: fresh
+              ? "The teacher stated the chain rule."
+              : "The teacher identified inner and outer functions.",
+            mainIdea: fresh
+              ? "Multiply the outside derivative by the inside derivative."
+              : "Work out which function is inside.",
+            simpleExplanation: fresh
+              ? "Differentiate both layers and multiply."
+              : "Identify the two layers.",
+            importantPrerequisite: "Identify inner and outer functions.",
+          },
+          citationChunkIds: [fresh ? "chunk_calc_004" : "chunk_calc_003"],
+          conceptId: fresh ? "concept_inner_derivative" : "concept_inner_outer",
+          conceptTitle: fresh ? "Inner derivative" : "Inner and outer functions",
+          followUpActions: ["ask_follow_up"],
+        });
+      });
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime("2026-09-18T10:00:00Z");
+      const seeded = seedClosedOverlapHistory(api.commonDir, tree),
+        planHash = overlapRunPlanHash(seeded.plan);
+      initializeOverlapRun(api.commonDir, seeded.plan);
+      api.environment.LIVELECTURE_APP_EXECUTE = "approved-overlap-run-v1";
+      api.environment.LIVELECTURE_APP_RUN_HASH = planHash;
+      const { path, chunks } = await api.start(3);
+      const pending = api.call(`${path}/im-lost`);
+      await Promise.race([
+        waiting,
+        pending.then(() => {
+          throw Error("Help ended before the selected overlap phase.");
+        }),
+      ]);
+      try {
+        const ingest = await api.call(`${path}/chunks`, { chunks: [chunks[3]] });
+        expect(ingest.status).toBe(200);
+        expect((await ingest.json()).data.acceptedChunkIds).toEqual(["chunk_calc_004"]);
+      } finally {
+        release();
+      }
+      const response = await pending;
+      expect(response.status).toBe(200);
+      expect(response.headers.get("X-LiveLecture-Assistance")).toBe("gemini_ready");
+      const answer = (await response.json()).data;
+      expect(answer.groundingStatus).toBe("grounded");
+      expect(answer.diagnosis.mainIdea).toBe(
+        "Multiply the outside derivative by the inside derivative.",
+      );
+      expect(answer.citations).toEqual([
+        expect.objectContaining({ chunkId: "chunk_calc_004", startMs: 145000, endMs: 200000 }),
+      ]);
+      expect(contexts.map((context) => context.reference.anchorMs)).toEqual([145000, 200000]);
+      expect(contexts[1]!.reference.chunkIds).toContain("chunk_calc_004");
+      const view = (await (await api.call(path, undefined, "GET")).json()).data;
+      expect(view.confusionEvents).toHaveLength(1);
+      expect(view.confusionEvents[0]).toEqual(answer.confusionEvent);
+      const kinds = api
+        .ledger()
+        .filter((event) => event.event === "reserve")
+        .map((event) => event.input.kind);
+      expect(kinds).toEqual(
+        phase === "generation"
+          ? ["help_generate", "help_generate", "help_verify"]
+          : ["help_generate", "help_verify", "help_generate", "help_verify"],
+      );
+      expect(api.fetcher).toHaveBeenCalledTimes(kinds.length);
+      const accounting = inspectOverlapRun(api.commonDir, planHash, tree).state;
+      expect(accounting.attempts).toHaveLength(39 + kinds.length);
+      expect(accounting.reservedMicroUsd).toBe(0);
+    },
+  );
+
   it.each(["trial", "continuation", "application-run"])(
     "connects Help, its verification, saved confusion, and verified practice through %s activation",
     async (activation) => {
