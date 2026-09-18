@@ -7,7 +7,7 @@ import {
 } from "@livelecture/shared";
 import type { CaptureClient, CaptureClientRuntime } from "./capture-client";
 import { OFFSCREEN_COMMAND_CHANNEL, type CaptureStatusSnapshot } from "./capture-protocol";
-import { LIVE_CHANNEL, LiveEventSchema } from "./live-protocol";
+import { LIVE_CHANNEL, LiveEventSchema, LiveStoppedSchema } from "./live-protocol";
 
 /** An explicit, bounded rehearsal source. No audio or token is stored by the panel. */
 export class LiveTranscriptSource implements TranscriptSource {
@@ -67,7 +67,7 @@ export class LiveTranscriptSource implements TranscriptSource {
     this.snapshot = { ...this.snapshot, status };
     this.publish({ type: "source.state", sourceMode: "live", status });
   }
-  private fail() {
+  private fail(reason?: "retention_active") {
     this.stop();
     this.state("error");
     this.publish({
@@ -76,7 +76,9 @@ export class LiveTranscriptSource implements TranscriptSource {
       error: {
         code: "PROVIDER_UNAVAILABLE",
         message:
-          "Live transcription stopped. Check the test setup; the sample lecture has not been substituted.",
+          reason === "retention_active"
+            ? "Live transcription stopped because the service reported session logging. Use Simulation Mode until its retention settings are verified."
+            : "Live transcription stopped. Check the test setup; the sample lecture has not been substituted.",
         retryable: false,
       },
     });
@@ -99,7 +101,24 @@ export class LiveTranscriptSource implements TranscriptSource {
       startedAt: new Date().toISOString(),
       title: this.snapshot.session.title,
     });
-    const onEvent = (raw: unknown) => {
+    const onStopped = (raw: unknown) => {
+      const parsed = LiveStoppedSchema.safeParse(raw);
+      if (
+        !parsed.success ||
+        epoch !== this.epoch ||
+        parsed.data.generation !== this.generation ||
+        parsed.data.sessionId !== this.snapshot.session.sessionId
+      )
+        return false;
+      this.fail(parsed.data.reason);
+      return true;
+    };
+    const onEvent = (raw: unknown, _sender?: unknown, respond?: (value: unknown) => void) => {
+      if (onStopped(raw)) {
+        // Publish the local explanation before acknowledging media teardown.
+        respond?.({ ok: true });
+        return;
+      }
       const parsed = LiveEventSchema.safeParse(raw);
       if (
         !parsed.success ||
@@ -147,6 +166,7 @@ export class LiveTranscriptSource implements TranscriptSource {
           capability: this.capability,
         });
         if (epoch !== this.epoch) return;
+        if (onStopped(response)) return;
         if (
           !response ||
           typeof response !== "object" ||
@@ -164,6 +184,7 @@ export class LiveTranscriptSource implements TranscriptSource {
               sessionId: this.snapshot.session.sessionId,
             })
             .then((reply) => {
+              if (epoch !== this.epoch || onStopped(reply)) return;
               if (!reply || typeof reply !== "object" || !("ok" in reply) || reply.ok !== true)
                 throw new Error("Live helper unavailable");
             })

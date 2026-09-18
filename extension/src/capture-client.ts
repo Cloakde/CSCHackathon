@@ -6,11 +6,17 @@ import {
   type CaptureStatusSnapshot,
 } from "./capture-protocol";
 
+export type CaptureRuntimeListener = (
+  message: unknown,
+  sender?: unknown,
+  respond?: (response: unknown) => void,
+) => boolean | void;
+
 export interface CaptureClientRuntime {
   sendMessage(message: unknown): Promise<unknown>;
   onMessage: {
-    addListener(listener: (message: unknown) => void): void;
-    removeListener(listener: (message: unknown) => void): void;
+    addListener(listener: CaptureRuntimeListener): void;
+    removeListener(listener: CaptureRuntimeListener): void;
   };
 }
 

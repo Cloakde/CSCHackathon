@@ -20,6 +20,33 @@ The desktop was available. A separate Chrome test window was opened without clos
 
 No extension installation, capture, keyboard/layout or connected-browser check was completed in this attempt. Do not retry the rejected UI action through another tool to bypass its enforcement. A later continuation should evaluate a supported test route and keep the browser acceptance gates open until actually exercised.
 
+## Isolated extension browser checks
+
+After the native UI interruption, the built extension was tested as software in a fresh, disposable headless Chromium profile using Playwright's documented extension support. This did not operate the interrupted Chrome window or reuse the user's browser profile. Every ordinary extension file was checked against candidate `release/bb39713efc57/manifest.json` before loading.
+
+- Source at execution: LiveLecture `616471a14d1677c8a2133d2ce3a12c3610c8511b`, isolated MeltingPot `24d83f9d2c2eb748b7ea2b48ef19fd82cb26d846`. Browser: Chromium `151.0.7922.34`; extension ID `alpdibjjhlhlhbhjkoeblmlfcgoocclk`.
+- **PASS at 12× and 1× playback**, pausing for help: two confusion moments, extension citation click/focus, finishing and opening private MeltingPot review, both targeted exercises, answer/feedback continuity, flashcard review, study-file download, session deletion and re-import. The imported file restored study progress with zero requests to the lecture API.
+- The extension and review fit a 380-pixel viewport without horizontal overflow. Screenshots of help, practice and imported study were inspected. A broken small MeltingPot logo remains a separate visual follow-up; this does not establish complete visual acceptance.
+- No JavaScript page errors or attempted external origins were recorded. Only synthetic, prewritten Simulation Mode was used; no provider credentials or calls. Both owned local servers stopped and ports 3000/3111 were verified free.
+- An initial attempt failed because the test used a label selector that did not find the speed control. Its screenshot showed a functioning control. Selecting its actual accessible combobox role fixed the test; no product change was made for that failure. Failed evidence remains preserved.
+
+External evidence under the task workspace's `outputs/acceptance-20260918/`: failed attempt `browser-run-1789718436354`, successful fast run `browser-run-1789718532688`, normal run `browser-run-1789718641701`, plus `extension-browser-check.mjs` and `extension-browser-check-normal.mjs`. The normal result records the harness SHA-256 `82a62f18fa2786937dfe20df4e03e3d43e54fe9bd7404544e5656235aa974479`.
+
+**Limits:** this opened the actual built `sidepanel.html` extension page, not Chrome's native toolbar side panel. It does not prove toolbar installation, Chrome's user-gesture capture permission, audio passthrough, live provider behavior, unaided learner usefulness, or judge access. Normal-speed prewritten playback is not actual-AI latency evidence. The ordinary artifact/source pair above predates the retention-message correction below.
+
+## Retention diagnosis and correction
+
+The [official realtime API documentation](https://elevenlabs.io/docs/api-reference/speech-to-text/v-1-speech-to-text-realtime), checked 2026-09-18, states that `enable_logging: false` requests zero-retention mode and that eligibility is restricted. The actual `RETENTION_ACTIVE` responses show that logging remained enabled in this account's test. The integrated extension continues to stop on that warning. No subscription, account setting, provider selection or spending allowance was changed to remove this gate.
+
+Sequential review identified a P2 in that stop path: media cleanup could make the panel show a generic setup error before it received the retention explanation. The correction adds an extension-private, strictly validated terminal reason and fixed local wording. Provider text is never forwarded. Provider transport, token work and the PCM tap stop immediately; media is released after notification settlement or at most 250 ms. Startup and heartbeat replies also carry the fixed reason when termination is in progress. Owner/session/generation checks protect replacement sessions, and the frozen shared transcript schema is unchanged.
+
+- **29 focused tests passed**, including asynchronous bridge-to-panel delivery, startup/heartbeat ordering, missing/rejected notification, synchronous warning during construction, stale acknowledgements, malformed messages and cleanup.
+- Sequential independent review repeated all 29 tests and reported no actionable P1/P2 findings. The reviewer made no edits or provider/browser calls.
+- Full credential-free check passed **594 tests** (30 scripts, 73 shared, 320 web, 171 extension), formatting, lint, secret scan, types, production builds, extension-package verification and production HTTP demo.
+- Logs: `outputs/acceptance-20260918/retention-focused.txt`, `retention-types.txt`, `retention-lint.txt`, `retention-full-check.txt`. The initial unsupported Vitest project-filter command is preserved as `retention-test-command-error.txt`; it ran no tests, and the corrected extension-root invocation passed.
+
+This correction improves the explanation and preserves the immediate provider stop. It does not establish provider-retention approval or actual Chrome timing. No paid test was repeated for it.
+
 ## Next
 
-Continue the authorized Chrome/sample/capture/private-study acceptance work through supported controls, investigate provider-retention limitations, and prepare any further provider continuation with a separate bounded reservation that preserves all prior spending. Gemini's previous 31-attempt ledger is not reset. Human usefulness/content review, judge access, actual recording and final release/submission remain distinct unfinished requirements.
+Refresh the candidate after the reviewed correction and exact-source CI, investigate the small review-logo failure, and continue eligible browser/lifecycle checks. Native Chrome capture and provider-retention acceptance remain open. Any further provider continuation needs a separate bounded reservation that preserves all prior spending; Gemini's previous 31-attempt ledger is not reset. Human usefulness/content review, judge access, actual recording and final release/submission remain distinct unfinished requirements.

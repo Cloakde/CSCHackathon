@@ -1,5 +1,11 @@
 import { ScribeTokenResponseSchema, type TranscriptEvent } from "@livelecture/shared";
-import { LIVE_CHANNEL, LIVE_TEST_BUDGET, LiveCommandSchema } from "./live-protocol";
+import {
+  LIVE_CHANNEL,
+  LIVE_STOP_ACK_MS,
+  LIVE_TEST_BUDGET,
+  LiveCommandSchema,
+  type LiveStoppedMessage,
+} from "./live-protocol";
 import { attachPcmTap } from "./live-audio";
 import {
   createScribeRealtimeTransport,
@@ -28,6 +34,8 @@ interface LiveOwner {
   lease: ReturnType<typeof setInterval>;
   transport?: ReturnType<typeof createScribeRealtimeTransport>;
   untap?: () => void;
+  terminal?: LiveStoppedMessage;
+  releaseTimer?: ReturnType<typeof setTimeout>;
 }
 function connectSocket(url: string): ScribeSocket {
   const socket = new WebSocket(url);
@@ -54,22 +62,53 @@ export function createLiveOffscreen(
   dependencies: LiveOffscreenDependencies = {},
 ) {
   let active: LiveOwner | undefined;
+  function quiesce(owner: LiveOwner) {
+    owner.abort.abort();
+    clearInterval(owner.lease);
+    const untap = owner.untap;
+    const transport = owner.transport;
+    owner.untap = undefined;
+    owner.transport = undefined;
+    untap?.();
+    transport?.stop();
+  }
   function stop() {
     const previous = active;
     active = undefined;
     if (!previous) return;
-    previous.abort.abort();
-    clearInterval(previous.lease);
-    previous.untap?.();
-    previous.transport?.stop();
+    clearTimeout(previous.releaseTimer);
+    quiesce(previous);
+  }
+  function release(owner: LiveOwner) {
+    if (active !== owner) return;
+    stop();
+    media.stop(owner.generation);
   }
   function fail(owner: LiveOwner) {
-    if (active !== owner) return;
-    const generation = active?.generation;
-    stop();
-    if (generation) media.stop(generation);
+    // Abort/stop callbacks must not race the pending terminal explanation.
+    if (!owner.terminal) release(owner);
   }
-  async function handle(raw: unknown): Promise<{ ok: boolean }> {
+  function retentionStop(owner: LiveOwner) {
+    if (active !== owner || owner.terminal) return;
+    owner.terminal = {
+      channel: LIVE_CHANNEL,
+      kind: "stopped",
+      generation: owner.generation,
+      sessionId: owner.sessionId,
+      reason: "retention_active",
+    };
+    // Stop provider traffic and PCM immediately. Retain media ownership for at
+    // most 250 ms so its idle broadcast cannot erase the panel explanation.
+    owner.releaseTimer = setTimeout(() => release(owner), LIVE_STOP_ACK_MS);
+    quiesce(owner);
+    void Promise.resolve()
+      .then(() => chromeApis.runtime.sendMessage(owner.terminal))
+      .then(
+        () => release(owner),
+        () => release(owner),
+      );
+  }
+  async function handle(raw: unknown): Promise<{ ok: boolean } | LiveStoppedMessage> {
     const result = LiveCommandSchema.safeParse(raw);
     if (!result.success) return { ok: false };
     const command = result.data;
@@ -80,8 +119,10 @@ export function createLiveOffscreen(
         command.sessionId !== active.sessionId
       )
         return { ok: false };
-      if (command.kind === "heartbeat") active.lastSeen = Date.now();
-      else fail(active);
+      if (command.kind === "heartbeat") {
+        if (active.terminal) return active.terminal;
+        active.lastSeen = Date.now();
+      } else release(active);
       return { ok: true };
     }
     if (active) return { ok: false };
@@ -99,7 +140,7 @@ export function createLiveOffscreen(
     };
     active = owner;
     const emit = (event: TranscriptEvent) => {
-      if (active !== owner) return;
+      if (active !== owner || owner.terminal) return;
       void chromeApis.runtime
         .sendMessage({
           channel: LIVE_CHANNEL,
@@ -120,7 +161,9 @@ export function createLiveOffscreen(
         audio.context,
         audio.source,
         workletUrl,
-        (chunk) => owner.transport?.chunk(chunk),
+        (chunk) => {
+          if (!owner.terminal) owner.transport?.chunk(chunk);
+        },
         () => fail(owner),
         abort.signal,
       );
@@ -134,8 +177,7 @@ export function createLiveOffscreen(
         budget: LIVE_TEST_BUDGET,
         connect: dependencies.connect ?? connectSocket,
         onEvent: emit,
-        // A retention warning contradicts this run's disclosure: stop immediately.
-        onWarning: () => fail(owner),
+        onWarning: () => retentionStop(owner),
         onDiscardedGap: () =>
           emit({
             schemaVersion: 1,
@@ -200,6 +242,12 @@ export function createLiveOffscreen(
           }
         },
       });
+      if (owner.terminal) {
+        // A transport may warn synchronously, before assignment above finishes.
+        owner.transport.stop();
+        owner.transport = undefined;
+        return owner.terminal;
+      }
       if (active !== owner) {
         owner.transport.stop();
         return { ok: false };
@@ -207,7 +255,7 @@ export function createLiveOffscreen(
       return { ok: true };
     } catch {
       fail(owner);
-      return { ok: false };
+      return owner.terminal ?? { ok: false };
     }
   }
   function attach() {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLiveOffscreen } from "../src/live-offscreen";
-import { LIVE_CHANNEL } from "../src/live-protocol";
+import { LIVE_CHANNEL, LIVE_STOP_ACK_MS, LiveStoppedSchema } from "../src/live-protocol";
 import type { ScribeTransportOptions } from "../src/transcription/scribe-transport";
 import type { attachPcmTap } from "../src/live-audio";
 
@@ -111,8 +111,80 @@ describe("offscreen live ownership", () => {
     });
     expect(h.media.stop).not.toHaveBeenCalled();
     h.options().onWarning?.("RETENTION_ACTIVE");
-    expect(h.media.stop).toHaveBeenCalledWith(1);
     expect(h.transport.stop).toHaveBeenCalledOnce();
+    expect(h.untap).toHaveBeenCalledOnce();
+    expect(h.media.stop).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.media.stop).toHaveBeenCalledExactlyOnceWith(1);
+    const notification = h.sendMessage.mock.calls.at(-1)?.[0];
+    expect(LiveStoppedSchema.parse(notification)).toMatchObject({ reason: "retention_active" });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it.each(["missing", "rejects", "throws"])(
+    "releases capture when the retention notification %s",
+    async (failure) => {
+      const h = setup();
+      if (failure === "missing") h.sendMessage.mockImplementation(() => new Promise(() => {}));
+      else if (failure === "rejects") h.sendMessage.mockRejectedValue(new Error("Panel closed"));
+      else
+        h.sendMessage.mockImplementation(() => {
+          throw new Error("Runtime unavailable");
+        });
+      await h.bridge.handle(h.command);
+      h.options().onWarning?.("RETENTION_ACTIVE");
+      expect(h.transport.stop).toHaveBeenCalledOnce();
+      expect(h.untap).toHaveBeenCalledOnce();
+      expect(h.media.stop).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(LIVE_STOP_ACK_MS);
+      expect(h.media.stop).toHaveBeenCalledExactlyOnceWith(1);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(JSON.stringify(h.sendMessage.mock.calls)).not.toContain(h.command.capability);
+    },
+  );
+  it("returns the fixed reason to pending start and heartbeat commands and blocks replacements during handoff", async () => {
+    const h = setup();
+    h.sendMessage.mockImplementation(() => new Promise(() => {}));
+    h.factory.mockImplementation((options) => {
+      options.onWarning?.("RETENTION_ACTIVE");
+      return h.transport;
+    });
+    const stopped = await h.bridge.handle(h.command);
+    expect(LiveStoppedSchema.parse(stopped).reason).toBe("retention_active");
+    expect(h.transport.stop).toHaveBeenCalledOnce();
+    expect(await h.bridge.handle({ ...h.command, generation: 2 })).toEqual({ ok: false });
+    expect(
+      await h.bridge.handle({
+        channel: LIVE_CHANNEL,
+        kind: "heartbeat",
+        generation: 1,
+        sessionId: "session_live",
+      }),
+    ).toEqual(stopped);
+    await vi.advanceTimersByTimeAsync(LIVE_STOP_ACK_MS);
+    expect(h.media.stop).toHaveBeenCalledExactlyOnceWith(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it("ignores a late retention acknowledgement and old warning after replacement", async () => {
+    const h = setup();
+    let acknowledge!: (value: unknown) => void;
+    h.sendMessage.mockImplementation(
+      () =>
+        new Promise((done) => {
+          acknowledge = done;
+        }),
+    );
+    await h.bridge.handle(h.command);
+    const old = h.options();
+    old.onWarning?.("RETENTION_ACTIVE");
+    await vi.advanceTimersByTimeAsync(LIVE_STOP_ACK_MS);
+    await h.bridge.handle({ ...h.command, generation: 2 });
+    acknowledge({ ok: true });
+    old.onWarning?.("RETENTION_ACTIVE");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.media.stop).toHaveBeenCalledExactlyOnceWith(1);
+    expect(h.transport.stop).toHaveBeenCalledOnce();
+    h.bridge.stop();
+    expect(vi.getTimerCount()).toBe(0);
   });
   it("never starts a provider without matching active media and valid one-run configuration", async () => {
     const h = setup();
