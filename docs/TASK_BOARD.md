@@ -10,6 +10,8 @@ The AI holding the active turn edits this file on behalf of the Coordinator. [HA
 
 **Provider boundaries:** the real-Gemini browser run and its sole zero-use recovery both failed in their external harness before any provider request. Zero new requests/$0; historical 31 attempts/480,630 microdollars remain, and both claims are terminally closed. Do not reset or reuse them. The corrected provider-free rehearsal passed; actual-Gemini browser acceptance remains unproven. Historical real-Gemini service checks remain separately recorded. Scribe transport passed with commits before and after reconnect, but `RETENTION_ACTIVE` remains unaccepted; the extension stops live transcription on that warning. Native toolbar/capture, human learner/content review, judge access, recording and release/submission remain open. Further work follows these external gates rather than adding features or repeating passing baselines.
 
+**Native Chrome refresh:** the supported desktop tool opened the extension folder picker, but could not target its Folder field. One activation/refresh retry failed with the same non-target-window error. No extension was installed, no server/provider/audio was started, and the picker remains open after input stopped. The immutable ordinary package's archive and all ten files matched their manifest. Native acceptance remains blocked by tooling; see the current handoff and session evidence.
+
 ## Historical checkpoints — superseded by current execution above
 
 Older permissions, remaining-slot counts and next-step instructions below describe their original checkpoints. They do not authorize reuse of closed claims or override the current handoff.

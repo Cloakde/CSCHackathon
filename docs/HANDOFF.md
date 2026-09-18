@@ -1,5 +1,12 @@
 # LiveLecture AI — Current handoff
 
+## Native Chrome acceptance — tool blocked, 2026-09-18
+
+- **Active AI:** none — Codex ended the bounded native Chrome attempt after the supported desktop tool could not target its folder picker. Only coordination/evidence changed; application and MeltingPot source remain unchanged. One AI at a time.
+- **Observed result:** the existing separate Chrome test window was readable and its Load unpacked folder picker opened. The package archive and all ten extracted extension files matched `release/359988ddbf6e/manifest.json`. No extension was installed: setting the returned Folder element failed because it was absent from the tool's cache; a screenshot-backed click and one documented activation/refresh retry both reported a non-target Chrome window. No alternative UI automation was used.
+- **Cleanup/limits:** no server, browser automation process, provider request, audio capture or credential access was started. The folder picker remains open because native input stopped after recovery failed. This window uses the user's existing Chrome profile; unrelated tabs/extensions were not changed. External evidence is `native-chrome-1789725487305` under the session evidence folder. Toolbar/capture acceptance remains pending; the failure is tooling evidence, not an application failure.
+- **Next:** resume native acceptance only when the supported tool can target the folder picker reliably or an operator performs installation. Preserve both closed Gemini claims and the current release gates below; no allowance reset, original MeltingPot service or main promotion is implied. The usage-reset monitor is separate from project/provider accounting.
+
 ## Overnight acceptance checkpoint — external checks remain, 2026-09-18
 
 - **Active AI:** none — Codex completed the evidence checkpoint and released the scoped turn; implementation is complete within TASK-308/309. One AI at a time on `shared/livelecture`; original MeltingPot repositories/services remain excluded. The autonomous goal is not a release-readiness PASS.
