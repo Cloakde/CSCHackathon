@@ -10,6 +10,7 @@ test("normal launches strip inherited provider activation and never inspect cred
     LIVELECTURE_APP_TREE: "a".repeat(40),
     LIVELECTURE_APP_CONTINUATION_ID: "inherited-allowance",
     LIVELECTURE_APP_CONTINUATION_HASH: "b".repeat(64),
+    LIVELECTURE_APP_RUN_HASH: "c".repeat(64),
     LIVELECTURE_LIVE_TEST: "synthetic-90-seconds",
   });
   assert.equal(config.env.LIVELECTURE_ASSISTANCE_PROVIDER, "prewritten");
@@ -17,6 +18,7 @@ test("normal launches strip inherited provider activation and never inspect cred
   assert.equal(config.env.LIVELECTURE_LIVE_TEST, "");
   assert.equal(config.env.LIVELECTURE_APP_CONTINUATION_ID, "");
   assert.equal(config.env.LIVELECTURE_APP_CONTINUATION_HASH, "");
+  assert.equal(config.env.LIVELECTURE_APP_RUN_HASH, "");
 });
 
 test("Gemini app runs require explicit cap, clean exact source, and no CI", () => {

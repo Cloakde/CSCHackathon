@@ -3,15 +3,18 @@ import { isAbsolute, join } from "node:path";
 import { openTrialLedger } from "../ai-evaluation/trial/budget";
 import { TRIAL_PLAN_ID, TRIAL_POLICY_HASH } from "../ai-evaluation/trial/policy";
 import type { TrialLedger, TrialMeter } from "../ai-evaluation/trial/types";
+import { openApplicationRun } from "./application-run";
 
 export type ApplicationEnvironment = Readonly<Record<string, string | undefined>>;
 
 export function applicationExecutionSelected(environment: ApplicationEnvironment): boolean {
   return (
     !environment.CI &&
-    ["approved-one-dollar-v1", "approved-browser-continuation-v1"].includes(
-      environment.LIVELECTURE_APP_EXECUTE ?? "",
-    )
+    [
+      "approved-one-dollar-v1",
+      "approved-browser-continuation-v1",
+      "approved-application-run-v1",
+    ].includes(environment.LIVELECTURE_APP_EXECUTE ?? "")
   );
 }
 
@@ -44,13 +47,18 @@ export function applicationAuthorization(
   const continuation = environment.LIVELECTURE_APP_EXECUTE === "approved-browser-continuation-v1";
   const continuationId = environment.LIVELECTURE_APP_CONTINUATION_ID ?? "";
   const continuationHash = environment.LIVELECTURE_APP_CONTINUATION_HASH ?? "";
+  const separateRun = environment.LIVELECTURE_APP_EXECUTE === "approved-application-run-v1";
+  const runHash = environment.LIVELECTURE_APP_RUN_HASH ?? "";
   if (
     environment.CI ||
-    (continuation
-      ? !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(continuationId) ||
-        !/^[a-f0-9]{64}$/.test(continuationHash)
-      : environment.LIVELECTURE_APP_EXECUTE !== "approved-one-dollar-v1" ||
-        Boolean(continuationId || continuationHash)) ||
+    (separateRun
+      ? !/^[a-f0-9]{64}$/.test(runHash) || Boolean(continuationId || continuationHash)
+      : Boolean(runHash) ||
+        (continuation
+          ? !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(continuationId) ||
+            !/^[a-f0-9]{64}$/.test(continuationHash)
+          : environment.LIVELECTURE_APP_EXECUTE !== "approved-one-dollar-v1" ||
+            Boolean(continuationId || continuationHash))) ||
     environment.LIVELECTURE_APP_POLICY !== TRIAL_POLICY_HASH ||
     !/^[a-f0-9]{40}$/.test(environment.LIVELECTURE_APP_TREE ?? "") ||
     environment.LIVELECTURE_APP_TREE !== repository.sourceTree ||
@@ -62,13 +70,22 @@ export function applicationAuthorization(
     sourceTree: repository.sourceTree,
     policyHash: TRIAL_POLICY_HASH,
     directory: join(repository.commonDir, "livelecture-ai-trial", TRIAL_PLAN_ID),
+    ...(separateRun
+      ? {
+          applicationRun: {
+            commonDir: repository.commonDir,
+            sourceTree: repository.sourceTree,
+            planHash: runHash,
+          },
+        }
+      : {}),
     ...(continuation
       ? { applicationContinuation: { id: continuationId, grantSha256: continuationHash } }
       : {}),
   };
 }
 
-/** Shares the existing durable allowance, including across restarts and other processes. */
+/** Every activation uses its explicit durable allowance, including prior cumulative spending. */
 export function createApplicationMeter(
   environment: () => ApplicationEnvironment,
   repository: () => ApplicationRepository,
@@ -79,7 +96,9 @@ export function createApplicationMeter(
     reserve(input) {
       if (closed || active) throw new Error("The application allowance is unavailable.");
       const approved = applicationAuthorization(environment(), repository());
-      const ledger = openTrialLedger(approved);
+      const ledger = approved.applicationRun
+        ? openApplicationRun(approved.applicationRun)
+        : openTrialLedger(approved);
       try {
         if (input.kind === "help_generate" || input.kind === "practice_generate") {
           // App answers require a separate verifier. Check under the ledger lock

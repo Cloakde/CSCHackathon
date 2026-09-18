@@ -481,6 +481,26 @@ function writeAndSync(fd: number, contents: string) {
   fs.fsyncSync(fd);
 }
 
+/** Read-only replay for binding a separately reviewed application run to closed history. */
+export function inspectTrialHistory(
+  contents: string,
+  expected: { sourceTree: string; policyHash: string },
+): TrialLedgerSnapshot {
+  if (Buffer.byteLength(contents) > MAX_LEDGER_BYTES) fail("INVALID_LEDGER");
+  return parseLedger(contents, {
+    event: "open",
+    version: 1,
+    planId: TRIAL_PLAN_ID,
+    ...expected,
+  });
+}
+
+export {
+  validInput as validTrialInput,
+  validUsage as validTrialUsage,
+  usageCharge as trialUsageCharge,
+};
+
 /** The CLI supplies the fixed plan directory inside the repository's Git common directory. */
 export function openTrialLedger(options: {
   directory: string;

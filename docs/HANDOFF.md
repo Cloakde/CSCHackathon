@@ -1,5 +1,12 @@
 # LiveLecture AI — Current handoff
 
+## Separate application acceptance run — preparation, 2026-09-18
+
+- **Active AI:** Codex. Sequential decision review found a valid bounded preparation under the user's ongoing overnight authorization: a separate application run with its own journal, preserving the finished trial and its consumed recovery unchanged. This is a new allocation, not another recovery or reuse of either old claim. No paid request is authorized by ordinary app startup.
+- **Owned scope:** a fixed application-run meter and tests, explicit application activation/default-launch isolation, a pure read-only inspection entry point for the existing ledger parser, external capped run helpers/evidence, and coordination. Frozen trial execution, policy/pricing, recovery behavior, provider prompts/verification, extension and isolated MeltingPot implementation remain unchanged.
+- **Required limits:** eight new attempts/$1; cumulative maximum 39 attempts/1,480,630 microdollars including the existing 31 attempts/480,630 debit; fixed run identity, complete predecessor hash, source/copy/helper hashes, exclusive durable claim, original 15:30Z expiration, no automatic rebind/renewal/retry, and terminal closure. Test temporary journals, independently review and pass exact-source CI before activation. Existing real ledgers and credentials remain untouched during preparation.
+- **Core checks:** 96 focused tests and the full credential-free **665-test/build/package/HTTP** check passed. Sequential independent review found no P1 accounting/activation/isolation issue; its P2 build-tracing finding was fixed with scoped runtime-path exclusions. The fresh build has no dynamic filesystem tracing warnings, and session-route traces contain no ledger/journal/Git/environment/release paths. External controller tests pass 10/10 and runtime imports are checked, but the external launcher still needs separate review, exact-source CI, packaging and a sealed plan before execution.
+
 ## Native Chrome acceptance — tool blocked, 2026-09-18
 
 - **Active AI:** none — Codex ended the bounded native Chrome attempt after the supported desktop tool could not target its folder picker. Only coordination/evidence changed; application and MeltingPot source remain unchanged. One AI at a time.

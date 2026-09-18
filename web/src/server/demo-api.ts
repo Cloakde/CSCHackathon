@@ -786,6 +786,7 @@ export function createDemoRequestHandler(
       env.LIVELECTURE_APP_POLICY,
       env.LIVELECTURE_APP_CONTINUATION_ID,
       env.LIVELECTURE_APP_CONTINUATION_HASH,
+      env.LIVELECTURE_APP_RUN_HASH,
       env.CI,
     ]);
     if (!runtime || runtime.config !== config) {

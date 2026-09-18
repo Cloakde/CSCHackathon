@@ -20,6 +20,14 @@ import {
 } from "../ai-evaluation/trial/policy";
 import { openTrialLedger } from "../ai-evaluation/trial/budget";
 import { applicationAuthorization, createApplicationMeter } from "./app-authorization";
+import {
+  applicationRunPaths,
+  applicationRunPlanHash,
+  initializeApplicationRun,
+  openApplicationRun,
+  APPLICATION_RUN_EXPIRES_AT,
+} from "./application-run";
+import { seedClosedApplicationHistory } from "./application-run.test-fixture";
 
 const tree = "a".repeat(40);
 const directories: string[] = [];
@@ -78,6 +86,7 @@ function fixture(
     LIVELECTURE_APP_POLICY: TRIAL_POLICY_HASH,
     LIVELECTURE_APP_CONTINUATION_ID: "",
     LIVELECTURE_APP_CONTINUATION_HASH: "",
+    LIVELECTURE_APP_RUN_HASH: "",
     GEMINI_API_KEY: "offline-fake-key-not-a-credential",
     ...options.environment,
   };
@@ -91,7 +100,12 @@ function fixture(
   const call = (path: string, body?: unknown, method?: string) =>
     handle(request(path, body, method));
   const ledger = () =>
-    readFileSync(join(commonDir, "livelecture-ai-trial", TRIAL_PLAN_ID, "ledger.jsonl"), "utf8")
+    readFileSync(
+      environment.LIVELECTURE_APP_EXECUTE === "approved-application-run-v1"
+        ? applicationRunPaths(commonDir).journal
+        : join(commonDir, "livelecture-ai-trial", TRIAL_PLAN_ID, "ledger.jsonl"),
+      "utf8",
+    )
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
@@ -148,6 +162,17 @@ function activateContinuation(api: ReturnType<typeof fixture>) {
   api.environment.LIVELECTURE_APP_CONTINUATION_HASH = activation.grantSha256;
 }
 
+function activateApplicationRun(api: ReturnType<typeof fixture>, initialize = true) {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime("2026-09-18T10:00:00Z");
+  const { plan } = seedClosedApplicationHistory(api.commonDir, tree);
+  const planHash = applicationRunPlanHash(plan);
+  if (initialize) initializeApplicationRun(api.commonDir, plan);
+  api.environment.LIVELECTURE_APP_EXECUTE = "approved-application-run-v1";
+  api.environment.LIVELECTURE_APP_RUN_HASH = planHash;
+  return { commonDir: api.commonDir, sourceTree: tree, planHash };
+}
+
 afterEach(() => {
   for (const handle of handlers.splice(0)) handle.dispose();
   for (const directory of directories.splice(0)) {
@@ -160,7 +185,7 @@ afterEach(() => {
 });
 
 describe("actual Gemini application runtime with offline transport and durable allowance", () => {
-  it.each(["trial", "continuation"])(
+  it.each(["trial", "continuation", "application-run"])(
     "connects Help, its verification, saved confusion, and verified practice through %s activation",
     async (activation) => {
       const api = fixture((payload) => {
@@ -230,6 +255,7 @@ describe("actual Gemini application runtime with offline transport and durable a
         );
       });
       if (activation === "continuation") activateContinuation(api);
+      if (activation === "application-run") activateApplicationRun(api);
       const { path, session } = await api.start();
       const help = await api.call(`${path}/im-lost`);
       expect(help.headers.get("X-LiveLecture-Assistance")).toBe("gemini_ready");
@@ -253,26 +279,47 @@ describe("actual Gemini application runtime with offline transport and durable a
     },
   );
 
-  it.each(["LIVELECTURE_APP_CONTINUATION_ID", "LIVELECTURE_APP_CONTINUATION_HASH"] as const)(
-    "disposes the old service when %s changes",
-    async (field) => {
+  it.each([
+    "LIVELECTURE_APP_CONTINUATION_ID",
+    "LIVELECTURE_APP_CONTINUATION_HASH",
+    "LIVELECTURE_APP_RUN_HASH",
+  ] as const)("disposes the old service when %s changes", async (field) => {
+    const api = fixture();
+    if (field === "LIVELECTURE_APP_RUN_HASH") activateApplicationRun(api);
+    else activateContinuation(api);
+    const { path, session } = await api.start();
+    await api.call(`${path}/end`, {
+      endedAt: new Date(Date.parse(session.startedAt) + 480_000).toISOString(),
+    });
+    expect((await api.call(path, undefined, "GET")).status).toBe(200);
+    const before = api.ledger();
+    api.environment[field] = field.endsWith("HASH") ? "0".repeat(64) : "different-allowance";
+    expect((await api.call(path, undefined, "GET")).status).toBe(404);
+    const next = await api.start();
+    expect(
+      (await api.call(`${next.path}/lecture-tools`, { kind: "catch_up", throughSequence: 9 }))
+        .status,
+    ).toBe(503);
+    expect(api.fetcher).not.toHaveBeenCalled();
+    expect(api.ledger()).toEqual(before);
+  });
+  it.each(["missing", "expired", "finished", "wrong-plan"])(
+    "blocks %s separate application run before provider traffic",
+    async (mode) => {
       const api = fixture();
-      activateContinuation(api);
-      const { path, session } = await api.start();
-      await api.call(`${path}/end`, {
-        endedAt: new Date(Date.parse(session.startedAt) + 480_000).toISOString(),
-      });
-      expect((await api.call(path, undefined, "GET")).status).toBe(200);
-      const before = api.ledger();
-      api.environment[field] = field.endsWith("HASH") ? "0".repeat(64) : "different-allowance";
-      expect((await api.call(path, undefined, "GET")).status).toBe(404);
-      const next = await api.start();
+      const options = activateApplicationRun(api, mode !== "missing");
+      if (mode === "finished") {
+        const ledger = openApplicationRun(options);
+        ledger.finish();
+        ledger.close();
+      }
+      if (mode === "expired") vi.setSystemTime(APPLICATION_RUN_EXPIRES_AT);
+      if (mode === "wrong-plan") api.environment.LIVELECTURE_APP_RUN_HASH = "0".repeat(64);
+      const { path } = await api.start();
       expect(
-        (await api.call(`${next.path}/lecture-tools`, { kind: "catch_up", throughSequence: 9 }))
-          .status,
+        (await api.call(`${path}/lecture-tools`, { kind: "catch_up", throughSequence: 9 })).status,
       ).toBe(503);
       expect(api.fetcher).not.toHaveBeenCalled();
-      expect(api.ledger()).toEqual(before);
     },
   );
   it.each([
