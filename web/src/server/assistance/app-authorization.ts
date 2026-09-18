@@ -6,6 +6,15 @@ import type { TrialLedger, TrialMeter } from "../ai-evaluation/trial/types";
 
 export type ApplicationEnvironment = Readonly<Record<string, string | undefined>>;
 
+export function applicationExecutionSelected(environment: ApplicationEnvironment): boolean {
+  return (
+    !environment.CI &&
+    ["approved-one-dollar-v1", "approved-browser-continuation-v1"].includes(
+      environment.LIVELECTURE_APP_EXECUTE ?? "",
+    )
+  );
+}
+
 export interface ApplicationRepository {
   sourceTree: string;
   dirty: boolean;
@@ -32,9 +41,16 @@ export function applicationAuthorization(
   environment: ApplicationEnvironment,
   repository: ApplicationRepository,
 ) {
+  const continuation = environment.LIVELECTURE_APP_EXECUTE === "approved-browser-continuation-v1";
+  const continuationId = environment.LIVELECTURE_APP_CONTINUATION_ID ?? "";
+  const continuationHash = environment.LIVELECTURE_APP_CONTINUATION_HASH ?? "";
   if (
     environment.CI ||
-    environment.LIVELECTURE_APP_EXECUTE !== "approved-one-dollar-v1" ||
+    (continuation
+      ? !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(continuationId) ||
+        !/^[a-f0-9]{64}$/.test(continuationHash)
+      : environment.LIVELECTURE_APP_EXECUTE !== "approved-one-dollar-v1" ||
+        Boolean(continuationId || continuationHash)) ||
     environment.LIVELECTURE_APP_POLICY !== TRIAL_POLICY_HASH ||
     !/^[a-f0-9]{40}$/.test(environment.LIVELECTURE_APP_TREE ?? "") ||
     environment.LIVELECTURE_APP_TREE !== repository.sourceTree ||
@@ -46,6 +62,9 @@ export function applicationAuthorization(
     sourceTree: repository.sourceTree,
     policyHash: TRIAL_POLICY_HASH,
     directory: join(repository.commonDir, "livelecture-ai-trial", TRIAL_PLAN_ID),
+    ...(continuation
+      ? { applicationContinuation: { id: continuationId, grantSha256: continuationHash } }
+      : {}),
   };
 }
 

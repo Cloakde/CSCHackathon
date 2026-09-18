@@ -32,6 +32,7 @@ import {
 import { generateScriptedHelp } from "./scripted-help";
 import {
   applicationAuthorization,
+  applicationExecutionSelected,
   createApplicationMeter,
   readApplicationRepository,
   type ApplicationRepository,
@@ -783,6 +784,8 @@ export function createDemoRequestHandler(
       env.LIVELECTURE_APP_EXECUTE,
       env.LIVELECTURE_APP_TREE,
       env.LIVELECTURE_APP_POLICY,
+      env.LIVELECTURE_APP_CONTINUATION_ID,
+      env.LIVELECTURE_APP_CONTINUATION_HASH,
       env.CI,
     ]);
     if (!runtime || runtime.config !== config) {
@@ -795,11 +798,7 @@ export function createDemoRequestHandler(
       ) {
         hooks = { assistanceProvider: "blocked" };
         // Do not inspect credentials, Git or ledger state until an explicit run is selected.
-        if (
-          env.LIVELECTURE_ASSISTANCE_PROVIDER === "gemini" &&
-          env.LIVELECTURE_APP_EXECUTE === "approved-one-dollar-v1" &&
-          !env.CI
-        ) {
+        if (env.LIVELECTURE_ASSISTANCE_PROVIDER === "gemini" && applicationExecutionSelected(env)) {
           try {
             applicationAuthorization(env, repository());
             const meter = createApplicationMeter(environment, repository);

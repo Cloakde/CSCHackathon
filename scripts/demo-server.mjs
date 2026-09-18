@@ -59,6 +59,8 @@ export function demoConfiguration(args, environment = process.env, repository) {
     env: {
       ...environment,
       ...activation,
+      LIVELECTURE_APP_CONTINUATION_ID: "",
+      LIVELECTURE_APP_CONTINUATION_HASH: "",
       LIVELECTURE_DEMO_ENABLED: "true",
       LIVELECTURE_LIVE_TEST: "",
       LIVE_SCRIBE_SPIKE_ENABLED: "",

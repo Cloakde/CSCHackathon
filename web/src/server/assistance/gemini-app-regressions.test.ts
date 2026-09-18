@@ -1,4 +1,5 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -75,6 +76,8 @@ function fixture(
     LIVELECTURE_APP_EXECUTE: "approved-one-dollar-v1",
     LIVELECTURE_APP_TREE: tree,
     LIVELECTURE_APP_POLICY: TRIAL_POLICY_HASH,
+    LIVELECTURE_APP_CONTINUATION_ID: "",
+    LIVELECTURE_APP_CONTINUATION_HASH: "",
     GEMINI_API_KEY: "offline-fake-key-not-a-credential",
     ...options.environment,
   };
@@ -123,6 +126,28 @@ function leaveOneAttempt(api: ReturnType<typeof fixture>) {
   }
 }
 
+function activateContinuation(api: ReturnType<typeof fixture>) {
+  leaveOneAttempt(api);
+  const options = applicationAuthorization(api.environment, api.repository());
+  const before = readFileSync(join(options.directory, "ledger.jsonl"), "utf8");
+  const ledger = openTrialLedger({
+    ...options,
+    continuation: {
+      id: "offline-dispatcher-continuation",
+      previousSourceTree: tree,
+      previousLedgerSha256: createHash("sha256").update(before).digest("hex"),
+      baselineAttempts: 31,
+      baselineMicroUsd: 31,
+      expiresAt: Date.now() + 3_600_000,
+    },
+  });
+  const activation = ledger.snapshot().applicationContinuation!;
+  ledger.close();
+  api.environment.LIVELECTURE_APP_EXECUTE = "approved-browser-continuation-v1";
+  api.environment.LIVELECTURE_APP_CONTINUATION_ID = activation.id;
+  api.environment.LIVELECTURE_APP_CONTINUATION_HASH = activation.grantSha256;
+}
+
 afterEach(() => {
   for (const handle of handlers.splice(0)) handle.dispose();
   for (const directory of directories.splice(0)) {
@@ -135,93 +160,121 @@ afterEach(() => {
 });
 
 describe("actual Gemini application runtime with offline transport and durable allowance", () => {
-  it("connects Help, its verification, saved confusion, and verified practice through production activation", async () => {
-    const api = fixture((payload) => {
-      if (payload.context) {
-        const context = payload.context as { reference: unknown };
-        return envelope({
-          groundingStatus: "grounded",
-          context: context.reference,
-          diagnosis: {
-            whatJustHappened: "The teacher explained the chain rule.",
-            mainIdea: "Multiply the outside derivative by the inside derivative.",
-            simpleExplanation: "Differentiate both layers and multiply.",
-            importantPrerequisite: "Identify the inner and outer functions.",
-          },
-          citationChunkIds: ["chunk_calc_004"],
-          conceptId: "concept_inner_derivative",
-          conceptTitle: "Inner derivative",
-          followUpActions: ["ask_follow_up"],
-        });
-      }
-      if (payload.identities) {
-        const identities = payload.identities as { drillId: string; sessionId: string };
-        const confusion = payload.confusion as {
-          confusionId: string;
-          conceptId: string;
-          conceptTitle: string;
-          evidenceChunkIds: string[];
-        };
-        return envelope({
-          ...identities,
-          sourceConfusionEventIds: [confusion.confusionId],
-          conceptId: confusion.conceptId,
-          conceptTitle: confusion.conceptTitle,
-          shortExplanation: "Multiply by the derivative of the inside.",
-          practiceItems: [
-            {
-              prompt: payload.benchmarkQuestion,
-              expectedAnswer: "8(2x + 3)^3",
-              explanation: "Multiply 4(2x + 3)^3 by the inner derivative, 2.",
+  it.each(["trial", "continuation"])(
+    "connects Help, its verification, saved confusion, and verified practice through %s activation",
+    async (activation) => {
+      const api = fixture((payload) => {
+        if (payload.context) {
+          const context = payload.context as { reference: unknown };
+          return envelope({
+            groundingStatus: "grounded",
+            context: context.reference,
+            diagnosis: {
+              whatJustHappened: "The teacher explained the chain rule.",
+              mainIdea: "Multiply the outside derivative by the inside derivative.",
+              simpleExplanation: "Differentiate both layers and multiply.",
+              importantPrerequisite: "Identify the inner and outer functions.",
             },
-          ],
-          evidenceChunkIds: confusion.evidenceChunkIds,
-        });
-      }
-      const candidate = payload.candidate as { practiceItems?: unknown };
-      return envelope(
-        candidate.practiceItems
-          ? {
-              verdict: "supported",
-              supportedChecks: [
-                "question_supported",
-                "answer_correct",
-                "explanation_supported",
-                "confusion_aligned",
-              ],
-            }
-          : {
-              verdict: "supported",
-              supportedClaims: [
-                "what_just_happened",
-                "main_idea",
-                "simple_explanation",
-                "important_prerequisite",
-                "concept",
-              ],
-            },
-      );
-    });
-    const { path, session } = await api.start();
-    const help = await api.call(`${path}/im-lost`);
-    expect(help.headers.get("X-LiveLecture-Assistance")).toBe("gemini_ready");
-    const event = (await help.json()).data.confusionEvent;
-    await api.call(`${path}/end`, {
-      endedAt: new Date(Date.parse(session.startedAt) + 480_000).toISOString(),
-    });
-    const practice = await api.call(`${path}/weak-area-drills`, {
-      confusionEventIds: [event.confusionId],
-    });
-    expect(practice.status).toBe(200);
-    expect(practice.headers.get("X-LiveLecture-Assistance")).toBe("gemini_ready");
-    expect((await practice.json()).data.sourceConfusionEventIds).toEqual([event.confusionId]);
-    expect(
-      api
-        .ledger()
-        .filter((event) => event.event === "reserve")
-        .map((event) => event.input.kind),
-    ).toEqual(["help_generate", "help_verify", "practice_generate", "practice_verify"]);
-  });
+            citationChunkIds: ["chunk_calc_004"],
+            conceptId: "concept_inner_derivative",
+            conceptTitle: "Inner derivative",
+            followUpActions: ["ask_follow_up"],
+          });
+        }
+        if (payload.identities) {
+          const identities = payload.identities as { drillId: string; sessionId: string };
+          const confusion = payload.confusion as {
+            confusionId: string;
+            conceptId: string;
+            conceptTitle: string;
+            evidenceChunkIds: string[];
+          };
+          return envelope({
+            ...identities,
+            sourceConfusionEventIds: [confusion.confusionId],
+            conceptId: confusion.conceptId,
+            conceptTitle: confusion.conceptTitle,
+            shortExplanation: "Multiply by the derivative of the inside.",
+            practiceItems: [
+              {
+                prompt: payload.benchmarkQuestion,
+                expectedAnswer: "8(2x + 3)^3",
+                explanation: "Multiply 4(2x + 3)^3 by the inner derivative, 2.",
+              },
+            ],
+            evidenceChunkIds: confusion.evidenceChunkIds,
+          });
+        }
+        const candidate = payload.candidate as { practiceItems?: unknown };
+        return envelope(
+          candidate.practiceItems
+            ? {
+                verdict: "supported",
+                supportedChecks: [
+                  "question_supported",
+                  "answer_correct",
+                  "explanation_supported",
+                  "confusion_aligned",
+                ],
+              }
+            : {
+                verdict: "supported",
+                supportedClaims: [
+                  "what_just_happened",
+                  "main_idea",
+                  "simple_explanation",
+                  "important_prerequisite",
+                  "concept",
+                ],
+              },
+        );
+      });
+      if (activation === "continuation") activateContinuation(api);
+      const { path, session } = await api.start();
+      const help = await api.call(`${path}/im-lost`);
+      expect(help.headers.get("X-LiveLecture-Assistance")).toBe("gemini_ready");
+      const event = (await help.json()).data.confusionEvent;
+      await api.call(`${path}/end`, {
+        endedAt: new Date(Date.parse(session.startedAt) + 480_000).toISOString(),
+      });
+      const practice = await api.call(`${path}/weak-area-drills`, {
+        confusionEventIds: [event.confusionId],
+      });
+      expect(practice.status).toBe(200);
+      expect(practice.headers.get("X-LiveLecture-Assistance")).toBe("gemini_ready");
+      expect((await practice.json()).data.sourceConfusionEventIds).toEqual([event.confusionId]);
+      expect(
+        api
+          .ledger()
+          .filter((event) => event.event === "reserve")
+          .slice(activation === "continuation" ? 31 : 0)
+          .map((event) => event.input.kind),
+      ).toEqual(["help_generate", "help_verify", "practice_generate", "practice_verify"]);
+    },
+  );
+
+  it.each(["LIVELECTURE_APP_CONTINUATION_ID", "LIVELECTURE_APP_CONTINUATION_HASH"] as const)(
+    "disposes the old service when %s changes",
+    async (field) => {
+      const api = fixture();
+      activateContinuation(api);
+      const { path, session } = await api.start();
+      await api.call(`${path}/end`, {
+        endedAt: new Date(Date.parse(session.startedAt) + 480_000).toISOString(),
+      });
+      expect((await api.call(path, undefined, "GET")).status).toBe(200);
+      const before = api.ledger();
+      api.environment[field] = field.endsWith("HASH") ? "0".repeat(64) : "different-allowance";
+      expect((await api.call(path, undefined, "GET")).status).toBe(404);
+      const next = await api.start();
+      expect(
+        (await api.call(`${next.path}/lecture-tools`, { kind: "catch_up", throughSequence: 9 }))
+          .status,
+      ).toBe(503);
+      expect(api.fetcher).not.toHaveBeenCalled();
+      expect(api.ledger()).toEqual(before);
+    },
+  );
   it.each([
     { LIVELECTURE_APP_EXECUTE: "" },
     { LIVELECTURE_APP_TREE: "b".repeat(40) },

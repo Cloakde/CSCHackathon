@@ -31,6 +31,8 @@ type LedgerErrorCode =
   | "ATTEMPTS_EXHAUSTED"
   | "FINISHED"
   | "CLOSED"
+  | "CONTINUATION_REQUIRED"
+  | "CONTINUATION_EXPIRED"
   | "IO_FAILURE";
 
 export class TrialLedgerError extends Error {
@@ -51,10 +53,31 @@ interface Header {
   policyHash: string;
 }
 
+interface ApplicationContinuationEvent {
+  event: "application_continuation";
+  id: string;
+  purpose: "normal-playback-browser-acceptance";
+  previousLedgerSha256: string;
+  previousSourceTree: string;
+  sourceTree: string;
+  policyHash: string;
+  baselineAttempts: number;
+  baselineMicroUsd: number;
+  additionalAttempts: 8;
+  additionalMicroUsd: 1_000_000;
+  expiresAt: number;
+}
+
+export type ApplicationContinuationGrant = Omit<
+  ApplicationContinuationEvent,
+  "event" | "purpose" | "sourceTree" | "policyHash" | "additionalAttempts" | "additionalMicroUsd"
+>;
+
 type LedgerEvent =
   | { event: "reserve"; attemptId: number; input: TrialAttemptInput }
   | { event: "settle"; attemptId: number; usage?: TrialUsage }
   | { event: "finish" }
+  | ApplicationContinuationEvent
   | { event: "rebind"; previousLedgerSha256: string; sourceTree: string; policyHash: string };
 
 // Historical accounting is immutable when replaying the same append-only ledger.
@@ -169,6 +192,42 @@ function initialState(header: Header): TrialLedgerSnapshot {
   };
 }
 
+function validContinuation(value: unknown): value is ApplicationContinuationEvent {
+  return (
+    record(value) &&
+    keys(value, [
+      "event",
+      "id",
+      "purpose",
+      "previousLedgerSha256",
+      "previousSourceTree",
+      "sourceTree",
+      "policyHash",
+      "baselineAttempts",
+      "baselineMicroUsd",
+      "additionalAttempts",
+      "additionalMicroUsd",
+      "expiresAt",
+    ]) &&
+    value.event === "application_continuation" &&
+    typeof value.id === "string" &&
+    SCENARIO.test(value.id) &&
+    value.purpose === "normal-playback-browser-acceptance" &&
+    typeof value.previousLedgerSha256 === "string" &&
+    SHA256.test(value.previousLedgerSha256) &&
+    typeof value.previousSourceTree === "string" &&
+    SOURCE_TREE.test(value.previousSourceTree) &&
+    typeof value.sourceTree === "string" &&
+    SOURCE_TREE.test(value.sourceTree) &&
+    value.policyHash === TRIAL_POLICY_HASH &&
+    integer(value.baselineAttempts, TRIAL_MAX_ATTEMPTS) &&
+    integer(value.baselineMicroUsd, TRIAL_CAP_MICRO_USD) &&
+    value.additionalAttempts === 8 &&
+    value.additionalMicroUsd === 1_000_000 &&
+    integer(value.expiresAt, Number.MAX_SAFE_INTEGER, 1)
+  );
+}
+
 function applyEvent(state: TrialLedgerSnapshot, event: LedgerEvent): TrialLedgerSnapshot {
   if (state.finished) fail("FINISHED");
   const next = structuredClone(state);
@@ -177,8 +236,8 @@ function applyEvent(state: TrialLedgerSnapshot, event: LedgerEvent): TrialLedger
   if (event.event === "reserve") {
     if (!validInput(event.input)) fail("INVALID_REQUEST");
     if (active) fail("REQUEST_IN_FLIGHT");
-    if (next.attempts.length >= TRIAL_MAX_ATTEMPTS) fail("ATTEMPTS_EXHAUSTED");
-    if (next.totalMicroUsd + policy.reserve > TRIAL_CAP_MICRO_USD) {
+    if (next.attempts.length >= next.maxAttempts) fail("ATTEMPTS_EXHAUSTED");
+    if (next.totalMicroUsd + policy.reserve > next.capMicroUsd) {
       fail("BUDGET_EXHAUSTED");
     }
     if (event.attemptId !== next.attempts.length + 1) fail("INVALID_LEDGER");
@@ -198,8 +257,29 @@ function applyEvent(state: TrialLedgerSnapshot, event: LedgerEvent): TrialLedger
     active.chargedMicroUsd =
       event.usage === undefined ? policy.reserve : usageCharge(event.usage, state.policyHash);
     if (event.usage !== undefined) active.usage = structuredClone(event.usage);
+  } else if (event.event === "application_continuation") {
+    if (active) fail("REQUEST_IN_FLIGHT");
+    if (
+      !validContinuation(event) ||
+      state.applicationContinuation ||
+      event.previousSourceTree !== state.sourceTree ||
+      state.policyHash !== TRIAL_POLICY_HASH ||
+      event.baselineAttempts !== state.attempts.length ||
+      event.baselineMicroUsd !== state.totalMicroUsd
+    )
+      fail("INVALID_LEDGER");
+    next.sourceTree = event.sourceTree;
+    next.maxAttempts = event.baselineAttempts + event.additionalAttempts;
+    next.capMicroUsd = event.baselineMicroUsd + event.additionalMicroUsd;
+    next.applicationContinuation = {
+      id: event.id,
+      previousLedgerSha256: event.previousLedgerSha256,
+      grantSha256: digest(JSON.stringify(event)),
+      expiresAt: event.expiresAt,
+    };
   } else if (event.event === "rebind") {
     if (active) fail("REQUEST_IN_FLIGHT");
+    if (state.applicationContinuation) fail("SOURCE_MISMATCH");
     if (!SOURCE_TREE.test(event.sourceTree)) fail("SOURCE_MISMATCH");
     if (event.policyHash !== TRIAL_POLICY_HASH) fail("POLICY_MISMATCH");
     if (!SHA256.test(event.previousLedgerSha256)) fail("INVALID_LEDGER");
@@ -246,7 +326,7 @@ function parseLedger(contents: string, expected: Header): TrialLedgerSnapshot {
     for (const [offset, entry] of entries.slice(1).entries()) {
       if (!record(entry)) fail("INVALID_LEDGER");
       if (entry.event === "reserve" && keys(entry, ["event", "attemptId", "input"])) {
-        if (!integer(entry.attemptId, TRIAL_MAX_ATTEMPTS, 1) || !validInput(entry.input)) {
+        if (!integer(entry.attemptId, state.maxAttempts, 1) || !validInput(entry.input)) {
           fail("INVALID_LEDGER");
         }
         state = applyEvent(state, {
@@ -256,7 +336,7 @@ function parseLedger(contents: string, expected: Header): TrialLedgerSnapshot {
         });
       } else if (entry.event === "settle" && keys(entry, ["event", "attemptId"], ["usage"])) {
         if (
-          !integer(entry.attemptId, TRIAL_MAX_ATTEMPTS, 1) ||
+          !integer(entry.attemptId, state.maxAttempts, 1) ||
           (Object.hasOwn(entry, "usage") && !validUsage(entry.usage, state.policyHash))
         ) {
           fail("INVALID_LEDGER");
@@ -266,6 +346,14 @@ function parseLedger(contents: string, expected: Header): TrialLedgerSnapshot {
           attemptId: entry.attemptId,
           ...(entry.usage === undefined ? {} : { usage: entry.usage as TrialUsage }),
         });
+      } else if (entry.event === "application_continuation" && validContinuation(entry)) {
+        const prefix =
+          contents
+            .split("\n")
+            .slice(0, offset + 1)
+            .join("\n") + "\n";
+        if (entry.previousLedgerSha256 !== digest(prefix)) fail("INVALID_LEDGER");
+        state = applyEvent(state, entry);
       } else if (
         entry.event === "rebind" &&
         keys(entry, ["event", "previousLedgerSha256", "sourceTree", "policyHash"])
@@ -324,9 +412,15 @@ export function openTrialLedger(options: {
     previousPolicyHash: string;
     previousLedgerSha256: string;
   };
+  /** Explicit offline maintenance only; never inferred from ordinary startup. */
+  continuation?: ApplicationContinuationGrant;
+  /** Application-only activation. The frozen trial runner never supplies this. */
+  applicationContinuation?: { id: string; grantSha256: string };
 }): TrialLedger {
   if (options.policyHash !== TRIAL_POLICY_HASH) fail("POLICY_MISMATCH");
   if (!SOURCE_TREE.test(options.sourceTree)) fail("SOURCE_MISMATCH");
+  if (options.continuation && (options.migration || options.applicationContinuation))
+    fail("INVALID_LEDGER");
   const directory = resolve(options.directory);
   const lockPath = join(directory, "ledger.lock");
   const ledgerPath = join(directory, "ledger.jsonl");
@@ -422,25 +516,52 @@ export function openTrialLedger(options: {
       if (!stat.isFile() || stat.size === 0 || stat.size > MAX_LEDGER_BYTES) fail("INVALID_LEDGER");
       const contents = fs.readFileSync(ledgerPath, "utf8");
       const migration = options.migration;
+      const continuation = options.continuation;
+      const maintenance = migration ?? continuation;
       if (
-        migration &&
-        (!SHA256.test(migration.previousLedgerSha256) ||
-          digest(contents) !== migration.previousLedgerSha256)
+        maintenance &&
+        (!SHA256.test(maintenance.previousLedgerSha256) ||
+          digest(contents) !== maintenance.previousLedgerSha256)
       )
         fail("INVALID_LEDGER");
       state = parseLedger(
         contents,
-        migration
+        maintenance
           ? {
               ...header,
-              sourceTree: migration.previousSourceTree,
-              policyHash: migration.previousPolicyHash,
+              sourceTree: maintenance.previousSourceTree,
+              policyHash: migration?.previousPolicyHash ?? TRIAL_POLICY_HASH,
             }
           : header,
       );
       expectedBytes = Buffer.byteLength(contents);
       if (state.finished) fail("FINISHED");
+      if (state.applicationContinuation) {
+        if (
+          maintenance ||
+          options.applicationContinuation?.id !== state.applicationContinuation.id ||
+          options.applicationContinuation?.grantSha256 !== state.applicationContinuation.grantSha256
+        )
+          fail("CONTINUATION_REQUIRED");
+      } else if (options.applicationContinuation) fail("CONTINUATION_REQUIRED");
+      if (
+        continuation &&
+        (!Number.isSafeInteger(continuation.expiresAt) ||
+          continuation.expiresAt <= Date.now() ||
+          continuation.expiresAt > Date.now() + 86_400_000)
+      )
+        fail("CONTINUATION_EXPIRED");
       ledgerFd = fs.openSync(ledgerPath, "a", 0o600);
+      if (continuation)
+        persist({
+          ...continuation,
+          event: "application_continuation",
+          purpose: "normal-playback-browser-acceptance",
+          sourceTree: header.sourceTree,
+          policyHash: header.policyHash,
+          additionalAttempts: 8,
+          additionalMicroUsd: 1_000_000,
+        });
       if (migration)
         persist({
           event: "rebind",
@@ -449,7 +570,8 @@ export function openTrialLedger(options: {
           policyHash: header.policyHash,
         });
     } else {
-      if (options.migration) fail("INVALID_LEDGER");
+      if (options.migration || options.continuation || options.applicationContinuation)
+        fail("INVALID_LEDGER");
       ledgerFd = fs.openSync(ledgerPath, "ax", 0o600);
       try {
         const line = JSON.stringify(header) + "\n";
@@ -476,6 +598,10 @@ export function openTrialLedger(options: {
   return {
     reserve(input) {
       assertOpen();
+      if (state.applicationContinuation) {
+        if (!options.applicationContinuation) fail("CONTINUATION_REQUIRED");
+        if (Date.now() >= state.applicationContinuation.expiresAt) fail("CONTINUATION_EXPIRED");
+      }
       if (!validInput(input)) fail("INVALID_REQUEST");
       const attemptId = state.attempts.length + 1;
       persist({ event: "reserve", attemptId, input: structuredClone(input) });
