@@ -2,7 +2,9 @@
 
 The user authorized necessary laptop control and continued work for this session, with a target wrap-up around 08:30 Pacific. Earlier unanswered session-permission notes are superseded. Original MeltingPot repositories/services, permanent extension keys, real classroom data and automatic release claims remain excluded.
 
-**Latest checkpoint:** [actual transcript-overlap testing](TRANSCRIPT_OVERLAP.md) passed at `d14293c`: a fresh verified Gemini answer arrived in **5,056 ms**, with three settled calls and terminal accounting/cleanup; independent AI result/content review passed. This resolves the timing case left open by the earlier two-topic application PASS at `7ba8880`/`d6bb1f9`. The unpublished provider-free demo draft still totals 93.84 seconds. Earlier preparation/failure/readiness statements below describe their original checkpoints. Native capture, retention, human/judge acceptance and release remain open.
+**Latest checkpoint:** [rendered text contrast](CONTRAST.md) passes after two reviewed control-color corrections. Primary `c977921` (702 checks and CI `35348515987`) and copy `d03f99b` (387 tests/guarded build) form immutable candidate `release/c97792142b8b/`. Its artifact hashes and all ten extension files match the final audit. The [current human-review guide](HUMAN_REVIEW.md) now names this pair; actual human review remains pending.
+
+The preceding [actual transcript-overlap test](TRANSCRIPT_OVERLAP.md) passed at `d14293c`: a fresh verified Gemini answer arrived in **5,056 ms**, with three settled calls and terminal accounting/cleanup; independent AI result/content review passed. This resolves the timing case left open by the earlier two-topic application PASS at `7ba8880`/`d6bb1f9`. The unpublished provider-free demo draft still totals 93.84 seconds. Earlier preparation/failure/readiness statements below describe their original checkpoints. Native capture, retention, human/judge acceptance and release remain open.
 
 ## Real Scribe paused-fixture test
 

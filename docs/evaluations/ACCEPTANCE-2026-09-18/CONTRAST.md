@@ -1,6 +1,6 @@
 # Rendered text contrast — 2026-09-18
 
-**Measured corrections and independent review pass; refreshed packaging pending.** This closes a bounded technical gap in M5's contrast requirement. It does not establish full accessibility, human usefulness, native Chrome capture or release acceptance.
+**Measured corrections, independent review and refreshed packaging pass.** This closes a bounded technical gap in M5's contrast requirement. It does not establish full accessibility, human usefulness, native Chrome capture or release acceptance.
 
 ## Demonstrated defects and corrections
 
@@ -32,7 +32,9 @@ Execution started from primary `6710694d145f3e8ade55f74370ec83adad7d5230` with t
 
 The primary's full **702 tests**, formatting, lint, secret scan, types, builds, extension package and production HTTP check pass (`contrast-primary-full-check.txt`). The copy's guarded lint/types, **387 tests** and production build pass (`contrast-copy-check.txt`). No test was added merely to mirror the color values; rendered measurements exercise the actual built pages.
 
-Sequential independent review found no actionable P1/P2. It confirmed both source hashes, result/helper hashes, recorded interaction states and all test/cleanup evidence, and independently recalculated all 450 gradient bounds without a mismatch. Packaging/current-human-guide source refresh follows the corrected commits and CI.
+Sequential independent review found no actionable P1/P2. It confirmed both source hashes, result/helper hashes, recorded interaction states and all test/cleanup evidence, and independently recalculated all 450 gradient bounds without a mismatch.
+
+The committed pair is primary `c97792142b8b3bf2401faa623b9feeb8cd59bf31` (CI `35348515987` PASS) and isolated copy `d03f99b14895c392355bcfa3c0c2985ad7073d31`. Immutable candidate `release/c97792142b8b/` contains both sources and the ordinary extension, with live capture off. External `contrast-package-verification.json` confirms all four artifact hashes and that all ten extension files equal the final audit's actual loaded files. Manifest SHA-256: `ae3eb724ac823bfbdc91a8811c1f214044ab87f1e38af16be971ab51c7fff70d`. The [human guide](HUMAN_REVIEW.md) and release guide now point to this pair. Later documentation-only commits do not change these tested runtime files.
 
 All earlier evidence remains preserved:
 

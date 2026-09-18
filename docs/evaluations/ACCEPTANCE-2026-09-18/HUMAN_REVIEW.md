@@ -4,7 +4,7 @@
 
 ## 1. Try the learning experience
 
-An operator prepares the extension and private MeltingPot companion using [the current release guide](../TASK-308/RELEASE.md). The tested package is `release/d14293cc125e/`, paired with isolated MeltingPot `d6bb1f9adac5a1ba2d61936033991de62f6e1376`. Later documentation-only commits do not change those tested runtime files. Use the package manifest/current handoff to check the pair; do not use the obsolete `9244a64` copy named in the historical card.
+An operator prepares the extension and private MeltingPot companion using [the current release guide](../TASK-308/RELEASE.md). The tested package is `release/c97792142b8b/`, paired with isolated MeltingPot `d03f99b14895c392355bcfa3c0c2985ad7073d31`; this pair includes the reviewed [text-contrast corrections](CONTRAST.md). Later documentation-only commits do not change those tested runtime files. Use the package manifest/current handoff to check the pair; do not use the obsolete `9244a64` copy named in the historical card.
 
 On this laptop, the prepared extension files are in `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon\extension\dist`. Chrome installation still needs an operator: the automation tool could not reliably target its folder picker. Once the extension is loaded, copy the extension ID shown by Chrome. Keep these two local previews running:
 
