@@ -1,5 +1,7 @@
 # TASK-103 evaluation cases and evidence
 
+**Current direction:** Gemini replaces the prepared OpenAI assistance trial under [TASK-103C](../../tasks/TASK-103C.md). Claude implements, then Gemini independently reviews and continues the eligible work in [AI_ASSIGNMENTS.md](../../AI_ASSIGNMENTS.md). The frozen cases below remain unchanged. Historical OpenAI setup and test results do not establish a completed Gemini migration or authorize a provider call.
+
 Phase A prepares the delivered assistance path for a later real-model trial. All automated collaborators here are prewritten or injected. They make zero provider calls and establish no actual AI quality, latency, cost or human-review PASS.
 
 Inputs are frozen from unchanged canonical `shared/fixtures/calculus-lecture.json`. The executable case descriptions are in `web/src/server/ai-evaluation/cases.ts`; expected mathematical checks below are reviewed independently from any future model response. Do not rewrite expectations to fit a failed model response.
@@ -37,6 +39,6 @@ These are injected engineering results only: zero provider calls and zero provid
 
 ## Phase B trial preparation
 
-A separately invoked trial adapter, persistent spending ledger and frozen-case runner are prepared under [TASK-103B](../../tasks/TASK-103B.md). [The Phase B runbook](PHASE-B.md) records the pinned provider, verified pricing/retention, proposed $1 total cap, execution guards and commands. Paid execution still requires explicit approval and a locally configured server-process key. Neither ordinary tests nor the demo activate the adapter. The previous draft's proposed $2 and 40 attempts are not permission to spend.
+A separately invoked trial adapter, persistent spending ledger and frozen-case runner were prepared under [TASK-103B](../../tasks/TASK-103B.md) against OpenAI, then migrated to **Gemini** (`gemini-2.5-flash-lite`) by Claude under [TASK-103C](../../tasks/TASK-103C.md) on 2026-09-06, per the Product Owner's provider choice recorded in [ADR 0012](../../adr/0012-gemini-assistance-direction.md). [The Phase B runbook](PHASE-B.md) records the current Gemini provider, verified pricing/retention, proposed $1 total cap, execution guards and commands, with the earlier OpenAI proposal preserved there as history. Paid execution still requires independent review, explicit approval and a locally configured server-process `GEMINI_API_KEY`. Neither ordinary tests nor the demo activate the adapter. No provider call has ever been made under either configuration.
 
 Record the exact source/model configuration, human content review, each retry and timing, observed continuing ingestion, and actual cost. Report actual-model PASS, CHANGES REQUIRED or BLOCKED separately from Phase A engineering checks. Chrome, uncoached learner and judge-access acceptance remain open as well.

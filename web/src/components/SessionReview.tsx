@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
   assertWeakAreaDrillLinkage,
+  ASSISTANCE_STATUS_LABELS,
+  type AssistanceStatus,
   formatOffset,
   type SessionView,
   type WeakAreaDrillResponse,
@@ -20,6 +22,7 @@ export function SessionReview({
   client?: StudyClient;
 }) {
   const [view, setView] = useState<SessionView>();
+  const [assistanceStatus, setAssistanceStatus] = useState<AssistanceStatus>("unknown");
   const [selected, setSelected] = useState("");
   const [drill, setDrill] = useState<WeakAreaDrillResponse>();
   const [error, setError] = useState("");
@@ -48,6 +51,7 @@ export function SessionReview({
   useEffect(() => {
     const task = begin();
     setView(undefined);
+    setAssistanceStatus("unknown");
     setDrill(undefined);
     setDeleted(false);
     setError("");
@@ -58,11 +62,14 @@ export function SessionReview({
         if (!current(task.revision)) return;
         setView(result);
         setSelected(result.confusionEvents.find((event) => event.conceptId)?.confusionId ?? "");
+        setAssistanceStatus(client.assistanceStatus?.() ?? "unknown");
         setBusy("");
       })
       .catch((reason: unknown) => {
         if (!current(task.revision)) return;
         setError(studyErrorMessage(reason));
+        const reported = client.assistanceStatus?.() ?? "unknown";
+        setAssistanceStatus(reported === "gemini_ready" ? "gemini_failed" : reported);
         setBusy("");
       });
     return cancel;
@@ -94,11 +101,20 @@ export function SessionReview({
         view.confusionEvents,
         result,
       );
-      if (current(task.revision)) setDrill(result);
+      if (current(task.revision)) {
+        setDrill(result);
+        setAssistanceStatus(client.assistanceStatus?.() ?? "unknown");
+      }
     } catch (reason) {
-      if (current(task.revision)) setError(studyErrorMessage(reason));
+      if (current(task.revision)) {
+        setError(studyErrorMessage(reason));
+        const reported = client.assistanceStatus?.() ?? "unknown";
+        setAssistanceStatus(reported === "gemini_ready" ? "gemini_failed" : reported);
+      }
     } finally {
-      if (current(task.revision)) setBusy("");
+      if (current(task.revision)) {
+        setBusy("");
+      }
     }
   }
   async function remove() {
@@ -135,7 +151,7 @@ export function SessionReview({
       <header>
         <p className={styles.label}>SIMULATION · After the lecture</p>
         <h1>Practice where you got stuck.</h1>
-        <p>PREWRITTEN DEMO HELP — no AI provider used</p>
+        <p>{ASSISTANCE_STATUS_LABELS[assistanceStatus]}</p>
         <p className={styles.muted}>
           This sample session is kept temporarily in local server memory. It expires automatically
           and disappears when the server restarts.

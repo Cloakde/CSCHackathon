@@ -41,6 +41,13 @@ export interface TrialLedgerSnapshot {
   chargedMicroUsd: number;
   totalMicroUsd: number;
   attempts: TrialAttemptSnapshot[];
+  applicationContinuation?: {
+    id: string;
+    previousLedgerSha256: string;
+    grantSha256: string;
+    expiresAt: number;
+    zeroUseRecovered?: true;
+  };
 }
 
 export interface TrialLedger extends TrialMeter {

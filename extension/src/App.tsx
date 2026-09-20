@@ -1,5 +1,9 @@
 import {
   formatOffset,
+  ASSISTANCE_STATUS_LABELS,
+  type AssistanceStatus,
+  validateLectureToolResponse,
+  type LectureToolPrompt,
   ImLostResponseSchema,
   isReplayableTranscriptSource,
   SimulationTranscriptSource,
@@ -10,16 +14,56 @@ import {
   type TranscriptSource,
 } from "@livelecture/shared";
 import { useEffect, useRef, useState } from "react";
+import {
+  createCaptureClient,
+  type CaptureClient,
+  type CaptureClientRuntime,
+} from "./capture-client";
+import { IDLE_STATUS, type CaptureStatusSnapshot } from "./capture-protocol";
 import { createDemoClient, type DemoClient } from "./demo-api";
-import { demoHandoffUrl, type CompanionDestination } from "./demo-handoff";
+import { demoHandoffUrl, MELTINGPOT_ORIGIN, type CompanionDestination } from "./demo-handoff";
 import { createDemoUploader, type DemoUploader } from "./demo-uploader";
+import { LectureTools } from "./LectureTools";
+import { LiveTranscriptSource } from "./live-transcript-source";
 
 interface AppProps {
   source?: TranscriptSource;
   client?: DemoClient;
+  captureClient?: CaptureClient;
   navigate?: (url: string) => void;
   companionDestination?: CompanionDestination;
+  liveTestEnabled?: boolean;
 }
+
+/** No `chrome.runtime` in a non-extension render (tests, the demo web page). */
+function createFallbackCaptureClient(): CaptureClient {
+  return {
+    getStatus: async () => IDLE_STATUS,
+    subscribe: () => () => undefined,
+    consent: async () => IDLE_STATUS,
+    stop: async () => IDLE_STATUS,
+  };
+}
+
+const captureReasonCopy: Record<string, string> = {
+  consent_expired: "That disclosure expired before you responded.",
+  arm_expired: "The window to start capture closed. Click the extension icon to try again.",
+  tab_mismatch: "A different tab was active. Click the extension icon on the lecture tab.",
+  tab_closed: "The captured tab was closed.",
+  tab_restricted: "Chrome does not allow capturing this kind of page.",
+  permission_denied: "Chrome capture permission was not granted.",
+  capture_failed: "Capture stopped unexpectedly.",
+  offscreen_failed: "The capture helper could not start.",
+  stream_id_failed: "Chrome could not prepare this tab for capture.",
+  getusermedia_failed: "Chrome could not start listening to this tab's audio.",
+  unexpected: "Something went wrong with capture.",
+};
+
+// This module is also imported directly by the companion web app's browser
+// rehearsal pages (see web/src/app/demo/**), whose tsconfig does not load
+// @types/chrome. A locally scoped ambient declaration keeps this file's own
+// typecheck independent of whichever consumer's global types are loaded.
+declare const chrome: { runtime?: CaptureClientRuntime } | undefined;
 
 type Operation = "start" | "help" | "end" | "reset";
 const speedOptions = [1, 12, 60, 240];
@@ -29,8 +73,10 @@ const helpLookbackMs = 900_000;
 export function App({
   source: providedSource,
   client: providedClient,
+  captureClient: providedCaptureClient,
   navigate,
   companionDestination = "prototype",
+  liveTestEnabled = false,
 }: AppProps) {
   const [fallbackSource] = useState(() => {
     const source = new SimulationTranscriptSource();
@@ -38,18 +84,36 @@ export function App({
     return source;
   });
   const [fallbackClient] = useState(() => createDemoClient());
+  const [fallbackCaptureClient] = useState(() =>
+    typeof chrome !== "undefined" && chrome.runtime
+      ? createCaptureClient(chrome.runtime)
+      : createFallbackCaptureClient(),
+  );
   const client = providedClient ?? fallbackClient;
-  const source = providedSource ?? fallbackSource;
+  const captureClient = providedCaptureClient ?? fallbackCaptureClient;
+  const [liveSource] = useState(() =>
+    liveTestEnabled && typeof chrome !== "undefined" && chrome.runtime
+      ? new LiveTranscriptSource(captureClient, chrome.runtime)
+      : undefined,
+  );
+  const [selectedMode, setSelectedMode] = useState<"simulation" | "live">("simulation");
+  const [liveCode, setLiveCode] = useState("");
+  const source =
+    providedSource ?? (selectedMode === "live" && liveSource ? liveSource : fallbackSource);
+  const [captureStatus, setCaptureStatus] = useState<CaptureStatusSnapshot>(IDLE_STATUS);
+  const [captureActionError, setCaptureActionError] = useState<string>();
   const [snapshot, setSnapshot] = useState(source.getSnapshot());
   const [chunks, setChunks] = useState<TranscriptChunk[]>([]);
   const [partial, setPartial] = useState<PartialTranscriptChunk>();
   const [session, setSession] = useState<ActiveLectureSession>();
   const [help, setHelp] = useState<ImLostResponse>();
+  const [assistanceStatus, setAssistanceStatus] = useState<AssistanceStatus>("unknown");
   const [savedConcepts, setSavedConcepts] = useState<string[]>([]);
   const [handoff, setHandoff] = useState<string>();
   const [highlighted, setHighlighted] = useState<string>();
   const [busy, setBusy] = useState<Operation>();
   const [error, setError] = useState<string>();
+  const [sourceError, setSourceError] = useState<string>();
   const [retry, setRetry] = useState<Operation>();
   const [uploadError, setUploadError] = useState<string>();
   const sessionRef = useRef<ActiveLectureSession | undefined>(undefined);
@@ -60,7 +124,7 @@ export function App({
   const abortRef = useRef<AbortController | undefined>(undefined);
   const completedRef = useRef(false);
   const rowsRef = useRef(new Map<string, HTMLElement>());
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const transcriptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     generationRef.current += 1;
@@ -75,11 +139,13 @@ export function App({
     setPartial(undefined);
     setSession(undefined);
     setHelp(undefined);
+    setAssistanceStatus("unknown");
     setSavedConcepts([]);
     setHandoff(undefined);
     setHighlighted(undefined);
     setBusy(undefined);
     setError(undefined);
+    setSourceError(undefined);
     setRetry(undefined);
     setUploadError(undefined);
     const unsubscribe = source.subscribe((event) => {
@@ -103,6 +169,11 @@ export function App({
         source.stop();
         setPartial(undefined);
       }
+      if (event.type === "source.error") {
+        setSourceError(event.error.message);
+        setPartial(undefined);
+      }
+      if (event.type === "source.state" && event.status === "active") setSourceError(undefined);
       setSnapshot(source.getSnapshot());
     });
     return () => {
@@ -115,14 +186,45 @@ export function App({
   }, [source]);
 
   useEffect(() => {
+    let cancelled = false;
+    // A live broadcast can arrive and resolve before this initial poll does;
+    // once that happens the poll's answer is stale and must not overwrite it.
+    let receivedLiveUpdate = false;
+    void captureClient
+      .getStatus()
+      .then((status) => {
+        if (!cancelled && !receivedLiveUpdate) setCaptureStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled)
+          setCaptureActionError(
+            "Capture status could not be checked. Reopen the extension to retry.",
+          );
+      });
+    const unsubscribe = captureClient.subscribe((status) => {
+      if (!cancelled) {
+        receivedLiveUpdate = true;
+        setCaptureStatus(status);
+        setCaptureActionError(undefined);
+      }
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [captureClient]);
+
+  useEffect(() => {
     // Keep a selected citation in view while the lecture continues.
     if (highlighted || (chunks.length === 0 && !partial)) return;
     const reduceMotion =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    transcriptEndRef.current?.scrollIntoView({
+    // Incoming words must not move the panel's help controls out of view.
+    const transcript = transcriptRef.current;
+    transcript?.scrollTo({
       behavior: reduceMotion ? "auto" : "smooth",
-      block: "nearest",
+      top: transcript.scrollHeight,
     });
   }, [chunks, partial, highlighted]);
 
@@ -134,7 +236,11 @@ export function App({
   async function run(operation: Operation) {
     if (operation !== "reset" && busyRef.current) return;
     if (operation === "reset" && busyRef.current === "reset") return;
-    if (operation === "start" && (sessionRef.current || source.getSnapshot().mode !== "simulation"))
+    if (
+      operation === "start" &&
+      (sessionRef.current ||
+        (source.getSnapshot().mode !== "simulation" && !(source instanceof LiveTranscriptSource)))
+    )
       return;
     if (
       (operation === "help" || operation === "end") &&
@@ -157,11 +263,15 @@ export function App({
     setError(undefined);
     setRetry(undefined);
     const current = () => generation === generationRef.current && !controller.signal.aborted;
+    if (operation === "help") setHelp(undefined);
+    let succeeded = false;
     try {
       if (operation === "start") {
+        if (source instanceof LiveTranscriptSource && !/^[a-f0-9]{32}$/.test(liveCode))
+          throw new Error("Enter the temporary live-test code from the authorized launcher.");
         const created = await client.start(
           {
-            sourceMode: "simulation",
+            sourceMode: source.getSnapshot().mode,
             title: source.getSnapshot().session.title,
             subject: source.getSnapshot().session.subject,
           },
@@ -183,10 +293,15 @@ export function App({
               sessionRef.current?.sessionId === created.sessionId
             ) {
               setUploadError(failure.message);
+              if (source instanceof LiveTranscriptSource) source.stop();
             }
           },
         });
         if (isReplayableTranscriptSource(source)) source.reset();
+        if (source instanceof LiveTranscriptSource) {
+          source.prepare(created.sessionId, liveCode);
+          setLiveCode("");
+        }
         source.start();
         setSnapshot(source.getSnapshot());
       } else if (operation === "reset") {
@@ -271,11 +386,17 @@ export function App({
           ).toISOString();
           const result = await client.end(existing.sessionId, endedAt, controller.signal);
           if (!current()) return;
-          const destination = demoHandoffUrl(companionDestination, existing.sessionId, result);
+          const destination = demoHandoffUrl(
+            companionDestination,
+            existing.sessionId,
+            result,
+            existing.sourceMode,
+          );
           completedRef.current = true;
           setHandoff(destination);
         }
       }
+      succeeded = true;
     } catch (failure) {
       if (current()) {
         if (failure !== uploaderRef.current?.getFailure()) {
@@ -286,7 +407,71 @@ export function App({
         }
       }
     } finally {
-      if (current()) setOperation(undefined);
+      if (current()) {
+        setOperation(undefined);
+        const reported = client.assistanceStatus();
+        setAssistanceStatus(
+          operation === "reset"
+            ? "unknown"
+            : !succeeded && reported === "gemini_ready"
+              ? "gemini_failed"
+              : reported,
+        );
+      }
+    }
+  }
+
+  async function requestLectureTool(prompt: LectureToolPrompt, signal: AbortSignal) {
+    const existing = sessionRef.current;
+    const uploader = uploaderRef.current;
+    const generation = generationRef.current;
+    const current = () =>
+      !signal.aborted &&
+      generation === generationRef.current &&
+      sessionRef.current === existing &&
+      !completedRef.current &&
+      busyRef.current !== "end";
+    if (!existing || !uploader || !current()) throw new Error("The lecture is unavailable.");
+    await uploader.flush();
+    if (!current()) throw new Error("The lecture is unavailable.");
+    const acknowledged = uploader.getAcknowledged();
+    const input = { ...prompt, throughSequence: acknowledged.at(-1)?.sequence ?? -1 };
+    let checked = false;
+    try {
+      const incoming = await client.lectureTools(existing.sessionId, input, signal);
+      if (!current()) throw new Error("The lecture is unavailable.");
+      const answer = validateLectureToolResponse(
+        existing.sessionId,
+        input,
+        acknowledged,
+        incoming,
+        existing.sourceMode,
+      );
+      checked = true;
+      return answer;
+    } finally {
+      if (current()) {
+        const reported = client.assistanceStatus();
+        setAssistanceStatus(!checked && reported === "gemini_ready" ? "gemini_failed" : reported);
+      }
+    }
+  }
+
+  async function handleCaptureConsent() {
+    setCaptureActionError(undefined);
+    try {
+      setCaptureStatus(await captureClient.consent(captureStatus.generation));
+    } catch (failure) {
+      setCaptureActionError(failure instanceof Error ? failure.message : "Something went wrong.");
+    }
+  }
+
+  async function handleCaptureStop() {
+    setCaptureActionError(undefined);
+    try {
+      setCaptureStatus(await captureClient.stop(captureStatus.generation));
+    } catch (failure) {
+      setCaptureActionError(failure instanceof Error ? failure.message : "Something went wrong.");
     }
   }
 
@@ -309,12 +494,19 @@ export function App({
     : running
       ? replay?.isPaused
         ? "Paused"
-        : "Playing"
+        : snapshot.mode === "live"
+          ? "Listening"
+          : "Playing"
       : session
-        ? "Replay stopped"
+        ? snapshot.mode === "live"
+          ? "Live test stopped"
+          : "Replay stopped"
         : "Ready";
   const title = snapshot.session.title ?? "Sample lecture";
-  const liveUnavailable = snapshot.mode !== "simulation";
+  const liveUnavailable =
+    snapshot.mode !== "simulation" && !(source instanceof LiveTranscriptSource);
+  const isLive = snapshot.mode === "live";
+  const meltingpotHandoff = handoff?.startsWith(`${MELTINGPOT_ORIGIN}/`) ?? false;
 
   return (
     <main className="app-shell">
@@ -327,17 +519,122 @@ export function App({
           {status}
         </span>
       </header>
-      <section className="simulation-banner" aria-label="SIMULATION source disclosure">
-        <strong>SIMULATION</strong>
-        <span>Synthetic lecture text — no audio is being captured.</span>
+      {liveSource && !providedSource ? (
+        <fieldset
+          disabled={
+            Boolean(session) ||
+            Boolean(busy) ||
+            ["active", "starting", "armed"].includes(captureStatus.state)
+          }
+        >
+          <legend>Lecture source</legend>
+          <label>
+            <input
+              type="radio"
+              name="source-mode"
+              checked={selectedMode === "simulation"}
+              onChange={() => setSelectedMode("simulation")}
+            />{" "}
+            Sample lecture
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="source-mode"
+              checked={selectedMode === "live"}
+              onChange={() => setSelectedMode("live")}
+            />{" "}
+            Live test (90 seconds)
+          </label>
+        </fieldset>
+      ) : null}
+      <section
+        className="simulation-banner"
+        aria-label={isLive ? "LIVE TEST source disclosure" : "SIMULATION source disclosure"}
+      >
+        <strong>{isLive ? "LIVE TEST · NOT YET VERIFIED IN CHROME" : "SIMULATION"}</strong>
+        <span>
+          {isLive
+            ? "With your consent, this tab's audio goes to ElevenLabs for transcription. Audio is not saved. Text stays in the local session; requesting Gemini help also sends lecture text to Gemini. Use only the approved synthetic test. Closing this panel stops the test within six seconds."
+            : captureStatus.state === "active" || captureStatus.state === "starting"
+              ? "Synthetic lecture text. The separate capture experiment does not supply this transcript."
+              : "Synthetic lecture text — no audio is being captured."}
+        </span>
       </section>
-      <p className="demo-disclosure">
-        <strong>PREWRITTEN DEMO HELP</strong> — no AI provider used.
-      </p>
+      {isLive && !session ? (
+        <label>
+          Temporary live-test code
+          <input
+            type="password"
+            autoComplete="off"
+            value={liveCode}
+            onChange={(event) => setLiveCode(event.target.value)}
+          />
+          <span>
+            Open the lecture tab using the extension icon first. This is a one-run test code, never
+            your provider API key.
+          </span>
+        </label>
+      ) : null}
+      {captureStatus.state !== "idle" ? (
+        <section
+          className="capture-panel"
+          aria-label="Experimental tab-audio capture"
+          role="status"
+        >
+          <p className="eyebrow">
+            {isLive ? "Live test capture" : "Experimental — not part of this lecture yet"}
+          </p>
+          {captureStatus.state === "awaiting_consent" && !isLive ? (
+            <>
+              <p>
+                LiveLecture AI can capture only this browser tab&rsquo;s audio. Nothing is sent
+                anywhere and no audio is stored. Microphone and video are never used.
+              </p>
+              <button type="button" onClick={() => void handleCaptureConsent()}>
+                I consent — capture this tab&rsquo;s audio
+              </button>
+            </>
+          ) : null}
+          {captureStatus.state === "armed" ? (
+            <p>Click the extension icon again on this tab within 60 seconds to start.</p>
+          ) : null}
+          {captureStatus.state === "starting" ? <p>Starting capture…</p> : null}
+          {["awaiting_consent", "armed", "starting"].includes(captureStatus.state) ? (
+            <button type="button" onClick={() => void handleCaptureStop()}>
+              Cancel capture
+            </button>
+          ) : null}
+          {captureStatus.state === "active" ? (
+            <>
+              <p className="capture-active-indicator">
+                <span aria-hidden="true">●</span> Capturing this tab&rsquo;s audio
+              </p>
+              <button type="button" onClick={() => void handleCaptureStop()}>
+                Stop capture
+              </button>
+            </>
+          ) : null}
+          {captureStatus.state === "error" ? (
+            <p role="alert">
+              {captureStatus.reason && captureReasonCopy[captureStatus.reason]
+                ? captureReasonCopy[captureStatus.reason]
+                : "Something went wrong with capture."}
+            </p>
+          ) : null}
+          {captureActionError ? <p role="alert">{captureActionError}</p> : null}
+        </section>
+      ) : null}
+      <p className="demo-disclosure">{ASSISTANCE_STATUS_LABELS[assistanceStatus]}</p>
+      {sourceError ? <p role="alert">{sourceError}</p> : null}
       <section className="journey-guide" aria-label="How to try the demo">
         <p>Follow a lecture. Get unstuck. Practice what was hard.</p>
         <ol>
-          <li>Start the sample lecture.</li>
+          <li>
+            {isLive
+              ? "Consent below, then click the extension icon again to start capture."
+              : "Start the sample lecture."}
+          </li>
           <li>
             Press <strong>I’m Lost</strong> when a step is unclear.
           </li>
@@ -378,10 +675,20 @@ export function App({
         <button
           className="primary-button"
           type="button"
-          disabled={Boolean(session) || Boolean(busy) || liveUnavailable}
+          disabled={
+            Boolean(session) ||
+            Boolean(busy) ||
+            liveUnavailable ||
+            (isLive &&
+              (captureStatus.state !== "awaiting_consent" || !/^[a-f0-9]{32}$/.test(liveCode)))
+          }
           onClick={() => void run("start")}
         >
-          {busy === "start" ? "Starting…" : "Start sample lecture"}
+          {busy === "start"
+            ? "Starting…"
+            : isLive
+              ? "I consent — prepare live transcription"
+              : "Start sample lecture"}
         </button>
         <button
           type="button"
@@ -392,7 +699,7 @@ export function App({
           }}
           disabled={!running}
         >
-          Stop replay
+          {isLive ? "Stop live test" : "Stop replay"}
         </button>
         {replay ? (
           <>
@@ -437,13 +744,18 @@ export function App({
       </section>
       <section className="learning-actions" aria-label="Get help and practice">
         <div>
-          <p className="eyebrow">{formatOffset(progressMs)} of 8:00</p>
+          <p className="eyebrow">
+            {formatOffset(progressMs)}
+            {isLive ? " · live test" : " of 8:00"}
+          </p>
           <p>
-            {progressMs < 145_000
-              ? "Wait for the first explanation, then ask for help."
-              : progressMs < 300_000
-                ? "Try I’m Lost for help spotting the inner and outer functions."
-                : "Try I’m Lost for help remembering the inner derivative."}
+            {isLive
+              ? "Ask for help once a complete passage arrives. Only confirmed passages are saved; unfinished speech may be omitted when you stop."
+              : progressMs < 145_000
+                ? "Wait for the first explanation, then ask for help."
+                : progressMs < 300_000
+                  ? "Try I’m Lost for help spotting the inner and outer functions."
+                  : "Try I’m Lost for help remembering the inner derivative."}
           </p>
         </div>
         <div className="action-buttons">
@@ -501,10 +813,10 @@ export function App({
                   : undefined
               }
             >
-              {companionDestination === "meltingpot" ? "Open in MeltingPot" : "Open my practice"}
+              {meltingpotHandoff ? "Open in MeltingPot" : "Open my practice"}
             </a>
             <p className="small-note">
-              {companionDestination === "meltingpot"
+              {meltingpotHandoff
                 ? "Opens MeltingPot in a new tab. If it is unavailable, start the MeltingPot rework app and use this link again. Keep both local demo servers running."
                 : "Opens the companion app in a new tab. Keep the local demo server running."}
             </p>
@@ -548,16 +860,26 @@ export function App({
               </div>
             </>
           ) : (
-            <p>
-              {help.message} Let a little more of the sample lecture play, then try I’m Lost again.
-            </p>
+            <p>{help.message} Let a little more of the lecture play, then try I’m Lost again.</p>
           )}
         </section>
+      ) : null}
+      {session && !handoff && busy !== "reset" && busy !== "end" ? (
+        <LectureTools
+          sourceMode={source.getSnapshot().mode}
+          key={session.sessionId}
+          assistanceStatus={assistanceStatus}
+          request={requestLectureTool}
+          jump={jumpToCitation}
+          blocked={Boolean(uploadError) || !uploaderRef.current}
+        />
       ) : null}
       <section className="transcript-panel" aria-labelledby="transcript-heading">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Sample lecture · {chunks.length} passages</p>
+            <p className="eyebrow">
+              {isLive ? "Live test" : "Sample lecture"} · {chunks.length} passages
+            </p>
             <h2 id="transcript-heading">What the class is covering</h2>
           </div>
           {highlighted ? (
@@ -567,6 +889,7 @@ export function App({
           ) : null}
         </div>
         <div
+          ref={transcriptRef}
           className="transcript"
           role="log"
           aria-label="Lecture transcript"
@@ -577,8 +900,9 @@ export function App({
             <div className="empty-state">
               <span className="empty-glyph">0:00</span>
               <p>
-                Start the sample lecture to watch its words appear here. No microphone or recording
-                is used.
+                {isLive
+                  ? "Confirmed words from the captured tab will appear here. Microphone and video are never used."
+                  : "Start the sample lecture to watch its words appear here. No microphone or recording is used."}
               </p>
             </div>
           ) : null}
@@ -609,12 +933,14 @@ export function App({
               <p>{partial.text}</p>
             </article>
           ) : null}
-          <div ref={transcriptEndRef} />
         </div>
       </section>
       <p className="small-note">
         This local demo keeps sessions temporarily in memory. Reset deletes this session; restarting
-        the server clears all sessions. Closing this page stops replay.
+        the server clears all sessions.{" "}
+        {isLive
+          ? "Closing the panel stops this live test within six seconds."
+          : "Closing this page stops replay."}
       </p>
     </main>
   );

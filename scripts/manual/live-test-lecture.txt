@@ -1,0 +1,5 @@
+This is a synthetic calculus lecture for testing LiveLecture. A derivative measures how quickly an output changes as its input changes.
+
+A composition puts one function inside another. The inner function acts first, and the outer function acts on its result. Consider the quantity three times x plus one, raised to the fourth power. The inner function is three times x plus one. The outer function takes its input to the fourth power.
+
+The chain rule says to differentiate the outer function at the inner expression, then multiply by the derivative of the inner function. In our example, the outside step gives four times the quantity three times x plus one, raised to the third power. The inside derivative is three. Multiply by three to finish. Forgetting that factor of three is a common mistake.

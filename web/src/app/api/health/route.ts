@@ -4,7 +4,7 @@ export function GET(): Response {
       ok: true,
       service: "livelecture-web",
       source: "simulation",
-      liveProvidersEnabled: false,
+      liveAudioEnabled: false,
     },
     {
       headers: {

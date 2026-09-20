@@ -1,5 +1,7 @@
 import {
   ApiContracts,
+  readAssistanceStatus,
+  type AssistanceStatus,
   ApiErrorSchema,
   StableIdSchema,
   type ApiError,
@@ -30,6 +32,7 @@ export function studyErrorMessage(error: unknown): string {
 }
 
 export interface StudyClient {
+  assistanceStatus?(): AssistanceStatus;
   getSession(sessionId: string, signal?: AbortSignal): Promise<SessionView>;
   createDrill(
     sessionId: string,
@@ -42,6 +45,7 @@ export interface StudyClient {
 export function createStudyClient(
   fetcher: typeof fetch = (...args) => fetch(...args),
 ): StudyClient {
+  let assistanceStatus: AssistanceStatus = "unknown";
   async function request(path: string, method: string, signal?: AbortSignal, body?: unknown) {
     const controller = new AbortController();
     const abort = () => controller.abort();
@@ -62,10 +66,15 @@ export function createStudyClient(
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
       const value: unknown = await response.json();
+      assistanceStatus = readAssistanceStatus(response.headers);
       const error = ApiErrorSchema.safeParse(value);
       if (error.success) throw new StudyError(error.data.error.code);
       if (!response.ok) throw new StudyError("INVALID_RESPONSE");
       return value;
+    } catch (error) {
+      if (!signal?.aborted && assistanceStatus === "gemini_ready")
+        assistanceStatus = "gemini_failed";
+      throw error;
     } finally {
       clearTimeout(timeout);
       signal?.removeEventListener("abort", abort);
@@ -79,6 +88,7 @@ export function createStudyClient(
 
   const path = (id: string) => `/api/sessions/${StableIdSchema.parse(id)}`;
   return {
+    assistanceStatus: () => assistanceStatus,
     async getSession(id, signal) {
       const view = unwrap(
         ApiContracts.getSession.response.parse(await request(path(id), "GET", signal)),

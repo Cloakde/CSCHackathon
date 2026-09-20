@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GET } from "./route";
 
 describe("GET /api/health", () => {
-  it("reports the bootstrap source without claiming live providers", async () => {
+  it("reports simulation and disabled audio without making a text-provider claim", async () => {
     const response = GET();
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
@@ -11,7 +11,7 @@ describe("GET /api/health", () => {
       ok: true,
       service: "livelecture-web",
       source: "simulation",
-      liveProvidersEnabled: false,
+      liveAudioEnabled: false,
     });
   });
 });

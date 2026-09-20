@@ -1,6 +1,8 @@
 node_modules/
 .next/
 dist/
+dist-live-test/
+release/
 coverage/
 package-lock.json
 docs/MILESTONE_PLAN.md

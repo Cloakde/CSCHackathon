@@ -2,6 +2,58 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { demoConfiguration } from "./demo-server.mjs";
 
+test("normal launches strip inherited provider activation and never inspect credentials", () => {
+  const config = demoConfiguration([], {
+    GEMINI_API_KEY: "offline-fake-key",
+    LIVELECTURE_ASSISTANCE_PROVIDER: "gemini",
+    LIVELECTURE_APP_EXECUTE: "approved-one-dollar-v1",
+    LIVELECTURE_APP_TREE: "a".repeat(40),
+    LIVELECTURE_APP_CONTINUATION_ID: "inherited-allowance",
+    LIVELECTURE_APP_CONTINUATION_HASH: "b".repeat(64),
+    LIVELECTURE_APP_RUN_HASH: "c".repeat(64),
+    LIVELECTURE_LIVE_TEST: "synthetic-90-seconds",
+  });
+  assert.equal(config.env.LIVELECTURE_ASSISTANCE_PROVIDER, "prewritten");
+  assert.equal(config.env.LIVELECTURE_APP_EXECUTE, "");
+  assert.equal(config.env.LIVELECTURE_LIVE_TEST, "");
+  assert.equal(config.env.LIVELECTURE_APP_CONTINUATION_ID, "");
+  assert.equal(config.env.LIVELECTURE_APP_CONTINUATION_HASH, "");
+  assert.equal(config.env.LIVELECTURE_APP_RUN_HASH, "");
+});
+
+for (const mode of ["approved-application-run-v1", "approved-overlap-run-v1"]) {
+  test(`normal launch strips ${mode} without accessing a run`, () => {
+    const config = demoConfiguration([], {
+      GEMINI_API_KEY: "offline-fake-key",
+      LIVELECTURE_ASSISTANCE_PROVIDER: "gemini",
+      LIVELECTURE_APP_EXECUTE: mode,
+      LIVELECTURE_APP_RUN_HASH: "c".repeat(64),
+    });
+    assert.equal(config.env.LIVELECTURE_ASSISTANCE_PROVIDER, "prewritten");
+    assert.equal(config.env.LIVELECTURE_APP_EXECUTE, "");
+    assert.equal(config.env.LIVELECTURE_APP_RUN_HASH, "");
+  });
+}
+
+test("Gemini app runs require explicit cap, clean exact source, and no CI", () => {
+  const tree = "a".repeat(40);
+  const repository = {
+    sourceTree: tree,
+    commit: "b".repeat(40),
+    dirty: false,
+    commonDir: process.cwd(),
+  };
+  const environment = { GEMINI_API_KEY: "offline-fake-credential-for-tests" };
+  assert.throws(() => demoConfiguration(["--gemini"], environment, repository));
+  const args = ["--gemini", "--approve-usd=1", `--source-tree=${tree}`];
+  assert.throws(() => demoConfiguration(args, { ...environment, CI: "true" }, repository));
+  assert.throws(() => demoConfiguration(args, environment, { ...repository, dirty: true }));
+  const config = demoConfiguration(args, environment, repository);
+  assert.equal(config.env.LIVELECTURE_APP_EXECUTE, "approved-one-dollar-v1");
+  assert.equal(config.env.LIVELECTURE_APP_TREE, tree);
+  assert.equal(config.env.LIVELECTURE_ASSISTANCE_PROVIDER, "gemini");
+});
+
 test("demo binds only to fixed loopback and is explicitly enabled", () => {
   const config = demoConfiguration([], { LIVELECTURE_DEMO_ENABLED: "false" });
   assert.deepEqual(config.args, ["dev", "--hostname", "127.0.0.1", "--port", "3000"]);
