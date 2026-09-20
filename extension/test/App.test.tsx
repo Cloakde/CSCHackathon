@@ -331,13 +331,51 @@ describe("local learning demo", () => {
     });
   });
 
-  it("wires pause, resume, speed, Stop and reduced-motion scrolling without losing saved help", async () => {
+  it.each([false, true])(
+    "keeps incoming transcript scrolling inside its log and preserves citation navigation (reduced motion: %s)",
+    async (reduceMotion) => {
+      vi.useFakeTimers();
+      vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: reduceMotion }));
+      const ancestorScroll = vi.spyOn(Element.prototype, "scrollIntoView");
+      const h = harness();
+      await start(h, 0);
+      const transcript = screen.getByRole("log", { name: "Lecture transcript" });
+      Object.defineProperty(transcript, "scrollHeight", { configurable: true, value: 1200 });
+      const scroll = vi.spyOn(transcript, "scrollTo");
+      await advance(500);
+      expect(screen.getByRole("article", { name: "Partial transcript" })).toBeVisible();
+      expect(scroll).toHaveBeenLastCalledWith({
+        behavior: reduceMotion ? "auto" : "smooth",
+        top: 1200,
+      });
+      scroll.mockClear();
+      await advance(2000);
+      expect(screen.getByText("Sample lecture · 3 passages")).toBeVisible();
+      expect(scroll).toHaveBeenCalled();
+      expect(ancestorScroll).not.toHaveBeenCalled();
+      await click("I’m Lost");
+      await click("Go to 0:45–1:30");
+      expect(ancestorScroll).toHaveBeenCalledExactlyOnceWith({ behavior: "auto", block: "center" });
+      const citation = screen.getByRole("article", { name: "Lecture passage at 0:45" });
+      expect(citation).toHaveFocus();
+      scroll.mockClear();
+      await advance(3000);
+      expect(scroll).not.toHaveBeenCalled();
+      expect(citation).toHaveClass("citation-highlight");
+      await click("Follow latest");
+      expect(scroll).toHaveBeenCalledExactlyOnceWith({
+        behavior: reduceMotion ? "auto" : "smooth",
+        top: 1200,
+      });
+      expect(citation).not.toHaveClass("citation-highlight");
+      expect(ancestorScroll).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("wires pause, resume, speed and Stop without losing saved help", async () => {
     vi.useFakeTimers();
-    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
-    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
     const h = harness();
     await start(h);
-    expect(scroll).toHaveBeenCalledWith({ behavior: "auto", block: "nearest" });
     await click("Pause");
     expect(h.source.getSnapshot().replay.isPaused).toBe(true);
     const passageCount = screen.getAllByRole("article").length;

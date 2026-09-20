@@ -22,10 +22,12 @@ function deferred<T>() {
 }
 function setup() {
   vi.useFakeTimers();
-  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-    configurable: true,
-    value: vi.fn(),
-  });
+  for (const method of ["scrollIntoView", "scrollTo"]) {
+    Object.defineProperty(HTMLElement.prototype, method, {
+      configurable: true,
+      value: vi.fn(),
+    });
+  }
   vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Provider requests forbidden"));
   const dispatch = createDemoDispatcher({
     enabled: true,

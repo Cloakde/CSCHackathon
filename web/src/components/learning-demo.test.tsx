@@ -65,10 +65,12 @@ async function completedSession() {
 
 it("runs the actual lecture component through the actual API into two distinct companion exercises", async () => {
   // jsdom has no layout/scrolling; focus and evidence identity are still checked below.
-  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-    configurable: true,
-    value: vi.fn(),
-  });
+  for (const method of ["scrollIntoView", "scrollTo"]) {
+    Object.defineProperty(HTMLElement.prototype, method, {
+      configurable: true,
+      value: vi.fn(),
+    });
+  }
   vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("External requests are forbidden"));
   vi.useFakeTimers();
   const api = setup();

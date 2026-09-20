@@ -40,10 +40,12 @@ export async function runComponentProbe(
   isProviderPending: () => boolean,
   timing: ProbeTiming = realTiming,
 ) {
-  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-    configurable: true,
-    value: () => undefined,
-  });
+  for (const method of ["scrollIntoView", "scrollTo"]) {
+    Object.defineProperty(HTMLElement.prototype, method, {
+      configurable: true,
+      value: () => undefined,
+    });
+  }
   const result = scenarioRecord(probe.fixture);
   result.id = `${probe.fixture.id}_${timing.mode}_overlap`;
   result.timingPath =

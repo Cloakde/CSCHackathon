@@ -23,10 +23,12 @@ afterEach(() => {
 });
 
 function setup(provider: "prewritten" | "gemini" | "blocked") {
-  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-    configurable: true,
-    value: vi.fn(),
-  });
+  for (const method of ["scrollIntoView", "scrollTo"]) {
+    Object.defineProperty(HTMLElement.prototype, method, {
+      configurable: true,
+      value: vi.fn(),
+    });
+  }
   let fail = false;
   // Deterministic local generators exercise status propagation; provider transport and run
   // authorization have their own tests through createDemoRequestHandler with a fake network.

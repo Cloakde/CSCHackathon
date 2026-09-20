@@ -45,10 +45,12 @@ it.each([
 ])(
   "uploads $chunk during Help at 1× and records only the retried authoritative moment",
   async (fixture) => {
-    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-      configurable: true,
-      value: vi.fn(),
-    });
+    for (const method of ["scrollIntoView", "scrollTo"]) {
+      Object.defineProperty(HTMLElement.prototype, method, {
+        configurable: true,
+        value: vi.fn(),
+      });
+    }
     const network = vi
       .spyOn(globalThis, "fetch")
       .mockRejectedValue(new Error("Readiness tests cannot access a network"));

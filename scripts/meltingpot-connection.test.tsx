@@ -31,10 +31,12 @@ async function click(name: string | RegExp) {
 it.each(["prewritten", "gemini"] as const)(
   "connects extension, API and MeltingPot for two concepts with %s status using offline generators",
   async (assistanceProvider) => {
-    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-      configurable: true,
-      value: vi.fn(),
-    });
+    for (const method of ["scrollIntoView", "scrollTo"]) {
+      Object.defineProperty(HTMLElement.prototype, method, {
+        configurable: true,
+        value: vi.fn(),
+      });
+    }
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("External requests forbidden"));
     const dispatch = createDemoDispatcher({
       enabled: true,

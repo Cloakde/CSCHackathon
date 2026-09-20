@@ -124,7 +124,7 @@ export function App({
   const abortRef = useRef<AbortController | undefined>(undefined);
   const completedRef = useRef(false);
   const rowsRef = useRef(new Map<string, HTMLElement>());
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const transcriptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     generationRef.current += 1;
@@ -220,9 +220,11 @@ export function App({
     const reduceMotion =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    transcriptEndRef.current?.scrollIntoView({
+    // Incoming words must not move the panel's help controls out of view.
+    const transcript = transcriptRef.current;
+    transcript?.scrollTo({
       behavior: reduceMotion ? "auto" : "smooth",
-      block: "nearest",
+      top: transcript.scrollHeight,
     });
   }, [chunks, partial, highlighted]);
 
@@ -887,6 +889,7 @@ export function App({
           ) : null}
         </div>
         <div
+          ref={transcriptRef}
           className="transcript"
           role="log"
           aria-label="Lecture transcript"
@@ -930,7 +933,6 @@ export function App({
               <p>{partial.text}</p>
             </article>
           ) : null}
-          <div ref={transcriptEndRef} />
         </div>
       </section>
       <p className="small-note">

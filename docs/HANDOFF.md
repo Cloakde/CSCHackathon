@@ -1,5 +1,14 @@
 # LiveLecture AI — Current handoff
 
+## Native transcript scrolling correction — implemented and operator-tested
+
+- **Active AI:** none — Codex completed the bounded correction and native operator check following the user's request to continue. Changed `extension/src/App.tsx`, its focused test/setup, the existing web/paired component scroll mocks that render this component, and coordination/evidence. The isolated companion remains clean at `d03f99b`.
+- **Finding:** the first native 1× attempt was interrupted because automatic transcript `scrollIntoView` moved the entire side panel, repeatedly displacing the help controls. No successful help request or two-topic PASS is claimed for that attempt. Evidence is preserved in external `native-1789885496055/interrupted-ui-evidence.json`; all six owned processes stopped and ports 3000/3111 closed.
+- **Correction/checks:** automatic scrolling now moves only the transcript container. Explicit citation focus, selected-passage freeze, Follow latest and reduced motion are preserved. Full credential-free checks pass **704 tests**, all builds/package validation and production HTTP; two paired component tests also pass. The initial fixture-timing and missing-jsdom-mock failures are preserved and corrected; no assertions were removed.
+- **Native result:** at visible 1× without pauses, help at committed 2:25 and 5:00 saved both concepts. Incoming words left help controls in place; citation selection survived a later passage and Follow latest moved only the transcript. Both MeltingPot exercises, answers, source visits and return worked; the first answer survived switching topics. UI deletion succeeded, the test tab closed, six owned preview processes stopped and ports 3000/3111 closed. The corrected ordinary extension remains installed/pinned. [Exact source, evidence and limitations](evaluations/ACCEPTANCE-2026-09-19/TRANSCRIPT_SCROLLING.md).
+- **Next:** sequential independent review of this narrow correction/evidence, then a refreshed paired package and clean-profile rehearsal. Existing `release/c97792142b8b/` is preserved but lacks this scrolling fix; do not claim its byte parity with current `extension/dist`. The previous one-topic 12× result remains historical. Local checks are recorded here; exact-commit CI is reported separately by GitHub. Human usefulness/content review, live/provider-retention and judge/release decisions remain open.
+- **Boundaries:** no provider call, credential access, live audio, original MeltingPot change, account/privacy setting, release or main merge. Operator evidence cannot satisfy uncoached human acceptance.
+
 ## Native Chrome keyboard recovery — installed and exercised
 
 - **Active AI:** none — Codex completed the bounded native Simulation check after the user requested an autonomous way through installation. Only coordination/evidence documents changed; the previous folder-picker failures below remain historical evidence.

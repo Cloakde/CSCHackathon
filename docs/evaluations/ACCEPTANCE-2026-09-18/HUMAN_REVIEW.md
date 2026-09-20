@@ -4,6 +4,8 @@
 
 ## 1. Try the learning experience
 
+**Current preparation note:** a subsequent [native 1× check and scrolling correction](../ACCEPTANCE-2026-09-19/TRANSCRIPT_SCROLLING.md) changed the installed extension's automatic scrolling. Current `extension/dist` includes that locally tested fix; the immutable package below does not. Independent review and refreshed paired packaging are still required before treating that build as the new reviewed candidate. Keep the package/source distinction explicit when preparing the learner exercise.
+
 An operator prepares the extension and private MeltingPot companion using [the current release guide](../TASK-308/RELEASE.md). The tested package is `release/c97792142b8b/`, paired with isolated MeltingPot `d03f99b14895c392355bcfa3c0c2985ad7073d31`; this pair includes the reviewed [text-contrast corrections](CONTRAST.md). Later documentation-only commits do not change those tested runtime files. Use the package manifest/current handoff to check the pair; do not use the obsolete `9244a64` copy named in the historical card.
 
 On this laptop, the prepared extension files are in `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon\extension\dist`. The [September 19 native operator check](../ACCEPTANCE-2026-09-19/NATIVE_CHROME.md) installed and pinned this package in the existing Chrome profile with ID `alpdibjjhlhlhbhjkoeblmlfcgoocclk`. Confirm the card/ID before reuse; a different folder or profile can have a different ID. The check's local previews were stopped afterward. Keep these two local previews running for the learner exercise:
