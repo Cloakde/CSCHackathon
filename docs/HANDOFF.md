@@ -1,5 +1,12 @@
 # LiveLecture AI — Current handoff
 
+## Resumed release checks — 2026-09-19
+
+- **Active AI:** none — Codex completed the independently reviewed fresh-source rehearsal and released the turn. One AI at a time on `shared/livelecture`; no original MeltingPot repository/service changes.
+- **Owned scope:** verify the current `c977921` / `d03f99b` package from fresh source archives, prepare the actual Chrome installation check if this session's desktop permission is granted, repair only demonstrated in-scope defects, and update coordination/evidence. External helpers and disposable archive folders are verification fixtures, not new development branches or release candidates.
+- **Result:** the exact packaged pair passed fresh installs, primary 702 full checks, copy 387 tests/guarded build, two paired component checks and the paired production HTTP journey. All ten rebuilt extension files match the package; both controllers stopped their owned processes and closed ports 3000/3111. Helper-review corrections and preserved execution snapshots are recorded in the [fresh candidate evidence](evaluations/ACCEPTANCE-2026-09-19/README.md). Final sequential evidence/helper review passed with no remaining actionable findings; current-session Chrome permission has been requested and is unanswered.
+- **Boundaries:** previous paid-test claims are closed and are not renewed. Ordinary Simulation Mode and prewritten help remain the no-key demo. Human usefulness/content review, provider-account retention, judge access and release approval remain separate gates; this continuation does not report those as passed.
+
 ## Rendered text contrast — reviewed and packaged, 2026-09-18
 
 - **Active AI:** none — Codex completed the reviewed contrast fixes, paired package and current human-guide refresh and released the turn. No feature, provider, native-input or original-service changes. Remaining native/human/provider-retention/judge decisions stay open; do not add features or repeat passing API runs to fill the overnight window.

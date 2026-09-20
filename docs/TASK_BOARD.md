@@ -4,7 +4,9 @@
 
 The AI holding the active turn edits this file on behalf of the Coordinator. [HANDOFF.md](HANDOFF.md) records the current turn and next step.
 
-## Current execution — 2026-09-18
+## Current execution — 2026-09-19
+
+**Fresh candidate rehearsal PASS; independent evidence review complete, active AI none.** The unchanged `c977921` / `d03f99b` package was installed in fresh short-path archive folders. Primary 702 full checks, copy 387 tests/guarded build, two paired component checks and paired production HTTP pass. All ten rebuilt extension files match the immutable package, and owned processes/ports were cleaned up. Sequential helper/evidence review found no remaining actionable findings. Browser/desktop permission for this new session is pending; human/provider-retention/judge gates remain open. [Current handoff](HANDOFF.md), [fresh candidate evidence](evaluations/ACCEPTANCE-2026-09-19/README.md).
 
 **Rendered text contrast reviewed and packaged; active AI none.** Fixed the demonstrated low-contrast question input and lecture confirmation button. The final provider-free audit passes 52 page/theme/width combinations and 16 button states; all 450 gradient observations have independently recalculated conservative bounds above 6.09:1. Primary 702 full checks and copy 387 tests/guarded build pass. Sequential review found no actionable P1/P2. Corrected primary `c977921` passed CI `35348515987`; paired copy is `d03f99b`. Immutable `release/c97792142b8b/` verifies all four artifact hashes and ten extension files against the final audit. The human guide names this pair. Human/native/provider-retention/judge acceptance remains open; full accessibility or release readiness is not claimed. [Current handoff](HANDOFF.md), [contrast evidence](evaluations/ACCEPTANCE-2026-09-18/CONTRAST.md).
 
