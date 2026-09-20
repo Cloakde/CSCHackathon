@@ -1,5 +1,21 @@
 # LiveLecture AI — Current handoff
 
+## Native Chrome keyboard recovery — installed and exercised
+
+- **Active AI:** none — Codex completed the bounded native Simulation check after the user requested an autonomous way through installation. Only coordination/evidence documents changed; the previous folder-picker failures below remain historical evidence.
+- **Installation:** the direct Folder-value API had the same stale-element error. The supported keyboard method (`Alt+N`, type the verified absolute folder, Enter to navigate, then Enter to select) succeeded. Chrome displayed **Extension loaded**, enabled **LiveLecture AI 0.1.0**, ID `alpdibjjhlhlhbhjkoeblmlfcgoocclk`. No settings, safety barriers or provider allowances were changed.
+- **Result:** opened the actual native side panel from Chrome's extension menu, pinned it, ran the ordinary 12× sample to ten passages, requested one inner-derivative explanation after replay ended, followed its 4:10 citation, finished and opened the same session in the isolated MeltingPot copy. Matching practice, answer/explanation, source passage and keyboard return with the answer preserved all worked. The test lecture was deleted through the UI, with visible deletion confirmation. [Exact scope and evidence](evaluations/ACCEPTANCE-2026-09-19/NATIVE_CHROME.md).
+- **Cleanup:** seven identity-checked owned processes including the preview controller stopped; ports 3000/3111 closed. The controller's stdin was closed by the execution tool, so explicit checked descendant cleanup replaced its interactive stop. The created review tab was closed. LiveLecture remains installed/enabled/pinned; both previews are stopped. No API request, key access, audio capture, download, original MeltingPot change, main merge or publication.
+- **Next:** actual installation/menu/side-panel operation is now verified on the existing user profile. This is one prewritten topic after 12× playback, not normal-speed in-class help, a clean-profile rehearsal or an unaided learner test. Human usefulness/content review, live audio, provider retention and judge/release decisions remain open. The result is author-recorded; it does not claim a new independent review or whole-milestone PASS.
+
+## Native Chrome installation check — resumed 2026-09-19 Pacific
+
+- **Active AI:** none — Codex stopped native input after the folder-picker targeting failure and released the turn. The user opened `chrome://extensions`, and the supported desktop tool successfully read that page. One AI at a time on `shared/livelecture`.
+- **Owned scope:** install and exercise the unchanged ordinary `c977921` extension in Chrome; use the no-key local demo and isolated companion if installation succeeds; record native evidence and update this handoff/task board. All ten `extension/dist` files match the immutable package. No runtime changes are planned.
+- **Boundaries:** Simulation Mode and prewritten help only. Closed paid allowances remain closed. No original MeltingPot service, account/privacy change, main merge or publication. This operator check cannot establish clean-profile or uncoached human acceptance.
+- **Actual result:** Chrome already had Developer mode enabled. Load unpacked opened the expected folder dialog, but clicking its observed Folder field failed with `point (907, 616) is over chrome.exe "", not target window chrome.exe "Extensions - Google Chrome"`. One supported activation/state-refresh retry failed with `element 197 is not available in cached app state for chrome.exe`. No path was typed and no extension was installed. No local preview, provider request or audio capture was started. The picker is left open.
+- **Next:** the user can paste `C:\Users\abuiz\Documents\Codex\2026-09-04\CSCHackathon\extension\dist` into the open dialog's Folder field and click Select Folder. Then verify the installed card/ID before starting the no-key previews and native side-panel check. Installation and native acceptance remain pending; no further tool-input retry is claimed. Only this handoff and the task-board checkpoint changed.
+
 ## Resumed release checks — 2026-09-19
 
 - **Active AI:** none — Codex completed the independently reviewed fresh-source rehearsal and released the turn. One AI at a time on `shared/livelecture`; no original MeltingPot repository/service changes.
